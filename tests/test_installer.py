@@ -174,8 +174,7 @@ def test_parse_args_defaults(installer, monkeypatch, mock_home_dir):
     assert args.address == installer.DEFAULT_HOST
     assert args.gpu == installer.DEFAULT_GPU
     assert not args.quiet
-    assert not args.uninstall
-    assert not args.restart
+    assert args.action is None
 
 def test_parse_args_custom(installer, monkeypatch, mock_home_dir):
     """Test argument parsing with custom values."""
@@ -200,7 +199,7 @@ def test_parse_args_custom(installer, monkeypatch, mock_home_dir):
 
 def test_get_latest_release_url_success(installer):
     """Test getting latest release URL when GitHub API succeeds."""
-    mock_response = [{"name": "v1.0.0"}]
+    mock_response = {"tag_name": "v1.0.0"}
 
     with patch('urllib.request.urlopen') as mock_urlopen:
         # Mock the context manager returned by urlopen

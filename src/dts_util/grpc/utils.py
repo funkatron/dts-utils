@@ -8,12 +8,12 @@ import grpc
 from contextlib import contextmanager
 from typing import Optional, Tuple
 
-def is_server_running(host: str = 'localhost', port: int = 50051, timeout: float = 1) -> bool:
+def is_server_running(host: str = 'localhost', port: int = 7859, timeout: float = 1) -> bool:
     """Check if the gRPC server is running.
 
     Args:
         host: Server hostname (default: localhost)
-        port: Server port (default: 50051)
+        port: Server port (default: 7859)
         timeout: Connection timeout in seconds (default: 1)
 
     Returns:
@@ -63,7 +63,7 @@ try:
 
     def create_channel_and_stub(
         host: str = 'localhost',
-        port: int = 50051,
+        port: int = 7859,
         use_tls: bool = True,
         shared_secret: Optional[str] = None
     ) -> Tuple[grpc.Channel, ImageGenerationServiceStub]:
@@ -74,7 +74,7 @@ try:
 
         Args:
             host: Server hostname (default: localhost)
-            port: Server port (default: 50051)
+            port: Server port (default: 7859)
             use_tls: Whether to use TLS encryption (default: True)
             shared_secret: Optional shared secret for authentication
 
@@ -96,16 +96,17 @@ try:
         if shared_secret:
             options.append(('grpc.primary_user_agent', f'secret={shared_secret}'))
 
-        # Create appropriate channel
         target = f'{host}:{port}'
+
+        # Verify connection before opening channel threads.
+        if not is_server_running(host, port):
+            raise ConnectionError(f"Unable to connect to server at {target}")
+
+        # Create appropriate channel
         if use_tls:
             channel = grpc.secure_channel(target, grpc.ssl_channel_credentials(), options=options)
         else:
             channel = grpc.insecure_channel(target, options=options)
-
-        # Verify connection
-        if not is_server_running(host, port):
-            raise ConnectionError(f"Unable to connect to server at {target}")
 
         return channel, ImageGenerationServiceStub(channel)
 except ImportError:

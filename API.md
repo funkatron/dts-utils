@@ -66,8 +66,14 @@ message ImageGenerationRequest {
 
 message ImageGenerationResponse {
     repeated bytes images = 1;
-    string info = 2;
-    repeated string events = 3;
+    repeated string info = 2;
+    repeated SignpostEvent events = 3;
+}
+
+message SignpostEvent {
+    string name = 1;
+    int64 timestamp = 2;
+    EventType type = 3;
 }
 ```
 
@@ -80,11 +86,12 @@ rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
 
 message UploadFileRequest {
     string filename = 1;
-    bytes data = 2;
+    bytes chunk_data = 2;
 }
 
 message UploadFileResponse {
-    string message = 1;
+    bool success = 1;
+    string message = 2;
 }
 ```
 
@@ -109,7 +116,7 @@ For more details on server management, see the [README.md](README.md).
 
 - By default, the server uses TLS encryption
 - Authentication can be enabled using the `--shared-secret` option
-- The server only accepts connections from localhost by default
+- Default bind address is `0.0.0.0` on port `7859`
 
 ## Error Handling
 

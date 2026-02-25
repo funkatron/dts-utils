@@ -21,7 +21,7 @@ from dts_util.grpc.proto.image_generation_pb2 import (
 )
 from dts_util.grpc.proto.image_generation_pb2_grpc import ImageGenerationServiceStub
 
-def is_server_running(host='localhost', port=50051, timeout=1):
+def is_server_running(host='localhost', port=7859, timeout=1):
     """Check if the gRPC server is running."""
     try:
         with grpc.insecure_channel(f'{host}:{port}') as channel:
@@ -42,7 +42,7 @@ def server_check():
 @pytest.fixture
 def grpc_channel(server_check):
     """Create a gRPC channel for testing."""
-    return grpc.insecure_channel('localhost:50051')
+    return grpc.insecure_channel('localhost:7859')
 
 @pytest.fixture
 def grpc_stub(grpc_channel):

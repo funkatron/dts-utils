@@ -72,8 +72,8 @@ message ImageGenerationRequest {
 
 message ImageGenerationResponse {
     repeated bytes images = 1;     // Generated images (PNG format)
-    string info = 2;              // Generation parameters
-    repeated string events = 3;    // Progress events
+    repeated string info = 2;      // Generation parameters
+    repeated SignpostEvent events = 3; // Progress events with timestamps/types
 }
 ```
 
@@ -81,12 +81,23 @@ message ImageGenerationResponse {
 
 ```protobuf
 message UploadFileRequest {
-    string filename = 1;  // Target filename
-    bytes data = 2;      // File data chunk
+    string filename = 1;   // Target filename
+    bytes chunk_data = 2;  // File data chunk
 }
 
 message UploadFileResponse {
-    string message = 1;  // Status message
+    bool success = 1;   // Indicates whether upload succeeded
+    string message = 2; // Status message
+}
+```
+
+### Signpost Event Messages
+
+```protobuf
+message SignpostEvent {
+    string name = 1;      // Event label
+    int64 timestamp = 2;  // Event timestamp
+    EventType type = 3;   // Categorized event type
 }
 ```
 

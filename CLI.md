@@ -7,7 +7,7 @@ This document provides a comprehensive reference for the `dts-util` command-line
 All commands follow this structure:
 
 ```
-dts-util <command> [options]
+uv run dts-util <command> [options]
 ```
 
 ## Available Commands
@@ -17,7 +17,7 @@ dts-util <command> [options]
 Installs and configures the Draw Things gRPC server.
 
 ```bash
-dts-util install [options]
+uv run dts-util install [options]
 ```
 
 Options:
@@ -41,7 +41,7 @@ Options:
 Removes the Draw Things gRPC server and all related files.
 
 ```bash
-dts-util uninstall
+uv run dts-util uninstall
 ```
 
 ### restart
@@ -49,7 +49,7 @@ dts-util uninstall
 Restarts the Draw Things gRPC server service.
 
 ```bash
-dts-util restart
+uv run dts-util restart
 ```
 
 ### test
@@ -57,7 +57,7 @@ dts-util restart
 Tests if the server is running and responding.
 
 ```bash
-dts-util test [options]
+uv run dts-util test [options]
 ```
 
 Options:
@@ -69,39 +69,39 @@ Options:
 
 ```bash
 # Install with default settings
-dts-util install
+uv run dts-util install
 
 # Install with custom model path
-dts-util install -m /path/to/models
+uv run dts-util install -m /path/to/models
 ```
 
 ### Advanced Installation
 
 ```bash
 # Install with custom port, name, and model path
-dts-util install -p 7860 -n "MyServer" -m /path/to/models
+uv run dts-util install -p 7860 -n "MyServer" -m /path/to/models
 
 # Install with security settings
-dts-util install -s "your-secret-here"
+uv run dts-util install -s "your-secret-here"
 
 # Install with advanced settings
-dts-util install --model-browser --debug --no-flash-attention
+uv run dts-util install --model-browser --debug --no-flash-attention
 ```
 
 ### Server Management
 
 ```bash
 # Check if server is running
-dts-util test
+uv run dts-util test
 
 # Test connection on a specific port
-dts-util test --port 7860
+uv run dts-util test --port 7860
 
 # Restart the server
-dts-util restart
+uv run dts-util restart
 
 # Uninstall the server
-dts-util uninstall
+uv run dts-util uninstall
 ```
 
 ## Environment Variables
@@ -117,10 +117,20 @@ dts-util uninstall
   export DRAW_THINGS_MODEL_PATH=/path/to/your/models
 
   # Now you can run commands without specifying --model-path
-  dts-util install
+  uv run dts-util install
   ```
 
   Note: If you use both the environment variable and the `--model-path` option, the command line option takes precedence.
+
+## Development Workflow with uv
+
+```bash
+# Install project and dev dependencies from pyproject.toml
+uv sync --dev
+
+# Run tests in the uv-managed environment
+uv run pytest
+```
 
 ## Exit Codes
 

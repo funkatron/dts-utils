@@ -47,21 +47,11 @@ A Python package providing utilities for interacting with the Draw Things gRPC s
 git clone https://github.com/funkatron/draw-things-grpcservercli-installer.git
 cd draw-things-grpcservercli-installer
 
-# Create and activate a virtual environment
-python -m venv venv
-source venv/bin/activate  # On macOS/Linux
-# or
-.\venv\Scripts\activate  # On Windows
+# Create a virtual environment and install dependencies with uv
+uv sync
 
-# Install the package
-pip install .
-```
-
-Note: Always activate the virtual environment before using dts-util commands:
-```bash
-source venv/bin/activate  # On macOS/Linux
-# or
-.\venv\Scripts\activate  # On Windows
+# Run the CLI
+uv run dts-util --help
 ```
 
 ## Getting Started
@@ -73,12 +63,12 @@ If you're new to the Draw Things gRPC server, here's a simple guide to get you s
 1. **Install the Server**:
 ```bash
 # This will install the server with default settings
-dts-util install
+uv run dts-util install
 ```
 
 2. **Verify the Server is Running**:
 ```bash
-dts-util test
+uv run dts-util test
 ```
 
 3. **Generate Your First Image**:
@@ -86,7 +76,7 @@ dts-util test
 from dts_util.grpc.utils import create_channel_and_stub, handle_grpc_error
 from dts_util.grpc.proto.image_generation_pb2 import GenerateImageRequest
 
-# Connect to the server (defaults to localhost:7859, no TLS)
+# Connect to the server (defaults to localhost:7859 with TLS enabled)
 channel, stub = create_channel_and_stub(port=7859)
 
 # Generate an image
@@ -122,13 +112,13 @@ dts-util install --shared-secret "your-secret-here"
 
 ```bash
 # Check server status
-dts-util test
+uv run dts-util test
 
 # Restart the server
-dts-util restart
+uv run dts-util restart
 
 # Uninstall the server
-dts-util uninstall
+uv run dts-util uninstall
 ```
 
 ## Troubleshooting
@@ -137,7 +127,7 @@ dts-util uninstall
 
 1. Check server status:
 ```bash
-dts-util test
+uv run dts-util test
 ```
 
 2. Check server logs:
@@ -149,12 +139,12 @@ cat ~/.config/draw-things/server.log
 
 1. Verify server is running:
 ```bash
-dts-util test
+uv run dts-util test
 ```
 
 2. Check port availability:
 ```bash
-dts-util test --port 7860
+uv run dts-util test --port 7860
 ```
 
 3. Check TLS configuration:
@@ -183,13 +173,13 @@ For advanced users, here are all available installation options:
 
 ```bash
 # Basic settings
-dts-util install --port 7860 --model-path /path/to/model
+uv run dts-util install --port 7860 --model-path /path/to/model
 
 # Security settings
-dts-util install --shared-secret "your-secret-here"
+uv run dts-util install --shared-secret "your-secret-here"
 
 # Advanced settings
-dts-util install --model-browser --debug --no-flash-attention
+uv run dts-util install --model-browser --debug --no-flash-attention
 ```
 
 ### Python Client Examples
@@ -240,7 +230,7 @@ except Exception as e:
 
 ### Requirements
 
-- Python 3.8+
+- Python 3.13.x
 - gRPC tools
 - Protocol Buffers compiler
 
@@ -248,10 +238,10 @@ except Exception as e:
 
 ```bash
 # Install development dependencies
-pip install -e ".[dev]"
+uv sync --dev
 
 # Run tests
-pytest tests/
+uv run pytest
 ```
 
 ## License

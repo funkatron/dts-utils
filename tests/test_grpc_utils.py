@@ -28,13 +28,11 @@ class MockGrpcError(Exception):
 
 def test_handle_grpc_error_unavailable():
     """Test that handle_grpc_error converts UNAVAILABLE errors to ConnectionError."""
-    # Skip this test - it's not worth the trouble to fix right now
-    pytest.skip("Test currently too complex to fix easily")
+    pytest.skip("TODO: add a reliable grpc.RpcError fixture for UNAVAILABLE simulation")
 
 def test_handle_grpc_error_other():
     """Test that handle_grpc_error preserves other gRPC errors."""
-    # Skip this test - it's not worth the trouble to fix right now
-    pytest.skip("Test currently too complex to fix easily")
+    pytest.skip("TODO: add a reliable grpc.RpcError fixture for non-UNAVAILABLE errors")
 
 def test_create_channel_and_stub_insecure():
     """Test that create_channel_and_stub creates insecure channels correctly."""

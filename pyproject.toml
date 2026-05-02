@@ -22,11 +22,27 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "integration: optional tests that assume a reachable gRPC server or local models.",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src"]
+omit = [
+    "src/dts_util/grpc/proto/*.py",
+    "src/dts_util/grpc/proto/upstream/*.py",
 ]
 
 [project.scripts]

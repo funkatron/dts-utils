@@ -63,6 +63,7 @@ def handle_grpc_error():
         else:
             raise
 
+@pytest.mark.integration
 def test_echo(grpc_stub):
     """Test the Echo endpoint."""
     with handle_grpc_error():
@@ -70,6 +71,7 @@ def test_echo(grpc_stub):
         response = grpc_stub.Echo(request)
         assert response.message == "HELLO"
 
+@pytest.mark.integration
 def test_files_exist_empty(grpc_stub):
     """Test FilesExist endpoint with empty request."""
     with handle_grpc_error():
@@ -79,6 +81,7 @@ def test_files_exist_empty(grpc_stub):
         assert len(response.exists) == 0
         assert len(response.errors) == 0
 
+@pytest.mark.integration
 def test_files_exist_nonexistent(grpc_stub):
     """Test FilesExist endpoint with nonexistent files."""
     with handle_grpc_error():
@@ -90,6 +93,7 @@ def test_files_exist_nonexistent(grpc_stub):
         assert all(not exists for exists in response.exists)
         assert len(response.errors) == len(test_files)
 
+@pytest.mark.integration
 @pytest.mark.skip(reason="Requires model files to be installed")
 def test_files_exist_real(grpc_stub):
     """Test FilesExist endpoint with real model files (requires installation)."""
@@ -104,6 +108,7 @@ def test_files_exist_real(grpc_stub):
         assert len(response.exists) == len(test_files)
         assert len(response.errors) == len(test_files)
 
+@pytest.mark.integration
 @pytest.mark.skip(reason="Requires model files to be installed")
 def test_generate_image(grpc_stub):
     """Test GenerateImage endpoint (requires model installation)."""
@@ -128,6 +133,7 @@ def test_generate_image(grpc_stub):
         assert len(response.info) > 0
         assert len(response.events) > 0
 
+@pytest.mark.integration
 @pytest.mark.skip(reason="Implementation pending")
 def test_upload_file(grpc_stub):
     """Test UploadFile endpoint."""

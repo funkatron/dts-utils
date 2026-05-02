@@ -53,10 +53,19 @@ def make_uncompressed_dt_tensor(width=1, height=1, channels=3, values=None):
     return struct.pack("<17I", *header) + np.array(values, dtype=np.float16).tobytes()
 
 
+def _patch_generate_client(monkeypatch, channel, stub):
+    """Route generate_api gRPC calls to fakes (implementation is no longer on dts_util.generate)."""
+    monkeypatch.setattr("dts_util.generate_api.create_channel", lambda *args, **kwargs: channel)
+    monkeypatch.setattr(
+        "dts_util.generate_api.up_grpc.ImageGenerationServiceStub",
+        lambda created_channel: stub,
+    )
+
+
 def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
     """Exercise the script from CLI args through streamed response image writes."""
     module = load_generate_image_module()
-    monkeypatch.setattr(module.time, "time_ns", lambda: _FIXED_NS)
+    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: _FIXED_NS)
     channel = FakeChannel()
     stub = FakeImageGenerationStub(
         [
@@ -68,8 +77,7 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
     config_path = tmp_path / "configuration.fb"
     config_path.write_bytes(b"flatbuffer-config")
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: channel)
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    _patch_generate_client(monkeypatch, channel, stub)
 
     result = module.main(
         [
@@ -101,15 +109,14 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
 def test_generate_image_script_can_open_generated_images(monkeypatch, tmp_path):
     """Verify --open launches the default viewer after successful writes."""
     module = load_generate_image_module()
-    monkeypatch.setattr(module.time, "time_ns", lambda: _FIXED_NS)
+    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: _FIXED_NS)
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     opened_paths = []
     output_path = tmp_path / "result.png"
     config_path = tmp_path / "configuration.fb"
     config_path.write_bytes(b"flatbuffer-config")
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    _patch_generate_client(monkeypatch, FakeChannel(), stub)
     monkeypatch.setattr(module, "open_images", lambda paths: opened_paths.extend(paths))
 
     result = module.main(
@@ -137,8 +144,7 @@ def test_generate_image_script_sends_configuration_bytes(monkeypatch, tmp_path):
     config_path.write_bytes(b"flatbuffer-config")
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    _patch_generate_client(monkeypatch, FakeChannel(), stub)
 
     result = module.main(
         [
@@ -163,13 +169,16 @@ def test_generate_image_script_auto_converts_json_configuration(monkeypatch, tmp
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     captured_config = {}
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    _patch_generate_client(monkeypatch, FakeChannel(), stub)
+
     def fake_json_configuration_to_flatbuffer(config):
         captured_config["config"] = config
         return b"flatbuffer-json"
 
-    monkeypatch.setattr(module, "json_configuration_to_flatbuffer", fake_json_configuration_to_flatbuffer)
+    monkeypatch.setattr(
+        "dts_util.configuration_build.json_configuration_to_flatbuffer",
+        fake_json_configuration_to_flatbuffer,
+    )
 
     result = module.main(
         [
@@ -195,10 +204,15 @@ def test_generate_image_script_resolves_named_json_configuration(monkeypatch, tm
     (saved_dir / "portrait.json").write_text('{"steps": 12}', encoding="utf-8")
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
-    monkeypatch.setattr(module, "json_configuration_to_flatbuffer", lambda config: b"named-config")
-    monkeypatch.setattr(module, "resolve_configuration_value", lambda value: saved_dir / f"{value}.json")
+    _patch_generate_client(monkeypatch, FakeChannel(), stub)
+    monkeypatch.setattr(
+        "dts_util.configuration_build.resolve_configuration_value",
+        lambda value, config_dir=None: saved_dir / f"{value}.json",
+    )
+    monkeypatch.setattr(
+        "dts_util.configuration_build.json_configuration_to_flatbuffer",
+        lambda config: b"named-config",
+    )
 
     result = module.main(
         [
@@ -232,15 +246,14 @@ def test_generate_image_script_sends_flatbuffer_from_json_configuration(monkeypa
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     captured_config = {}
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    _patch_generate_client(monkeypatch, FakeChannel(), stub)
+
     def fake_json_configuration_to_flatbuffer(config):
         captured_config["config"] = config
         return b"flatbuffer-json"
 
     monkeypatch.setattr(
-        module,
-        "json_configuration_to_flatbuffer",
+        "dts_util.configuration_build.json_configuration_to_flatbuffer",
         fake_json_configuration_to_flatbuffer,
     )
 
@@ -320,8 +333,7 @@ def test_generate_image_script_fails_when_no_images_returned(monkeypatch, tmp_pa
     config_path = tmp_path / "configuration.fb"
     config_path.write_bytes(b"flatbuffer-config")
 
-    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
-    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    _patch_generate_client(monkeypatch, FakeChannel(), stub)
 
     result = module.main(
         [
@@ -343,7 +355,7 @@ def test_generate_image_script_fails_when_no_images_returned(monkeypatch, tmp_pa
 def test_unique_ms_timestamp_output_path(monkeypatch):
     """Unix milliseconds are inserted before the extension."""
     module = load_generate_image_module()
-    monkeypatch.setattr(module.time, "time_ns", lambda: _FIXED_NS)
+    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: _FIXED_NS)
     assert module.unique_ms_timestamp_output_path(Path("generated.png")) == Path(f"generated-{_FIXED_MS}.png")
     assert module.unique_ms_timestamp_output_path(Path("out/foo.bar.webp")) == Path(f"out/foo.bar-{_FIXED_MS}.webp")
 
@@ -461,7 +473,8 @@ def test_create_channel_can_force_trust_remote_presented_certificate(monkeypatch
         "secure_channel",
         lambda target, credentials, options=None: calls.update(
             {"target": target, "credentials": credentials, "options": options}
-        ) or "channel",
+        )
+        or "channel",
     )
 
     channel = grpc_connection.create_channel(
@@ -478,14 +491,17 @@ def test_create_channel_can_force_trust_remote_presented_certificate(monkeypatch
 
 def test_collect_generated_images_reassembles_chunks():
     """Verify chunked Draw Things image responses are reassembled."""
-    module = load_generate_image_module()
+    from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
+
+    from dts_util.generation_stream import collect_generated_images
+
     stub = FakeImageGenerationStub(
         [
-            SimpleNamespace(generatedImages=[b"first-"], chunkState=module.up_pb2.MORE_CHUNKS),
-            SimpleNamespace(generatedImages=[b"image"], chunkState=module.up_pb2.LAST_CHUNK),
+            SimpleNamespace(generatedImages=[b"first-"], chunkState=up_pb2.MORE_CHUNKS),
+            SimpleNamespace(generatedImages=[b"image"], chunkState=up_pb2.LAST_CHUNK),
         ]
     )
 
-    images = module.collect_generated_images(stub, object())
+    images = collect_generated_images(stub, object())
 
     assert images == [b"first-image"]

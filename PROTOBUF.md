@@ -101,7 +101,7 @@ uv run python -m grpc_tools.protoc \
   src/dts_util/grpc/proto/upstream/imageService.proto
 ```
 
-The generated upstream Python file imports `imageService_pb2` as a top-level module. `dts_util.generate` adds `src/dts_util/grpc/proto/upstream` to `sys.path` before importing the generated stub.
+The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grpc.py`. That only works if the upstream directory is on `sys.path`; this repo instead uses a **relative import** (`from . import imageService_pb2 as …`) so the package loads as part of `dts_util`. After regenerating, replace the top-level import line with that relative form (or adjust via proto `option` / tooling if you automate it).
 
 ## Practical Client Command
 

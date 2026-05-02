@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dts-util reflect` to list services and methods from gRPC server reflection, with JSON output for scripts.
 - Shared gRPC channel setup that restricts `--trust-server-cert` to localhost/loopback and directs remote or LAN usage to pinned `--root-cert` certificates.
 - `--force-trust-server-cert` for explicit remote trust-on-first-use diagnostics when users accept the MITM risk.
+- `dts-util configs path/list` and `scripts/generate_image.py --configuration` support for saved JSON config names and `.json` auto-conversion.
 - Comprehensive test suite for gRPC utilities
   - Server availability checking
   - Error handling for various gRPC scenarios

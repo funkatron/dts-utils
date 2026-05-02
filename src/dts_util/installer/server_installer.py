@@ -13,6 +13,7 @@ import time
 import socket
 from subprocess import PIPE
 import json
+from ..configs import main as configs_main
 from ..grpc.utils import is_server_running, handle_grpc_error
 from ..grpc.reflect import main as reflect_main
 from dt_model_index.cli import main as models_main
@@ -65,6 +66,7 @@ Usage:
     dts-util restart [--model-browser]
     dts-util test [--port PORT]
     dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
+    dts-util configs <path|list> [...]
     dts-util models <build|search|show|report> [...]
 
 The installer will:
@@ -78,6 +80,7 @@ Commands:
     restart             Restart the gRPCServerCLI service
     test                Test if the server is running and responding
     reflect             List gRPC reflection services and methods
+    configs             Show and list saved JSON generation configurations
     models              Build and inspect a local Draw Things model index
 
 Installer Options:
@@ -145,6 +148,9 @@ Examples:
 
     # List services exposed through gRPC reflection
     dts-util reflect --trust-server-cert
+
+    # Show where named JSON generation configs are stored
+    dts-util configs path
 
     # Quiet install with defaults
     dts-util install -q
@@ -804,6 +810,8 @@ Examples:
 
 def main():
     """Main entry point for the CLI."""
+    if len(sys.argv) > 1 and sys.argv[1] == "configs":
+        sys.exit(configs_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "reflect":
         sys.exit(reflect_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "models":

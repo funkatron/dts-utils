@@ -149,6 +149,66 @@ def test_generate_image_script_sends_configuration_bytes(monkeypatch, tmp_path):
     assert stub.request.configuration == b"flatbuffer-config"
 
 
+def test_generate_image_script_auto_converts_json_configuration(monkeypatch, tmp_path):
+    """Verify --configuration converts existing .json files to FlatBuffer bytes."""
+    module = load_generate_image_module()
+    config_path = tmp_path / "configuration.json"
+    config_path.write_text('{"steps": 8, "model": "model.ckpt"}', encoding="utf-8")
+    stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
+    captured_config = {}
+
+    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
+    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    def fake_json_configuration_to_flatbuffer(config):
+        captured_config["config"] = config
+        return b"flatbuffer-json"
+
+    monkeypatch.setattr(module, "json_configuration_to_flatbuffer", fake_json_configuration_to_flatbuffer)
+
+    result = module.main(
+        [
+            "--prompt",
+            "test prompt",
+            "--configuration",
+            str(config_path),
+            "--output",
+            str(tmp_path / "result.png"),
+        ]
+    )
+
+    assert result == 0
+    assert captured_config["config"] == {"steps": 8, "model": "model.ckpt"}
+    assert stub.request.configuration == b"flatbuffer-json"
+
+
+def test_generate_image_script_resolves_named_json_configuration(monkeypatch, tmp_path):
+    """Verify --configuration can resolve a saved config name."""
+    module = load_generate_image_module()
+    saved_dir = tmp_path / "configs"
+    saved_dir.mkdir()
+    (saved_dir / "portrait.json").write_text('{"steps": 12}', encoding="utf-8")
+    stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
+
+    monkeypatch.setattr(module, "create_channel", lambda *args, **kwargs: FakeChannel())
+    monkeypatch.setattr(module.up_grpc, "ImageGenerationServiceStub", lambda created_channel: stub)
+    monkeypatch.setattr(module, "json_configuration_to_flatbuffer", lambda config: b"named-config")
+    monkeypatch.setattr(module, "resolve_configuration_value", lambda value: saved_dir / f"{value}.json")
+
+    result = module.main(
+        [
+            "--prompt",
+            "test prompt",
+            "--configuration",
+            "portrait",
+            "--output",
+            str(tmp_path / "result.png"),
+        ]
+    )
+
+    assert result == 0
+    assert stub.request.configuration == b"named-config"
+
+
 def test_generate_image_script_sends_flatbuffer_from_json_configuration(monkeypatch, tmp_path):
     """Verify JSON config files are converted to FlatBuffer configuration bytes."""
     module = load_generate_image_module()
@@ -283,6 +343,18 @@ def test_generate_image_script_requires_configuration(capsys):
     captured = capsys.readouterr()
     assert result == 1
     assert "Generation configuration is required" in captured.err
+
+
+def test_generate_image_script_reports_missing_named_configuration(capsys):
+    """Verify missing config names produce an actionable configuration error."""
+    module = load_generate_image_module()
+
+    result = module.main(["--prompt", "missing config", "--configuration", "does-not-exist"])
+
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Could not resolve generation configuration" in captured.err
+    assert "dts-util configs path" in captured.err
 
 
 def test_create_channel_can_trust_presented_server_certificate(monkeypatch):

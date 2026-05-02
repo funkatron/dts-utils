@@ -88,6 +88,24 @@ Options:
 
 Use `--root-cert` for remote or LAN servers when possible. `--trust-server-cert` is restricted to `localhost` and loopback addresses. `--force-trust-server-cert` is available for remote diagnostics, but it trusts whatever certificate is presented on that connection and can be vulnerable to man-in-the-middle attacks.
 
+### configs
+
+Shows and lists saved Draw Things JSON generation configurations.
+
+If you only run one command, run this:
+
+```bash
+uv run dts-util configs path
+```
+
+Options:
+- `configs path`: Print the directory for saved JSON configurations, creating it if needed.
+- `configs path --no-create`: Print the directory without creating it.
+- `configs list`: List saved JSON configuration names from the default directory.
+- `configs list --directory PATH`: List saved JSON configuration names from another directory.
+
+Save files like `portrait.json` in this directory, then use `--configuration portrait` with `scripts/generate_image.py`.
+
 ## Examples
 
 ### Basic Installation
@@ -125,6 +143,9 @@ uv run dts-util test --port 7860
 # List reflected gRPC services and methods
 uv run dts-util reflect --trust-server-cert
 
+# Print the saved JSON config directory
+uv run dts-util configs path
+
 # Restart the server
 uv run dts-util restart
 
@@ -144,7 +165,7 @@ If you only run one command, run this:
 ```bash
 uv run python scripts/generate_image.py \
   --prompt "a small robot painting clouds" \
-  --configuration-json tmp_models/config.json \
+  --configuration portrait \
   --output generated.png \
   --trust-server-cert \
   --open
@@ -152,8 +173,8 @@ uv run python scripts/generate_image.py \
 
 Important options:
 
-- `--configuration-json PATH`: Read a Draw Things JSON generation configuration and convert it to FlatBuffer bytes with `flatc`.
-- `--configuration PATH`: Read prebuilt FlatBuffer configuration bytes directly.
+- `--configuration VALUE`: Read a Draw Things configuration. Existing `.json` files are converted to FlatBuffer bytes, other existing files are sent as raw FlatBuffer bytes, and simple names resolve to saved JSON configs.
+- `--configuration-json VALUE`: Read a Draw Things JSON configuration file or saved config name.
 - `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
 - `--force-trust-server-cert`: Trust the certificate presented by any server for this connection, with MITM risk.
 - `--root-cert PATH`: Use a pinned PEM root/server certificate.
@@ -167,11 +188,12 @@ Common tasks:
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Generate from Draw Things JSON | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --trust-server-cert` | A decoded PNG written to disk. |
-| Generate and open the result | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
+| Generate from a saved config | `uv run python scripts/generate_image.py --prompt "..." --configuration portrait --output generated.png --trust-server-cert` | A decoded PNG written to disk using `portrait.json` from the saved config directory. |
+| Generate from Draw Things JSON | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --trust-server-cert` | A decoded PNG written to disk after JSON-to-FlatBuffer conversion. |
+| Generate and open the result | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
 | Use prebuilt FlatBuffer bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | Generation without `flatc`. |
-| Use a pinned certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
-| Force trust for remote diagnostics | `uv run python scripts/generate_image.py --host gpu.local --prompt "..." --configuration-json config.json --output generated.png --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
+| Use a pinned certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
+| Force trust for remote diagnostics | `uv run python scripts/generate_image.py --host gpu.local --prompt "..." --configuration config.json --output generated.png --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
 
 For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-cert` only when you cannot pin a cert and accept the risk for that connection.
 

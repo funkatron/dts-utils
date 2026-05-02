@@ -24,6 +24,7 @@ import grpc
 import fpzip
 import numpy as np
 from PIL import Image
+from dts_util.configs import resolve_configuration_value
 from dts_util.grpc.connection import create_channel
 from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
@@ -48,8 +49,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum gRPC send/receive message size in MiB.",
     )
     config_group = parser.add_mutually_exclusive_group()
-    config_group.add_argument("--configuration", type=Path, help="Optional Draw Things FlatBuffer configuration bytes.")
-    config_group.add_argument("--configuration-json", type=Path, help="Optional Draw Things JSON configuration file.")
+    config_group.add_argument(
+        "--configuration",
+        help=(
+            "Draw Things configuration. Existing .json files are converted to FlatBuffer bytes; "
+            "other existing files are sent as raw FlatBuffer bytes; names resolve to saved JSON configs."
+        ),
+    )
+    config_group.add_argument("--configuration-json", help="Draw Things JSON configuration file or saved config name.")
     parser.add_argument("--insecure", action="store_true", help="Use an insecure channel instead of TLS.")
     parser.add_argument("--root-cert", type=Path, help="Root certificate PEM to trust for TLS.")
     parser.add_argument(
@@ -86,11 +93,22 @@ def build_request(args: argparse.Namespace) -> up_pb2.ImageGenerationRequest:
 
 def read_configuration_bytes(args: argparse.Namespace) -> bytes:
     if args.configuration:
-        return args.configuration.read_bytes()
+        configuration_path = resolve_configuration_value(args.configuration)
+        if configuration_path.suffix.lower() == ".json":
+            return read_json_configuration_bytes(configuration_path)
+        return configuration_path.read_bytes()
     if not args.configuration_json:
-        raise ValueError("Generation configuration is required. Pass --configuration-json JSON_PATH or --configuration FLATBUFFER_PATH.")
+        raise ValueError(
+            "Generation configuration is required. Pass --configuration CONFIG_PATH_OR_NAME "
+            "or --configuration-json JSON_PATH_OR_NAME."
+        )
 
-    with args.configuration_json.open(encoding="utf-8") as f:
+    configuration_path = resolve_configuration_value(args.configuration_json)
+    return read_json_configuration_bytes(configuration_path)
+
+
+def read_json_configuration_bytes(configuration_path: Path) -> bytes:
+    with configuration_path.open(encoding="utf-8") as f:
         configuration = json.load(f)
     if not isinstance(configuration, dict):
         raise ValueError("JSON configuration must be an object.")

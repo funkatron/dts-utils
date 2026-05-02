@@ -91,9 +91,19 @@ class TestCLICommands:
         installer.parse_args()
 
         # Verify restart_service was called
-        mock_installer_methods['restart'].assert_called_once()
+        mock_installer_methods['restart'].assert_called_once_with(enable_model_browser=False)
 
         # Verify sys.exit was called with 0
+        mock_exit.assert_called_once_with(0)
+
+    def test_restart_command_can_enable_model_browser(self, mock_installer_methods, monkeypatch, mock_exit):
+        """Test restarting while enabling model browser."""
+        monkeypatch.setattr('sys.argv', ['dts-util', 'restart', '--model-browser'])
+
+        installer = DTSServerInstaller()
+        installer.parse_args()
+
+        mock_installer_methods['restart'].assert_called_once_with(enable_model_browser=True)
         mock_exit.assert_called_once_with(0)
 
     def test_test_command_server_running(self, mock_installer_methods, monkeypatch, mock_exit):

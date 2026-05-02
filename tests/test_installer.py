@@ -123,6 +123,52 @@ def test_restart_service(installer, mock_subprocess, mock_home_dir):
     assert actual_unload == expected_unload
     assert actual_load == expected_load
 
+def test_restart_service_can_enable_model_browser(installer, mock_subprocess, mock_home_dir):
+    """Test enabling model browser while restarting the installed service."""
+    service_path = Path(mock_home_dir) / "Library/LaunchAgents" / f'{installer.SERVICE_NAME}.plist'
+    service_path.parent.mkdir(parents=True, exist_ok=True)
+    with service_path.open('wb') as f:
+        plistlib.dump(
+            {
+                'Label': installer.SERVICE_NAME,
+                'ProgramArguments': ['/usr/local/bin/gRPCServerCLI', '/tmp/Models'],
+                'RunAtLoad': True,
+                'KeepAlive': True,
+            },
+            f,
+        )
+    installer.AGENTS_DIR = Path(mock_home_dir) / "Library/LaunchAgents"
+
+    installer.restart_service(enable_model_browser=True)
+
+    with service_path.open('rb') as f:
+        service_config = plistlib.load(f)
+    assert service_config['ProgramArguments'] == [
+        '/usr/local/bin/gRPCServerCLI',
+        '/tmp/Models',
+        '--model-browser',
+    ]
+    assert mock_subprocess.call_count == 2
+
+def test_enable_model_browser_for_service_is_idempotent(installer, tmp_path):
+    """Test that model browser is not appended twice."""
+    service_path = tmp_path / f'{installer.SERVICE_NAME}.plist'
+    with service_path.open('wb') as f:
+        plistlib.dump(
+            {
+                'Label': installer.SERVICE_NAME,
+                'ProgramArguments': ['/usr/local/bin/gRPCServerCLI', '/tmp/Models', '--model-browser'],
+            },
+            f,
+        )
+
+    changed = installer.enable_model_browser_for_service(service_path)
+
+    with service_path.open('rb') as f:
+        service_config = plistlib.load(f)
+    assert changed is False
+    assert service_config['ProgramArguments'].count('--model-browser') == 1
+
 def test_restart_service_not_installed(installer, mock_subprocess, mock_home_dir):
     """Test service restart when service is not installed."""
     # Update installer's AGENTS_DIR to use temp home

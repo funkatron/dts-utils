@@ -14,6 +14,7 @@ import socket
 from subprocess import PIPE
 import json
 from ..grpc.utils import is_server_running, handle_grpc_error
+from dt_model_index.cli import main as models_main
 
 class DTSServerInstaller:
     # Default server settings
@@ -60,8 +61,9 @@ This script installs the Draw Things gRPCServerCLI and sets it up as a LaunchAge
 Usage:
     dts-util install [-m MODEL_PATH] [gRPCServerCLI options]
     dts-util uninstall
-    dts-util restart
+    dts-util restart [--model-browser]
     dts-util test [--port PORT]
+    dts-util models <build|search|show|report> [...]
 
 The installer will:
 1. Download the gRPCServerCLI binary
@@ -73,6 +75,7 @@ Commands:
     uninstall            Uninstall gRPCServerCLI and remove all related files
     restart             Restart the gRPCServerCLI service
     test                Test if the server is running and responding
+    models              Build and inspect a local Draw Things model index
 
 Installer Options:
     -m, --model-path     Custom path to store models (default: Draw Things app models directory)
@@ -127,6 +130,9 @@ Examples:
 
     # Restart the service
     dts-util restart
+
+    # Enable model browser for an existing service and restart
+    dts-util restart --model-browser
 
     # Test server connection
     dts-util test
@@ -219,7 +225,7 @@ Examples:
 
         # Handle restart action
         if args.action == 'restart':
-            self.restart_service()
+            self.restart_service(enable_model_browser=args.model_browser)
             sys.exit(0)
 
         # Handle uninstall action
@@ -603,13 +609,45 @@ Examples:
                     sys.exit(1)
             print()  # Empty line for readability
 
-    def restart_service(self):
+    def enable_model_browser_for_service(self, service_path):
+        """Ensure the installed LaunchAgent starts gRPCServerCLI with model browsing."""
+        try:
+            with open(service_path, 'rb') as f:
+                service_config = plistlib.load(f)
+        except (OSError, plistlib.InvalidFileException) as e:
+            print(f"Failed to read service configuration: {e}")
+            sys.exit(1)
+
+        cmd_args = service_config.get('ProgramArguments')
+        if not isinstance(cmd_args, list) or not cmd_args:
+            print("Error: Service configuration is missing ProgramArguments")
+            sys.exit(1)
+
+        if '--model-browser' in cmd_args:
+            print("Model browser is already enabled")
+            return False
+
+        cmd_args.append('--model-browser')
+        try:
+            with open(service_path, 'wb') as f:
+                plistlib.dump(service_config, f)
+        except OSError as e:
+            print(f"Failed to update service configuration: {e}")
+            sys.exit(1)
+
+        print("Model browser enabled in service configuration")
+        return True
+
+    def restart_service(self, enable_model_browser=False):
         """Restart the gRPCServerCLI service"""
         print("Restarting gRPCServerCLI service...")
         service_path = self.AGENTS_DIR / f'{self.SERVICE_NAME}.plist'
         if not service_path.exists():
             print("Error: Service not installed")
             sys.exit(1)
+
+        if enable_model_browser:
+            self.enable_model_browser_for_service(service_path)
 
         try:
             subprocess.run(['launchctl', 'unload', service_path], check=True)
@@ -760,6 +798,8 @@ Examples:
 
 def main():
     """Main entry point for the CLI."""
+    if len(sys.argv) > 1 and sys.argv[1] == "models":
+        sys.exit(models_main(sys.argv[2:]))
     installer = DTSServerInstaller()
     installer.run()
 

@@ -46,3 +46,13 @@ log/
 
 # Downloaded binaries
 gRPCServerCLI
+
+# Local generated outputs and caches
+.cache/
+config_flatc.bin
+generated.png
+tmp_models/
+data/drawthings_models.sqlite
+data/drawthings_uncurated_models.csv
+data/drawthings_uncurated_models.json
+data/report.html

@@ -11,18 +11,16 @@ It also includes a local model-indexing workflow for inspecting Draw Things uncu
   - Server lifecycle management (start, stop, restart)
   - Health monitoring and status checks
   - Log file management
-
 - **Client Utilities**:
   - Python helper functions for connecting to the gRPC server
   - Error handling utilities for gRPC calls
   - Connection management tools
-
 - **Security Features**:
   - TLS configuration management
   - Authentication setup
   - Certificate management
 
-### What This Package Does _Not_ Provide
+### What This Package Does *Not* Provide
 
 - **Image Generation Logic**: The actual image generation is handled by the Draw Things gRPC server
 - **Model Management**: Model loading and management is handled by the server
@@ -131,17 +129,20 @@ The `build` command clones or updates `drawthingsai/community-models`, parses `u
 If you're new to the Draw Things gRPC server, here's a simple guide to get you started:
 
 1. **Install the Server**:
+
 ```bash
 # This will install the server with default settings
 uv run dts-util install
 ```
 
-2. **Verify the Server is Running**:
+1. **Verify the Server is Running**:
+
 ```bash
 uv run dts-util test
 ```
 
-3. **Generate Your First Image**:
+1. **Generate Your First Image**:
+
 ```bash
 uv run python scripts/generate_image.py \
   --prompt "a beautiful sunset over mountains" \
@@ -196,11 +197,13 @@ uv run dts-util uninstall
 ### Server Not Starting
 
 1. Check server status:
+
 ```bash
 uv run dts-util test
 ```
 
-2. Check server logs:
+1. Check server logs:
+
 ```bash
 cat ~/.config/draw-things/server.log
 ```
@@ -208,22 +211,26 @@ cat ~/.config/draw-things/server.log
 ### Connection Issues
 
 1. Verify server is running:
+
 ```bash
 uv run dts-util test
 ```
 
-2. Check port availability:
+1. Check port availability:
+
 ```bash
 uv run dts-util test --port 7860
 ```
 
-3. Inspect reflected gRPC services and methods:
+1. Inspect reflected gRPC services and methods:
+
 ```bash
 uv run dts-util reflect --trust-server-cert
 uv run dts-util reflect --json --trust-server-cert
 ```
 
-4. Check TLS configuration:
+1. Check TLS configuration:
+
 ```bash
 # If using TLS, ensure your client is configured correctly
 # You can verify server configuration in ~/.config/draw-things/server.conf
@@ -279,12 +286,14 @@ The script writes PNG files. Draw Things returns generated image tensors over gR
 
 Common prompt-to-image tasks:
 
-| Goal | Command | What you get |
-| --- | --- | --- |
-| Generate and open one image | `uv run python scripts/generate_image.py --prompt "a small robot painting clouds" --configuration-json config.json --output generated.png --trust-server-cert --open` | A decoded PNG opened in the default viewer. |
-| Use a pinned local certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
-| Connect to a non-TLS server | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --insecure` | Plain gRPC for servers installed with `--no-tls`. |
-| Send prebuilt config bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | No `flatc` conversion step. |
+
+| Goal                           | Command                                                                                                                                                               | What you get                                      |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| Generate and open one image    | `uv run python scripts/generate_image.py --prompt "a small robot painting clouds" --configuration-json config.json --output generated.png --trust-server-cert --open` | A decoded PNG opened in the default viewer.       |
+| Use a pinned local certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem`                                 | TLS verification against a known PEM file.        |
+| Connect to a non-TLS server    | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --insecure`                                           | Plain gRPC for servers installed with `--no-tls`. |
+| Send prebuilt config bytes     | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert`                                        | No `flatc` conversion step.                       |
+
 
 #### Error Handling
 
@@ -302,10 +311,12 @@ except Exception as e:
 ## Documentation
 
 ### Package Documentation
+
 - [API Documentation](API.md): Notes on the upstream Draw Things gRPC API used by this repository
 - [CLI Reference](CLI.md): Complete reference for the `dts-util` command-line tool
 
 ### Draw Things gRPC Server Documentation
+
 - [Protocol and Schema Reference](PROTOBUF.md): Practical reference for the upstream protobuf and FlatBuffer schemas
 - For complete server documentation, please refer to the [Draw Things documentation](https://drawthings.ai/docs)
 

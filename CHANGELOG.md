@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dts-util configs path/list` and `dts-util generate --configuration` support for saved JSON config names and `.json` auto-conversion.
 - Client commands now use `--no-tls` instead of `--insecure` for plaintext connections to servers installed with `--no-tls`.
 - `dts-util tls path` and `dts-util tls export` to fetch the server's **presented** certificate over TLS (Python `ssl.get_server_certificate`) and save PEM for **`--root-cert`** on **`generate`** / **`reflect`**. **`install`** can take **`--export-tls-cert`** (with optional **`--export-tls-cert-path`**, **`--export-tls-cert-force`**) after a successful TLS install on macOS. This pins what the binary serves; **`gRPCServerCLI`** keystores are not altered from **`dts-util`**.
+- `dts-util server <install|uninstall|restart|test|check>` grouping (bare `dts-util server` prints help). **`check`** aliases **`test`** for the localhost listener probe. Legacy **`dts-util install`**, **`dts-util test`**, etc. behave the same.
 - Comprehensive test suite for gRPC utilities
   - Server availability checking
   - Error handling for various gRPC scenarios

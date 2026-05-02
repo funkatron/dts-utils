@@ -10,9 +10,31 @@ All commands follow this structure:
 uv run dts-util <command> [options]
 ```
 
+## Server lifecycle (LaunchAgent)
+
+These commands manage **macOS LaunchAgent + `gRPCServerCLI`** (not pytest, not Docker).
+
+**Grouped spelling** (recommended — makes “server daemon” ops obvious):
+
+```bash
+uv run dts-util server install [...]
+uv run dts-util server uninstall
+uv run dts-util server restart [--model-browser]
+uv run dts-util server test|check [--port PORT]
+```
+
+- **`test`** probes that something is listening locally (today: gRPC readiness check + process hints in the installer).
+- **`check`** is an alias for **`test`** (avoids sounding like unit tests).
+
+**Legacy** (same behavior): drop the `server` token, e.g. `dts-util install`, `dts-util test`.
+
+Bare **`dts-util server`** prints this summary.
+
 ## Available Commands
 
 ### install
+
+Prefer **`dts-util server install`** (see [Server lifecycle](#server-lifecycle-launchagent)); **`dts-util install`** is the same.
 
 Installs and configures the Draw Things gRPC server.
 
@@ -60,14 +82,19 @@ Options:
 
 ### test
 
-Tests if the server is running and responding.
+Probes localhost for a reachable gRPC listener (installer workflow; not **`pytest`**).
 
 ```bash
+uv run dts-util server test [--port PORT]
+# or legacy:
 uv run dts-util test [options]
+uv run dts-util check [--port PORT]
 ```
 
 Options:
-- `--port PORT`: Port to test connection on (default: 7859)
+- `--port PORT`: Port to probe (default: 7859)
+
+**`check`** is a synonym for **`test`** at the same level (after optional `dts-util server`, `dts-util server check` expands to `dts-util check`).
 
 ### reflect
 

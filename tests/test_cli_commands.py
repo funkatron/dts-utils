@@ -142,6 +142,18 @@ class TestCLICommands:
         # Verify sys.exit was called with 1 (failure)
         mock_exit.assert_called_once_with(1)
 
+    def test_check_alias_invokes_listener_probe(self, mock_installer_methods, monkeypatch, mock_exit):
+        """``check`` is synonymous with ``test`` (listener probe, not pytest)."""
+        monkeypatch.setattr("sys.argv", ["dts-util", "check"])
+
+        mock_installer_methods["is_running"].return_value = True
+
+        installer = DTSServerInstaller()
+        installer.parse_args()
+
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859)
+        mock_exit.assert_called_once_with(0)
+
     def test_no_arguments_shows_usage(self, monkeypatch, mock_exit):
         """Test that running with no arguments shows usage."""
         # Set up command line arguments

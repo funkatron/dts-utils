@@ -20,6 +20,32 @@ from ..grpc.reflect import main as reflect_main
 from ..tls_export import main as tls_main
 from dt_model_index.cli import main as models_main
 
+
+SERVER_SUBCOMMAND_HELP = """
+Draw Things gRPC server (macOS LaunchAgent for gRPCServerCLI)
+
+Prefer these — the "server" prefix separates LaunchAgent lifecycle from client RPC commands:
+
+    dts-util server install [...]           Install binary + LaunchAgent
+    dts-util server uninstall              Remove LaunchAgent service + binary
+    dts-util server restart [--model-browser]
+    dts-util server test|check [--port PORT]    Probe localhost listener (check = same as test)
+
+The same subcommands work without "server" (e.g. dts-util install, dts-util test).
+""".strip()
+
+
+def consume_server_cli_prefix(argv: list[str]) -> int | None:
+    """Expand ``dts-util server <cmd>`` to ``dts-util <cmd>``. Return 0 exit when help printed."""
+    if len(argv) < 2 or argv[1] != "server":
+        return None
+    if len(argv) == 2:
+        print(SERVER_SUBCOMMAND_HELP)
+        return 0
+    argv[:] = [argv[0], argv[2], *argv[3:]]
+    return None
+
+
 class DTSServerInstaller:
     # Default server settings
     DEFAULT_PORT = 7859
@@ -63,15 +89,17 @@ Draw Things gRPCServerCLI Installer
 This script installs the Draw Things gRPCServerCLI and sets it up as a LaunchAgent service.
 
 Usage:
-    dts-util install [-m MODEL_PATH] [gRPCServerCLI options]
-    dts-util uninstall
-    dts-util restart [--model-browser]
-    dts-util test [--port PORT]
+    dts-util server install [-m MODEL_PATH] [gRPCServerCLI options]
+    dts-util server uninstall
+    dts-util server restart [--model-browser]
+    dts-util server test|check [--port PORT]
     dts-util generate --prompt PROMPT --configuration CONFIG [...]
     dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
     dts-util configs <path|list> [...]
     dts-util tls <path|export> [...]
     dts-util models <build|search|show|report> [...]
+
+Equivalent without "server" (legacy): dts-util install, dts-util test, ...
 
 The installer will:
 1. Download the gRPCServerCLI binary
@@ -79,10 +107,11 @@ The installer will:
 3. Create and start a LaunchAgent service
 
 Commands:
-    install               Install the gRPCServerCLI
-    uninstall            Uninstall gRPCServerCLI and remove all related files
-    restart             Restart the gRPCServerCLI service
-    test                Test if the server is running and responding
+    server <subcmd>     gRPCServerCLI LaunchAgent lifecycle (preferred spelling; run dts-util server)
+    install             Install binary + LaunchAgent (same as server install)
+    uninstall           Remove service + binary (same as server uninstall)
+    restart             Reload LaunchAgent plist (same as server restart)
+    test | check        Probe localhost listener; check is an alias (same as server test|check)
     generate            Generate an image through the Draw Things gRPC API
     reflect             List gRPC reflection services and methods
     configs             Show and list saved JSON generation configurations
@@ -127,6 +156,9 @@ Advanced Options:
       - priority: Server priority (1=high, 2=low)
 
 Examples:
+    # Fresh install via grouped command
+    dts-util server install
+
     # Install using default settings
     dts-util install
 
@@ -217,8 +249,8 @@ Examples:
             epilog=self.usage_text)
 
         # Add actions as positional arguments
-        parser.add_argument('action', nargs='?', choices=['install', 'uninstall', 'restart', 'test'],
-                          help='Action to perform (install: install server, uninstall: remove server, restart: restart server, test: check if server is running)')
+        parser.add_argument('action', nargs='?', choices=['install', 'uninstall', 'restart', 'test', 'check'],
+                          help='Action to perform (install: install server, uninstall: remove server, restart: restart server, test|check: check if server is responding)')
 
         # Installer arguments
         parser.add_argument('-m', '--model-path',
@@ -274,6 +306,9 @@ Examples:
         )
 
         args = parser.parse_args()
+
+        if args.action == "check":
+            args.action = "test"
 
         # Handle restart action
         if args.action == 'restart':
@@ -876,6 +911,9 @@ Examples:
 
 def main():
     """Main entry point for the CLI."""
+    code = consume_server_cli_prefix(sys.argv)
+    if code is not None:
+        sys.exit(code)
     if len(sys.argv) > 1 and sys.argv[1] == "generate":
         sys.exit(generate_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "configs":

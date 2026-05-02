@@ -18,15 +18,15 @@ uv run dts-util --help
 Use this when you want `dts-util` to install and manage **`gRPCServerCLI`** on the same Mac.
 
 ```bash
-uv run dts-util install
-uv run dts-util test
+uv run dts-util server install
+uv run dts-util server check
 ```
 
 Skip both when the server already runs elsewhere (another machine, another supervisor, or you manage the binary yourself).
 
 ### Existing or remote server
 
-Point **`generate`** and **`reflect`** at the host with **`--host`** (and the matching TLS flags). **`install`** / **`test`** are built around a **local** macOS LaunchAgent + process checks, so they are not a substitute for “is my remote server up?”
+Point **`generate`** and **`reflect`** at the host with **`--host`** (and the matching TLS flags). **`server install`** / **`server check`** (or **`test`**) assume a **local** macOS LaunchAgent + process checks, so they are not a substitute for “is my remote server up?”
 
 ### Generate one PNG (localhost + Draw Things TLS)
 
@@ -46,7 +46,7 @@ uv run dts-util generate \
 
 - **Python 3.12+** and [**`uv`**](https://github.com/astral-sh/uv) (`uv sync`, `uv run …`).
 - **`flatc` on `PATH`** whenever the resolved config is **JSON** (saved names expand to **`NAME.json`** inside the directory from **`uv run dts-util configs path`**). Omitted for **raw FlatBuffer** payloads.
-- **`install`**, **`restart`**, **`uninstall`**, **`test`**: assume **local macOS** LaunchAgent layout and **local `pgrep` / `lsof`** checks for a process named like **`gRPCServerCLI`**.
+- **`server install`** (or **`install`**), **`server restart`**, **`server uninstall`**, **`server check`/`test`**: assume **local macOS** LaunchAgent layout and **local `pgrep` / `lsof`** probes for **`gRPCServerCLI`**. Prefer the **`server …`** spelling so these are not confused with **`pytest`** or other “test” commands.
 - **`generate`** and **`reflect`**: run wherever this Python environment runs, given **network** reachability to the server.
 - **Pinned PEM (optional):** **`uv run dts-util tls export`** or **`uv run dts-util install --export-tls-cert`** saves the server's **presented** certificate next to **`configs path`**-style dirs for **`--root-cert`** (**`gRPCServerCLI`** keystores are unchanged—I/O only).
 - **`configs path`** / **`configs list`**: local filesystem only.
@@ -95,12 +95,12 @@ Reference sequence commonly used during initial setup:
 
 | Step | Command |
 | --- | --- |
-| 1. Install binary + LaunchAgent defaults | `uv run dts-util install` |
-| 2. Confirm process + port | `uv run dts-util test` |
-| 3. Optional: TLS secret, port, models path | `uv run dts-util install --shared-secret "…"` · `--port 7860` · `--model-path /path/to/models` |
-| 4. Optional: extra flags once installed | `uv run dts-util install --model-browser --debug` |
-| 5. Turn on **model browsing** without reinstalling everything | `uv run dts-util restart --model-browser` |
-| 6. Routine restart / full removal | `uv run dts-util restart` · `uv run dts-util uninstall` |
+| 1. Install binary + LaunchAgent defaults | `uv run dts-util server install` (legacy: `dts-util install`) |
+| 2. Confirm process + port | `uv run dts-util server check` (aliases: `server test`, `check`, `test`) |
+| 3. Optional: TLS secret, port, models path | `uv run dts-util server install --shared-secret "…"` · `--port 7860` · `--model-path /path/to/models` |
+| 4. Optional: extra flags once installed | `uv run dts-util server install --model-browser --debug` |
+| 5. Turn on **model browsing** without reinstalling everything | `uv run dts-util server restart --model-browser` |
+| 6. Routine restart / full removal | `uv run dts-util server restart` · `uv run dts-util server uninstall` |
 
 Full flag text lives in **[CLI.md](CLI.md)**.
 

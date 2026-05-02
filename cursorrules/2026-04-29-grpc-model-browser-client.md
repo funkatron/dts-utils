@@ -2,7 +2,7 @@
 
 - Added restart-time model browser enablement with `dts-util restart --model-browser`.
 - Preserved existing LaunchAgent settings by mutating only the installed service `ProgramArguments`.
-- Added `scripts/generate_image.py` to call upstream streaming `GenerateImage` and write returned image bytes to disk.
+- Added `dts-util generate` (package `dts_util.generate`) to call upstream streaming `GenerateImage` and write returned image bytes to disk.
 - Added `--configuration-json` to convert Draw Things JSON config into FlatBuffer bytes with `flatc` and the bundled `config.fbs` schema.
 - Added Draw Things tensor decoding so generated responses are written as PNG images instead of raw tensor bytes.
 - Added `--open` to launch successfully written image files in the platform default viewer.
@@ -15,7 +15,9 @@
 - Added `--force-trust-server-cert` as an intentionally dangerous escape hatch for remote diagnostics when cert pinning is not available.
 - Added saved JSON generation configs through `dts-util configs path/list`, plus `--configuration` auto-detection for `.json` files and saved config names.
 - Renamed client-facing plaintext connection flag from `--insecure` to `--no-tls` to match the server install flag.
+- Image generation is only `dts-util generate` (removed the old `scripts/generate_image.py` path).
 
 ## Follow-up ideas
 
 - If no generation configuration is provided, prompt the user interactively to choose or supply one instead of immediately failing. Keep a non-interactive escape hatch for scripts and agents.
+- Refactor the top-level CLI dispatch later so installer, models, configs, reflect, and generate commands are not all routed through `server_installer.py`.

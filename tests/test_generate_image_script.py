@@ -1,22 +1,21 @@
-"""Functional tests for the prompt-to-image helper script."""
+"""Functional tests for `dts_util.generate` (`dts-util generate`)."""
 
 from __future__ import annotations
 
-from importlib import util
+from importlib import import_module, reload
 from pathlib import Path
 import struct
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
+import pytest
+
+from dts_util.installer import server_installer
 
 
 def load_generate_image_module():
-    script_path = Path(__file__).resolve().parents[1] / "scripts" / "generate_image.py"
-    spec = util.spec_from_file_location("generate_image_script", script_path)
-    module = util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
+    return reload(import_module("dts_util.generate"))
 
 
 class FakeChannel:
@@ -355,6 +354,17 @@ def test_generate_image_script_reports_missing_named_configuration(capsys):
     assert result == 1
     assert "Could not resolve generation configuration" in captured.err
     assert "dts-util configs path" in captured.err
+
+
+def test_dts_util_main_dispatches_generate(monkeypatch):
+    """Verify dts-util generate is routed before installer argument parsing."""
+    monkeypatch.setattr("sys.argv", ["dts-util", "generate", "--prompt", "test", "--configuration", "portrait"])
+    with patch.object(server_installer, "generate_main", return_value=0) as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            server_installer.main()
+
+    generate_main.assert_called_once_with(["--prompt", "test", "--configuration", "portrait"])
+    assert exc_info.value.code == 0
 
 
 def test_create_channel_can_trust_presented_server_certificate(monkeypatch):

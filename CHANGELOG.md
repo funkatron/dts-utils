@@ -9,15 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `dts-util restart --model-browser` to enable model browsing for an existing LaunchAgent service before restart.
-- `scripts/generate_image.py` for sending a prompt to the upstream Draw Things gRPC streaming API and writing returned images to PNG, including JSON-to-FlatBuffer configuration, local certificate trust options, and `--open` viewer launch support.
-- Clear prompt-only failure for `scripts/generate_image.py` when no generation configuration is provided.
+- `dts-util generate` for sending a prompt to the upstream Draw Things gRPC streaming API and writing returned images to PNG, including JSON-to-FlatBuffer configuration, local certificate trust options, and `--open` viewer launch support.
+- Clear prompt-only failure for `dts-util generate` when no generation configuration is provided.
 - Documentation for the upstream Draw Things proto/FlatBuffer split, chunked image streaming, local TLS trust options, and the task-first prompt-to-image command.
 - `dts-util reflect` to list services and methods from gRPC server reflection, with JSON output for scripts.
 - Shared gRPC channel setup that restricts `--trust-server-cert` to localhost/loopback and directs remote or LAN usage to pinned `--root-cert` certificates.
 - `--force-trust-server-cert` for explicit remote trust-on-first-use diagnostics when users accept the MITM risk.
-- `dts-util configs path/list` and `scripts/generate_image.py --configuration` support for saved JSON config names and `.json` auto-conversion.
+- `dts-util configs path/list` and `dts-util generate --configuration` support for saved JSON config names and `.json` auto-conversion.
 - Client commands now use `--no-tls` instead of `--insecure` for plaintext connections to servers installed with `--no-tls`.
 - Comprehensive test suite for gRPC utilities
+
+### Removed
+
+- `scripts/generate_image.py`; use `uv run dts-util generate` instead.
   - Server availability checking
   - Error handling for various gRPC scenarios
   - Channel creation with different configurations

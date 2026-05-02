@@ -2,7 +2,7 @@
 
 This repository contains two protocol definitions:
 
-- `src/dts_util/grpc/proto/upstream/imageService.proto` is the live Draw Things gRPC API copy used by `scripts/generate_image.py`.
+- `src/dts_util/grpc/proto/upstream/imageService.proto` is the live Draw Things gRPC API copy used by `dts-util generate`.
 - `src/dts_util/grpc/proto/image_generation.proto` is an older simplified local proto retained for legacy tests and documentation history. Do not use it for new Draw Things `gRPCServerCLI` client work.
 
 The Draw Things generation configuration schema is separate from protobuf:
@@ -50,7 +50,7 @@ message ImageGenerationRequest {
 Important details:
 
 - `configuration` must contain `GenerationConfiguration` FlatBuffer bytes.
-- `--configuration-json` in `scripts/generate_image.py` converts Draw Things JSON to those FlatBuffer bytes using `flatc`.
+- `--configuration` in `dts-util generate` converts Draw Things JSON to those FlatBuffer bytes using `flatc`.
 - `chunked = true` allows large generated image tensors to arrive in multiple streamed messages.
 - `contents` carries content-addressed tensor payloads for image, mask, and hints when those fields are used.
 
@@ -101,12 +101,12 @@ uv run python -m grpc_tools.protoc \
   src/dts_util/grpc/proto/upstream/imageService.proto
 ```
 
-The generated upstream Python file imports `imageService_pb2` as a top-level module. `scripts/generate_image.py` adds `src/dts_util/grpc/proto/upstream` to `sys.path` before importing the generated stub.
+The generated upstream Python file imports `imageService_pb2` as a top-level module. `dts_util.generate` adds `src/dts_util/grpc/proto/upstream` to `sys.path` before importing the generated stub.
 
 ## Practical Client Command
 
 ```bash
-uv run python scripts/generate_image.py \
+uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --configuration-json tmp_models/config.json \
   --output generated.png \

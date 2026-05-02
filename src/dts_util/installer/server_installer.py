@@ -14,6 +14,7 @@ import socket
 from subprocess import PIPE
 import json
 from ..configs import main as configs_main
+from ..generate import main as generate_main
 from ..grpc.utils import is_server_running, handle_grpc_error
 from ..grpc.reflect import main as reflect_main
 from dt_model_index.cli import main as models_main
@@ -65,6 +66,7 @@ Usage:
     dts-util uninstall
     dts-util restart [--model-browser]
     dts-util test [--port PORT]
+    dts-util generate --prompt PROMPT --configuration CONFIG [...]
     dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
     dts-util configs <path|list> [...]
     dts-util models <build|search|show|report> [...]
@@ -79,6 +81,7 @@ Commands:
     uninstall            Uninstall gRPCServerCLI and remove all related files
     restart             Restart the gRPCServerCLI service
     test                Test if the server is running and responding
+    generate            Generate an image through the Draw Things gRPC API
     reflect             List gRPC reflection services and methods
     configs             Show and list saved JSON generation configurations
     models              Build and inspect a local Draw Things model index
@@ -145,6 +148,9 @@ Examples:
 
     # Test server connection on specific port
     dts-util test --port 7859
+
+    # Generate an image using a saved JSON config
+    dts-util generate --prompt "a small robot painting clouds" --configuration portrait --trust-server-cert
 
     # List services exposed through gRPC reflection
     dts-util reflect --trust-server-cert
@@ -810,6 +816,8 @@ Examples:
 
 def main():
     """Main entry point for the CLI."""
+    if len(sys.argv) > 1 and sys.argv[1] == "generate":
+        sys.exit(generate_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "configs":
         sys.exit(configs_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "reflect":

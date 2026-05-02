@@ -104,7 +104,33 @@ Options:
 - `configs list`: List saved JSON configuration names from the default directory.
 - `configs list --directory PATH`: List saved JSON configuration names from another directory.
 
-Save files like `portrait.json` in this directory, then use `--configuration portrait` with `scripts/generate_image.py`.
+Save files like `portrait.json` in this directory, then use `--configuration portrait` with `dts-util generate`.
+
+### generate
+
+Generates an image through the upstream Draw Things streaming gRPC API.
+
+If you only run one command, run this:
+
+```bash
+uv run dts-util generate \
+  --prompt "a small robot painting clouds" \
+  --configuration portrait \
+  --output generated.png \
+  --trust-server-cert \
+  --open
+```
+
+Important options:
+
+- `--configuration VALUE`: Read a Draw Things configuration. Existing `.json` files are converted to FlatBuffer bytes, other existing files are sent as raw FlatBuffer bytes, and simple names resolve to saved JSON configs.
+- `--configuration-json VALUE`: Read a Draw Things JSON configuration file or saved config name.
+- `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
+- `--force-trust-server-cert`: Trust the certificate presented by any server for this connection, with MITM risk.
+- `--root-cert PATH`: Use a pinned PEM root/server certificate.
+- `--no-tls`: Connect without TLS when the server was installed with `--no-tls`.
+- `--max-message-mb N`: Set gRPC send and receive message limits.
+- `--open`: Open written image files with the platform default viewer.
 
 ## Examples
 
@@ -156,14 +182,12 @@ uv run dts-util restart --model-browser
 uv run dts-util uninstall
 ```
 
-## Helper Scripts
-
-`scripts/generate_image.py` is a development helper for calling the upstream Draw Things streaming gRPC API. It is not a `dts-util` subcommand yet.
+## Image generation
 
 If you only run one command, run this:
 
 ```bash
-uv run python scripts/generate_image.py \
+uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --configuration portrait \
   --output generated.png \
@@ -171,29 +195,18 @@ uv run python scripts/generate_image.py \
   --open
 ```
 
-Important options:
-
-- `--configuration VALUE`: Read a Draw Things configuration. Existing `.json` files are converted to FlatBuffer bytes, other existing files are sent as raw FlatBuffer bytes, and simple names resolve to saved JSON configs.
-- `--configuration-json VALUE`: Read a Draw Things JSON configuration file or saved config name.
-- `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
-- `--force-trust-server-cert`: Trust the certificate presented by any server for this connection, with MITM risk.
-- `--root-cert PATH`: Use a pinned PEM root/server certificate.
-- `--no-tls`: Connect without TLS when the server was installed with `--no-tls`.
-- `--max-message-mb N`: Set gRPC send and receive message limits.
-- `--open`: Open written image files with the platform default viewer.
-
 Generation fails before opening a gRPC stream if neither `--configuration-json` nor `--configuration` is provided. This avoids the opaque socket-close behavior the server can produce for prompt-only requests.
 
 Common tasks:
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Generate from a saved config | `uv run python scripts/generate_image.py --prompt "..." --configuration portrait --output generated.png --trust-server-cert` | A decoded PNG written to disk using `portrait.json` from the saved config directory. |
-| Generate from Draw Things JSON | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --trust-server-cert` | A decoded PNG written to disk after JSON-to-FlatBuffer conversion. |
-| Generate and open the result | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
-| Use prebuilt FlatBuffer bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | Generation without `flatc`. |
-| Use a pinned certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
-| Force trust for remote diagnostics | `uv run python scripts/generate_image.py --host gpu.local --prompt "..." --configuration config.json --output generated.png --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
+| Generate from a saved config | `uv run dts-util generate --prompt "..." --configuration portrait --output generated.png --trust-server-cert` | A decoded PNG written to disk using `portrait.json` from the saved config directory. |
+| Generate from Draw Things JSON | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --trust-server-cert` | A decoded PNG written to disk after JSON-to-FlatBuffer conversion. |
+| Generate and open the result | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
+| Use prebuilt FlatBuffer bytes | `uv run dts-util generate --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | Generation without `flatc`. |
+| Use a pinned certificate | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
+| Force trust for remote diagnostics | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --output generated.png --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
 
 For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-cert` only when you cannot pin a cert and accept the risk for that connection.
 

@@ -144,7 +144,7 @@ uv run dts-util test
 1. **Generate Your First Image**:
 
 ```bash
-uv run python scripts/generate_image.py \
+uv run dts-util generate \
   --prompt "a beautiful sunset over mountains" \
   --configuration-json config.json \
   --output generated.png \
@@ -274,12 +274,12 @@ uv run dts-util install --model-browser --debug --no-flash-attention
 
 ### Python Client Examples
 
-#### Prompt-to-Image Script
+#### Prompt-to-Image Command
 
 If you only run one command, run this:
 
 ```bash
-uv run python scripts/generate_image.py \
+uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --output generated.png \
   --configuration portrait \
@@ -304,12 +304,12 @@ Common prompt-to-image tasks:
 
 | Goal                           | Command                                                                                                                                                               | What you get                                      |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| Generate and open one image    | `uv run python scripts/generate_image.py --prompt "a small robot painting clouds" --configuration portrait --output generated.png --trust-server-cert --open`          | A decoded PNG opened in the default viewer.       |
-| Use a JSON file directly       | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --trust-server-cert`                                        | JSON converted to FlatBuffer before sending.      |
-| Use a pinned local certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --root-cert cert.pem`                                      | TLS verification against a known PEM file.        |
-| Connect to a non-TLS server    | `uv run python scripts/generate_image.py --prompt "..." --configuration config.json --output generated.png --no-tls`                                                  | Plain gRPC for servers installed with `--no-tls`. |
-| Send prebuilt config bytes     | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert`                                        | No `flatc` conversion step.                       |
-| Force trust for diagnostics    | `uv run python scripts/generate_image.py --host gpu.local --prompt "..." --configuration config.json --output generated.png --force-trust-server-cert`                 | Remote trust-on-first-use with MITM risk.         |
+| Generate and open one image    | `uv run dts-util generate --prompt "a small robot painting clouds" --configuration portrait --output generated.png --trust-server-cert --open`          | A decoded PNG opened in the default viewer.       |
+| Use a JSON file directly       | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --trust-server-cert`                                        | JSON converted to FlatBuffer before sending.      |
+| Use a pinned local certificate | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --root-cert cert.pem`                                      | TLS verification against a known PEM file.        |
+| Connect to a non-TLS server    | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --no-tls`                                                  | Plain gRPC for servers installed with `--no-tls`. |
+| Send prebuilt config bytes     | `uv run dts-util generate --prompt "..." --configuration config.bin --output generated.png --trust-server-cert`                                        | No `flatc` conversion step.                       |
+| Force trust for diagnostics    | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --output generated.png --force-trust-server-cert`                 | Remote trust-on-first-use with MITM risk.         |
 
 
 #### Error Handling
@@ -343,7 +343,7 @@ except Exception as e:
 
 - Python 3.12+
 - `uv`
-- `flatc` for `scripts/generate_image.py --configuration-json`
+- `flatc` for `dts-util generate --configuration` with JSON configs
 - gRPC tools
 - Protocol Buffers compiler
 

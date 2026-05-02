@@ -59,7 +59,7 @@ message ImageGenerationRequest {
 }
 ```
 
-The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. `scripts/generate_image.py --configuration-json` accepts Draw Things JSON and converts it with `flatc` before sending the RPC.
+The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. `dts-util generate --configuration config.json` accepts Draw Things JSON and converts it with `flatc` before sending the RPC.
 
 Responses contain progress, previews, and generated image tensors:
 
@@ -77,14 +77,14 @@ message ImageGenerationResponse {
 }
 ```
 
-`generatedImages` are Draw Things tensor bytes, not PNG files. The helper script decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
+`generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-util generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
 
 ## Recommended Client Command
 
-Use the helper script for local development:
+Use this for local development:
 
 ```bash
-uv run python scripts/generate_image.py \
+uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --configuration-json tmp_models/config.json \
   --output generated.png \

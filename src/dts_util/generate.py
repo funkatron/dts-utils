@@ -1,5 +1,4 @@
-#!/usr/bin/env python3
-"""Generate an image through the Draw Things gRPCServerCLI."""
+"""Generate images through Draw Things gRPCServerCLI."""
 
 from __future__ import annotations
 
@@ -13,11 +12,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-SRC_PATH = REPO_ROOT / "src"
-UPSTREAM_PROTO_PATH = SRC_PATH / "dts_util" / "grpc" / "proto" / "upstream"
+PACKAGE_ROOT = Path(__file__).resolve().parent
+UPSTREAM_PROTO_PATH = PACKAGE_ROOT / "grpc" / "proto" / "upstream"
 CONFIG_SCHEMA_PATH = UPSTREAM_PROTO_PATH / "config.fbs"
-sys.path.insert(0, str(SRC_PATH))
 sys.path.insert(0, str(UPSTREAM_PROTO_PATH))
 
 import grpc
@@ -214,7 +211,7 @@ CONFIG_DIMENSION_KEYS = {
 def json_configuration_to_flatbuffer(configuration: dict) -> bytes:
     flatc_path = shutil.which("flatc")
     if not flatc_path:
-        raise ValueError("flatc is required for --configuration-json. Install FlatBuffers or pass --configuration bytes.")
+        raise ValueError("flatc is required for JSON configuration. Install FlatBuffers or pass raw FlatBuffer bytes.")
 
     flatc_configuration = normalize_configuration_for_flatc(configuration)
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -374,7 +371,3 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Open error: {e}", file=sys.stderr)
             return 1
     return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())

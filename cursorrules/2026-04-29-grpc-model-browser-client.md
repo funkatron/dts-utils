@@ -10,6 +10,8 @@
 - Added explicit TLS trust options after local testing showed Draw Things presents a localhost certificate issued by `Draw Things Root CA` without a system-trusted chain.
 - Covered both paths with mocked functional tests instead of requiring a live Draw Things server.
 - Updated `README.md`, `CLI.md`, `API.md`, and `PROTOBUF.md` to describe the live upstream proto, FlatBuffer configuration requirement, chunked response handling, and task-first helper command.
+- Promoted the useful reflection scratch probe to `dts-util reflect`, then removed one-off scratch scripts.
+- Restricted `--trust-server-cert` to localhost/loopback so remote and LAN servers require explicit pinned trust via `--root-cert`.
 
 ## Follow-up ideas
 

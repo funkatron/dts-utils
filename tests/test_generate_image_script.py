@@ -287,10 +287,11 @@ def test_generate_image_script_requires_configuration(capsys):
 
 def test_create_channel_can_trust_presented_server_certificate(monkeypatch):
     """Verify TLS credentials can be built from the server's presented certificate."""
-    module = load_generate_image_module()
+    from dts_util.grpc import connection as grpc_connection
+
     calls = {}
 
-    monkeypatch.setattr(module, "fetch_server_certificate", lambda host, port: b"server-cert")
+    monkeypatch.setattr(grpc_connection, "fetch_server_certificate", lambda host, port: b"server-cert")
 
     def fake_ssl_channel_credentials(root_certificates=None):
         calls["root_certificates"] = root_certificates
@@ -302,10 +303,10 @@ def test_create_channel_can_trust_presented_server_certificate(monkeypatch):
         calls["options"] = options
         return "channel"
 
-    monkeypatch.setattr(module.grpc, "ssl_channel_credentials", fake_ssl_channel_credentials)
-    monkeypatch.setattr(module.grpc, "secure_channel", fake_secure_channel)
+    monkeypatch.setattr(grpc_connection.grpc, "ssl_channel_credentials", fake_ssl_channel_credentials)
+    monkeypatch.setattr(grpc_connection.grpc, "secure_channel", fake_secure_channel)
 
-    channel = module.create_channel("localhost", 7859, insecure=False, trust_server_cert=True)
+    channel = grpc_connection.create_channel("localhost", 7859, insecure=False, trust_server_cert=True)
 
     assert channel == "channel"
     assert calls == {
@@ -321,16 +322,30 @@ def test_create_channel_can_trust_presented_server_certificate(monkeypatch):
 
 def test_create_channel_rejects_conflicting_cert_options(tmp_path):
     """Verify callers cannot combine trust-on-first-use and a pinned root certificate."""
-    module = load_generate_image_module()
+    from dts_util.grpc import connection as grpc_connection
+
     root_cert = tmp_path / "root.pem"
     root_cert.write_bytes(b"root")
 
     try:
-        module.create_channel("localhost", 7859, insecure=False, root_cert=root_cert, trust_server_cert=True)
+        grpc_connection.create_channel("localhost", 7859, insecure=False, root_cert=root_cert, trust_server_cert=True)
     except ValueError as exc:
         assert "either --root-cert or --trust-server-cert" in str(exc)
     else:
         raise AssertionError("Expected conflicting certificate options to fail")
+
+
+def test_create_channel_rejects_trusting_remote_presented_certificate():
+    """Verify trust-on-first-use is restricted to explicit loopback hosts."""
+    from dts_util.grpc import connection as grpc_connection
+
+    try:
+        grpc_connection.create_channel("drawthings.example.com", 7859, insecure=False, trust_server_cert=True)
+    except ValueError as exc:
+        assert "only allowed for localhost or loopback" in str(exc)
+        assert "--root-cert PATH" in str(exc)
+    else:
+        raise AssertionError("Expected remote trust-on-first-use to fail")
 
 
 def test_collect_generated_images_reassembles_chunks():

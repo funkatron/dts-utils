@@ -217,7 +217,13 @@ uv run dts-util test
 uv run dts-util test --port 7860
 ```
 
-3. Check TLS configuration:
+3. Inspect reflected gRPC services and methods:
+```bash
+uv run dts-util reflect --trust-server-cert
+uv run dts-util reflect --json --trust-server-cert
+```
+
+4. Check TLS configuration:
 ```bash
 # If using TLS, ensure your client is configured correctly
 # You can verify server configuration in ~/.config/draw-things/server.conf
@@ -267,7 +273,7 @@ uv run python scripts/generate_image.py \
   --open
 ```
 
-Draw Things gRPCServerCLI commonly uses a local certificate issued by its own root CA. For local development, `--trust-server-cert` fetches and trusts the presented server certificate for this connection. A generation configuration is required: use `--configuration-json` to pass a Draw Things generation configuration as JSON. This requires `flatc` on `PATH` so the script can convert JSON to the FlatBuffer bytes expected by gRPC. If the server was installed with `--no-tls`, use `--insecure` instead. If the server requires authentication, add `--shared-secret`.
+Draw Things gRPCServerCLI commonly uses a local certificate issued by its own root CA. For local development, `--trust-server-cert` fetches and trusts the presented server certificate for this localhost connection. For remote or LAN servers, use `--root-cert PATH` with a pinned PEM certificate instead. A generation configuration is required: use `--configuration-json` to pass a Draw Things generation configuration as JSON. This requires `flatc` on `PATH` so the script can convert JSON to the FlatBuffer bytes expected by gRPC. If the server was installed with `--no-tls`, use `--insecure` instead. If the server requires authentication, add `--shared-secret`.
 
 The script writes PNG files. Draw Things returns generated image tensors over gRPC; the script reassembles chunked responses and decodes those tensors before writing the output file.
 

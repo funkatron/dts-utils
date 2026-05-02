@@ -66,6 +66,27 @@ uv run dts-util test [options]
 Options:
 - `--port PORT`: Port to test connection on (default: 7859)
 
+### reflect
+
+Lists gRPC services and methods exposed through server reflection.
+
+If you only run one command, run this:
+
+```bash
+uv run dts-util reflect --trust-server-cert
+```
+
+Options:
+- `--host HOST`: gRPC server host (default: `localhost`)
+- `--port PORT`: gRPC server port (default: `7859`)
+- `--timeout SECONDS`: Connection timeout (default: `2`)
+- `--json`: Print machine-readable JSON
+- `--trust-server-cert`: Trust the presented certificate for this localhost connection only
+- `--root-cert PATH`: Use a pinned PEM root/server certificate
+- `--insecure`: Connect without TLS when the server was installed with `--no-tls`
+
+Use `--root-cert` for remote or LAN servers. `--trust-server-cert` is restricted to `localhost` and loopback addresses because accepting an arbitrary remote certificate would make man-in-the-middle attacks too easy.
+
 ## Examples
 
 ### Basic Installation
@@ -100,6 +121,9 @@ uv run dts-util test
 # Test connection on a specific port
 uv run dts-util test --port 7860
 
+# List reflected gRPC services and methods
+uv run dts-util reflect --trust-server-cert
+
 # Restart the server
 uv run dts-util restart
 
@@ -129,7 +153,7 @@ Important options:
 
 - `--configuration-json PATH`: Read a Draw Things JSON generation configuration and convert it to FlatBuffer bytes with `flatc`.
 - `--configuration PATH`: Read prebuilt FlatBuffer configuration bytes directly.
-- `--trust-server-cert`: Trust the certificate presented by the local server for this connection.
+- `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
 - `--root-cert PATH`: Use a pinned PEM root/server certificate.
 - `--insecure`: Connect without TLS when the server was installed with `--no-tls`.
 - `--max-message-mb N`: Set gRPC send and receive message limits.
@@ -145,6 +169,8 @@ Common tasks:
 | Generate and open the result | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
 | Use prebuilt FlatBuffer bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | Generation without `flatc`. |
 | Use a pinned certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
+
+For remote or LAN servers, use `--root-cert PATH` instead of `--trust-server-cert`.
 
 ## Environment Variables
 

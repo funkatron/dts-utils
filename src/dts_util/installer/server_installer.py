@@ -14,6 +14,7 @@ import socket
 from subprocess import PIPE
 import json
 from ..grpc.utils import is_server_running, handle_grpc_error
+from ..grpc.reflect import main as reflect_main
 from dt_model_index.cli import main as models_main
 
 class DTSServerInstaller:
@@ -63,6 +64,7 @@ Usage:
     dts-util uninstall
     dts-util restart [--model-browser]
     dts-util test [--port PORT]
+    dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
     dts-util models <build|search|show|report> [...]
 
 The installer will:
@@ -75,6 +77,7 @@ Commands:
     uninstall            Uninstall gRPCServerCLI and remove all related files
     restart             Restart the gRPCServerCLI service
     test                Test if the server is running and responding
+    reflect             List gRPC reflection services and methods
     models              Build and inspect a local Draw Things model index
 
 Installer Options:
@@ -139,6 +142,9 @@ Examples:
 
     # Test server connection on specific port
     dts-util test --port 7859
+
+    # List services exposed through gRPC reflection
+    dts-util reflect --trust-server-cert
 
     # Quiet install with defaults
     dts-util install -q
@@ -798,6 +804,8 @@ Examples:
 
 def main():
     """Main entry point for the CLI."""
+    if len(sys.argv) > 1 and sys.argv[1] == "reflect":
+        sys.exit(reflect_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "models":
         sys.exit(models_main(sys.argv[2:]))
     installer = DTSServerInstaller()

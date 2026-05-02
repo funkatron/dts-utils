@@ -7,7 +7,6 @@ import argparse
 import io
 import json
 import shutil
-import ssl
 import struct
 import subprocess
 import sys
@@ -25,6 +24,7 @@ import grpc
 import fpzip
 import numpy as np
 from PIL import Image
+from dts_util.grpc.connection import create_channel, fetch_server_certificate
 from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 
@@ -55,47 +55,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trust-server-cert",
         action="store_true",
-        help="Fetch and trust the server certificate for this connection. Intended for local Draw Things servers.",
+        help="Fetch and trust the presented certificate for this localhost connection. Use --root-cert for remote or LAN servers.",
     )
     return parser
-
-
-def fetch_server_certificate(host: str, port: int) -> bytes:
-    """Fetch the server's presented certificate as PEM bytes."""
-    return ssl.get_server_certificate((host, port)).encode()
-
-
-def create_channel(
-    host: str,
-    port: int,
-    insecure: bool,
-    root_cert: Path | None = None,
-    trust_server_cert: bool = False,
-    max_message_mb: int = 64,
-) -> grpc.Channel:
-    target = f"{host}:{port}"
-    max_message_bytes = max_message_mb * 1024 * 1024
-    options = [
-        ("grpc.max_send_message_length", max_message_bytes),
-        ("grpc.max_receive_message_length", max_message_bytes),
-    ]
-    if insecure:
-        return grpc.insecure_channel(target, options=options)
-
-    if root_cert and trust_server_cert:
-        raise ValueError("Use either --root-cert or --trust-server-cert, not both.")
-
-    root_certificates = None
-    if root_cert:
-        root_certificates = root_cert.read_bytes()
-    elif trust_server_cert:
-        root_certificates = fetch_server_certificate(host, port)
-
-    return grpc.secure_channel(
-        target,
-        grpc.ssl_channel_credentials(root_certificates=root_certificates),
-        options=options,
-    )
 
 
 def build_request(args: argparse.Namespace) -> up_pb2.ImageGenerationRequest:
@@ -348,7 +310,7 @@ def main(argv: list[str] | None = None) -> int:
             trust_server_cert=args.trust_server_cert,
             max_message_mb=args.max_message_mb,
         )
-    except (OSError, ssl.SSLError, ValueError) as e:
+    except (OSError, ValueError) as e:
         print(f"Connection setup error: {e}", file=sys.stderr)
         return 1
     try:

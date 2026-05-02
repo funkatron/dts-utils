@@ -113,6 +113,6 @@ For command details, see `CLI.md`. For the prompt-to-image workflow, see `README
 
 - The server uses TLS by default.
 - Local Draw Things servers commonly present a certificate issued by `Draw Things Root CA`. Python does not automatically trust that root certificate.
-- `scripts/generate_image.py --trust-server-cert` fetches and trusts the presented server certificate for that connection. Use this for local development only.
+- `--trust-server-cert` fetches and trusts the presented server certificate only for `localhost` and loopback addresses. This is a local development convenience, not a remote trust model.
 - Use `--root-cert PATH` when you have a pinned PEM certificate file.
 - Use `--insecure` only when the server was started with `--no-tls`.

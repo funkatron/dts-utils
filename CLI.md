@@ -84,7 +84,7 @@ Options:
 - `--trust-server-cert`: Trust the presented certificate for this localhost connection only
 - `--force-trust-server-cert`: Trust the presented certificate for any host, with MITM risk
 - `--root-cert PATH`: Use a pinned PEM root/server certificate
-- `--insecure`: Connect without TLS when the server was installed with `--no-tls`
+- `--no-tls`: Connect without TLS when the server was installed with `--no-tls`
 
 Use `--root-cert` for remote or LAN servers when possible. `--trust-server-cert` is restricted to `localhost` and loopback addresses. `--force-trust-server-cert` is available for remote diagnostics, but it trusts whatever certificate is presented on that connection and can be vulnerable to man-in-the-middle attacks.
 
@@ -178,7 +178,7 @@ Important options:
 - `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
 - `--force-trust-server-cert`: Trust the certificate presented by any server for this connection, with MITM risk.
 - `--root-cert PATH`: Use a pinned PEM root/server certificate.
-- `--insecure`: Connect without TLS when the server was installed with `--no-tls`.
+- `--no-tls`: Connect without TLS when the server was installed with `--no-tls`.
 - `--max-message-mb N`: Set gRPC send and receive message limits.
 - `--open`: Open written image files with the platform default viewer.
 

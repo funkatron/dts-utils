@@ -14,6 +14,7 @@
 - Restricted `--trust-server-cert` to localhost/loopback so remote and LAN servers require explicit pinned trust via `--root-cert`.
 - Added `--force-trust-server-cert` as an intentionally dangerous escape hatch for remote diagnostics when cert pinning is not available.
 - Added saved JSON generation configs through `dts-util configs path/list`, plus `--configuration` auto-detection for `.json` files and saved config names.
+- Renamed client-facing plaintext connection flag from `--insecure` to `--no-tls` to match the server install flag.
 
 ## Follow-up ideas
 

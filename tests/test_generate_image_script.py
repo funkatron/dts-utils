@@ -80,7 +80,7 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
             str(config_path),
             "--shared-secret",
             "secret",
-            "--insecure",
+            "--no-tls",
         ]
     )
 

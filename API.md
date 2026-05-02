@@ -26,13 +26,15 @@ service ImageGenerationService {
 
 ## Endpoint Summary
 
-| Endpoint | Purpose | Notes |
-| --- | --- | --- |
-| `Echo` | Check connectivity and return server metadata. | Useful before generation, especially when TLS or shared-secret setup is uncertain. |
-| `FilesExist` | Check whether model files exist in the server model directory. | File names are passed relative to the model directory, for example `pikon_realism_v2_alt_q6p_q8p.ckpt`. |
-| `GenerateImage` | Stream image generation progress and generated tensor bytes. | Requires FlatBuffer `GenerationConfiguration` bytes in `configuration`. |
-| `UploadFile` | Stream file chunks to the server. | Not wrapped by the current prompt-to-image helper. |
-| `Pubkey` / `Hours` | Server support endpoints. | Present in the upstream proto; not central to the current CLI workflow. |
+
+| Endpoint           | Purpose                                                        | Notes                                                                                                   |
+| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `Echo`             | Check connectivity and return server metadata.                 | Useful before generation, especially when TLS or shared-secret setup is uncertain.                      |
+| `FilesExist`       | Check whether model files exist in the server model directory. | File names are passed relative to the model directory, for example `pikon_realism_v2_alt_q6p_q8p.ckpt`. |
+| `GenerateImage`    | Stream image generation progress and generated tensor bytes.   | Requires FlatBuffer `GenerationConfiguration` bytes in `configuration`.                                 |
+| `UploadFile`       | Stream file chunks to the server.                              | Not wrapped by the current prompt-to-image helper.                                                      |
+| `Pubkey` / `Hours` | Server support endpoints.                                      | Present in the upstream proto; not central to the current CLI workflow.                                 |
+
 
 ## Image Generation Contract
 
@@ -116,4 +118,4 @@ For command details, see `CLI.md`. For the prompt-to-image workflow, see `README
 - `--trust-server-cert` fetches and trusts the presented server certificate only for `localhost` and loopback addresses. This is a local development convenience, not a remote trust model.
 - Use `--root-cert PATH` when you have a pinned PEM certificate file.
 - Use `--force-trust-server-cert` only when a remote or LAN diagnostic requires trusting the presented certificate and you accept the man-in-the-middle risk for that connection.
-- Use `--insecure` only when the server was started with `--no-tls`.
+- Use `--no-tls` on the client only when the server was started with `--no-tls`.

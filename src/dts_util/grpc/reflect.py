@@ -19,7 +19,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="List services and methods exposed through gRPC server reflection.",
         epilog="""Examples:
   dts-util reflect --trust-server-cert
-  dts-util reflect --insecure
+  dts-util reflect --no-tls
   dts-util reflect --json --root-cert cert.pem
   dts-util reflect --host gpu.local --force-trust-server-cert
 """,
@@ -29,7 +29,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=7859, help="gRPC server port.")
     parser.add_argument("--timeout", type=float, default=2.0, help="Connection timeout in seconds.")
     parser.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
-    parser.add_argument("--insecure", action="store_true", help="Use an insecure channel instead of TLS.")
+    parser.add_argument(
+        "--no-tls",
+        action="store_true",
+        help="Connect without TLS. Use only when the server was installed with --no-tls.",
+    )
     parser.add_argument("--root-cert", type=Path, help="Root certificate PEM to trust for TLS.")
     parser.add_argument(
         "--trust-server-cert",
@@ -108,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
         channel = create_channel(
             args.host,
             args.port,
-            args.insecure,
+            args.no_tls,
             root_cert=args.root_cert,
             trust_server_cert=args.trust_server_cert,
             force_trust_server_cert=args.force_trust_server_cert,

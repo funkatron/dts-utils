@@ -57,7 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     config_group.add_argument("--configuration-json", help="Draw Things JSON configuration file or saved config name.")
-    parser.add_argument("--insecure", action="store_true", help="Use an insecure channel instead of TLS.")
+    parser.add_argument(
+        "--no-tls",
+        action="store_true",
+        help="Connect without TLS. Use only when the server was installed with --no-tls.",
+    )
     parser.add_argument("--root-cert", type=Path, help="Root certificate PEM to trust for TLS.")
     parser.add_argument(
         "--trust-server-cert",
@@ -331,7 +335,7 @@ def main(argv: list[str] | None = None) -> int:
         channel = create_channel(
             args.host,
             args.port,
-            args.insecure,
+            args.no_tls,
             root_cert=args.root_cert,
             trust_server_cert=args.trust_server_cert,
             force_trust_server_cert=args.force_trust_server_cert,

@@ -280,7 +280,7 @@ uv run python scripts/generate_image.py \
   --open
 ```
 
-Draw Things gRPCServerCLI commonly uses a local certificate issued by its own root CA. For local development, `--trust-server-cert` fetches and trusts the presented server certificate for this localhost connection. For remote or LAN servers, use `--root-cert PATH` with a pinned PEM certificate instead. A generation configuration is required: use `--configuration-json` to pass a Draw Things generation configuration as JSON. This requires `flatc` on `PATH` so the script can convert JSON to the FlatBuffer bytes expected by gRPC. If the server was installed with `--no-tls`, use `--insecure` instead. If the server requires authentication, add `--shared-secret`.
+Draw Things gRPCServerCLI commonly uses a local certificate issued by its own root CA. For local development, `--trust-server-cert` fetches and trusts the presented server certificate for this localhost connection. For remote or LAN servers, use `--root-cert PATH` with a pinned PEM certificate when possible. If you cannot pin a certificate and accept the man-in-the-middle risk for one diagnostic connection, use `--force-trust-server-cert`. A generation configuration is required: use `--configuration-json` to pass a Draw Things generation configuration as JSON. This requires `flatc` on `PATH` so the script can convert JSON to the FlatBuffer bytes expected by gRPC. If the server was installed with `--no-tls`, use `--insecure` instead. If the server requires authentication, add `--shared-secret`.
 
 The script writes PNG files. Draw Things returns generated image tensors over gRPC; the script reassembles chunked responses and decodes those tensors before writing the output file.
 
@@ -293,6 +293,7 @@ Common prompt-to-image tasks:
 | Use a pinned local certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem`                                 | TLS verification against a known PEM file.        |
 | Connect to a non-TLS server    | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --insecure`                                           | Plain gRPC for servers installed with `--no-tls`. |
 | Send prebuilt config bytes     | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert`                                        | No `flatc` conversion step.                       |
+| Force trust for diagnostics    | `uv run python scripts/generate_image.py --host gpu.local --prompt "..." --configuration-json config.json --output generated.png --force-trust-server-cert`            | Remote trust-on-first-use with MITM risk.         |
 
 
 #### Error Handling

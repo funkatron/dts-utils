@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation for the upstream Draw Things proto/FlatBuffer split, chunked image streaming, local TLS trust options, and the task-first prompt-to-image command.
 - `dts-util reflect` to list services and methods from gRPC server reflection, with JSON output for scripts.
 - Shared gRPC channel setup that restricts `--trust-server-cert` to localhost/loopback and directs remote or LAN usage to pinned `--root-cert` certificates.
+- `--force-trust-server-cert` for explicit remote trust-on-first-use diagnostics when users accept the MITM risk.
 - Comprehensive test suite for gRPC utilities
   - Server availability checking
   - Error handling for various gRPC scenarios

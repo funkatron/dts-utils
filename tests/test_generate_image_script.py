@@ -330,7 +330,7 @@ def test_create_channel_rejects_conflicting_cert_options(tmp_path):
     try:
         grpc_connection.create_channel("localhost", 7859, insecure=False, root_cert=root_cert, trust_server_cert=True)
     except ValueError as exc:
-        assert "either --root-cert or --trust-server-cert" in str(exc)
+        assert "either --root-cert or a trust-server-cert option" in str(exc)
     else:
         raise AssertionError("Expected conflicting certificate options to fail")
 
@@ -343,9 +343,40 @@ def test_create_channel_rejects_trusting_remote_presented_certificate():
         grpc_connection.create_channel("drawthings.example.com", 7859, insecure=False, trust_server_cert=True)
     except ValueError as exc:
         assert "only allowed for localhost or loopback" in str(exc)
-        assert "--root-cert PATH" in str(exc)
+        assert "--force-trust-server-cert" in str(exc)
     else:
         raise AssertionError("Expected remote trust-on-first-use to fail")
+
+
+def test_create_channel_can_force_trust_remote_presented_certificate(monkeypatch):
+    """Verify the explicit unsafe escape hatch trusts remote presented certificates."""
+    from dts_util.grpc import connection as grpc_connection
+
+    calls = {}
+    monkeypatch.setattr(grpc_connection, "fetch_server_certificate", lambda host, port: b"remote-cert")
+    monkeypatch.setattr(
+        grpc_connection.grpc,
+        "ssl_channel_credentials",
+        lambda root_certificates=None: calls.setdefault("root_certificates", root_certificates) or "credentials",
+    )
+    monkeypatch.setattr(
+        grpc_connection.grpc,
+        "secure_channel",
+        lambda target, credentials, options=None: calls.update(
+            {"target": target, "credentials": credentials, "options": options}
+        ) or "channel",
+    )
+
+    channel = grpc_connection.create_channel(
+        "drawthings.example.com",
+        7859,
+        insecure=False,
+        force_trust_server_cert=True,
+    )
+
+    assert channel == "channel"
+    assert calls["root_certificates"] == b"remote-cert"
+    assert calls["target"] == "drawthings.example.com:7859"
 
 
 def test_collect_generated_images_reassembles_chunks():

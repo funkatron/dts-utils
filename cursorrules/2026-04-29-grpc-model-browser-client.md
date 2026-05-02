@@ -12,6 +12,7 @@
 - Updated `README.md`, `CLI.md`, `API.md`, and `PROTOBUF.md` to describe the live upstream proto, FlatBuffer configuration requirement, chunked response handling, and task-first helper command.
 - Promoted the useful reflection scratch probe to `dts-util reflect`, then removed one-off scratch scripts.
 - Restricted `--trust-server-cert` to localhost/loopback so remote and LAN servers require explicit pinned trust via `--root-cert`.
+- Added `--force-trust-server-cert` as an intentionally dangerous escape hatch for remote diagnostics when cert pinning is not available.
 
 ## Follow-up ideas
 

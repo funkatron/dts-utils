@@ -120,6 +120,24 @@ def test_reflect_command_reports_connection_setup_errors(monkeypatch, capsys):
     assert "Connection setup error: bad cert" in captured.err
 
 
+def test_reflect_command_passes_force_trust_server_cert(monkeypatch, capsys):
+    """Verify the remote trust escape hatch reaches shared channel setup."""
+    channel = FakeChannel()
+    captured_kwargs = {}
+
+    monkeypatch.setattr(reflect, "create_channel", lambda *args, **kwargs: captured_kwargs.update(kwargs) or channel)
+    monkeypatch.setattr(reflect.grpc, "channel_ready_future", lambda created_channel: ReadyFuture())
+    monkeypatch.setattr(reflect, "reflect_server", lambda created_channel: [])
+
+    result = reflect.main(["--host", "gpu.local", "--force-trust-server-cert"])
+
+    output = capsys.readouterr()
+    assert result == 0
+    assert "Reflected services from gpu.local:7859" in output.out
+    assert captured_kwargs["force_trust_server_cert"] is True
+    assert captured_kwargs["trust_server_cert"] is False
+
+
 def test_dts_util_main_dispatches_reflect(monkeypatch):
     """Verify dts-util reflect is routed before installer argument parsing."""
     monkeypatch.setattr("sys.argv", ["dts-util", "reflect", "--json"])

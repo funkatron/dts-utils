@@ -24,7 +24,7 @@ import grpc
 import fpzip
 import numpy as np
 from PIL import Image
-from dts_util.grpc.connection import create_channel, fetch_server_certificate
+from dts_util.grpc.connection import create_channel
 from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 
@@ -56,6 +56,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--trust-server-cert",
         action="store_true",
         help="Fetch and trust the presented certificate for this localhost connection. Use --root-cert for remote or LAN servers.",
+    )
+    parser.add_argument(
+        "--force-trust-server-cert",
+        action="store_true",
+        help=(
+            "Fetch and trust the presented certificate for any host. "
+            "This is vulnerable to MITM attacks; prefer --root-cert for remote or LAN servers."
+        ),
     )
     return parser
 
@@ -308,6 +316,7 @@ def main(argv: list[str] | None = None) -> int:
             args.insecure,
             root_cert=args.root_cert,
             trust_server_cert=args.trust_server_cert,
+            force_trust_server_cert=args.force_trust_server_cert,
             max_message_mb=args.max_message_mb,
         )
     except (OSError, ValueError) as e:

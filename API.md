@@ -115,4 +115,5 @@ For command details, see `CLI.md`. For the prompt-to-image workflow, see `README
 - Local Draw Things servers commonly present a certificate issued by `Draw Things Root CA`. Python does not automatically trust that root certificate.
 - `--trust-server-cert` fetches and trusts the presented server certificate only for `localhost` and loopback addresses. This is a local development convenience, not a remote trust model.
 - Use `--root-cert PATH` when you have a pinned PEM certificate file.
+- Use `--force-trust-server-cert` only when a remote or LAN diagnostic requires trusting the presented certificate and you accept the man-in-the-middle risk for that connection.
 - Use `--insecure` only when the server was started with `--no-tls`.

@@ -21,6 +21,7 @@ def build_parser() -> argparse.ArgumentParser:
   dts-util reflect --trust-server-cert
   dts-util reflect --insecure
   dts-util reflect --json --root-cert cert.pem
+  dts-util reflect --host gpu.local --force-trust-server-cert
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -36,6 +37,14 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Fetch and trust the presented certificate for this localhost connection. "
             "Use --root-cert for remote or LAN servers."
+        ),
+    )
+    parser.add_argument(
+        "--force-trust-server-cert",
+        action="store_true",
+        help=(
+            "Fetch and trust the presented certificate for any host. "
+            "This is vulnerable to MITM attacks; prefer --root-cert for remote or LAN servers."
         ),
     )
     return parser
@@ -102,6 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             args.insecure,
             root_cert=args.root_cert,
             trust_server_cert=args.trust_server_cert,
+            force_trust_server_cert=args.force_trust_server_cert,
         )
     except (OSError, ValueError) as exc:
         print(f"Connection setup error: {exc}", file=sys.stderr)

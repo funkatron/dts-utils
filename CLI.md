@@ -82,10 +82,11 @@ Options:
 - `--timeout SECONDS`: Connection timeout (default: `2`)
 - `--json`: Print machine-readable JSON
 - `--trust-server-cert`: Trust the presented certificate for this localhost connection only
+- `--force-trust-server-cert`: Trust the presented certificate for any host, with MITM risk
 - `--root-cert PATH`: Use a pinned PEM root/server certificate
 - `--insecure`: Connect without TLS when the server was installed with `--no-tls`
 
-Use `--root-cert` for remote or LAN servers. `--trust-server-cert` is restricted to `localhost` and loopback addresses because accepting an arbitrary remote certificate would make man-in-the-middle attacks too easy.
+Use `--root-cert` for remote or LAN servers when possible. `--trust-server-cert` is restricted to `localhost` and loopback addresses. `--force-trust-server-cert` is available for remote diagnostics, but it trusts whatever certificate is presented on that connection and can be vulnerable to man-in-the-middle attacks.
 
 ## Examples
 
@@ -154,6 +155,7 @@ Important options:
 - `--configuration-json PATH`: Read a Draw Things JSON generation configuration and convert it to FlatBuffer bytes with `flatc`.
 - `--configuration PATH`: Read prebuilt FlatBuffer configuration bytes directly.
 - `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
+- `--force-trust-server-cert`: Trust the certificate presented by any server for this connection, with MITM risk.
 - `--root-cert PATH`: Use a pinned PEM root/server certificate.
 - `--insecure`: Connect without TLS when the server was installed with `--no-tls`.
 - `--max-message-mb N`: Set gRPC send and receive message limits.
@@ -169,8 +171,9 @@ Common tasks:
 | Generate and open the result | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
 | Use prebuilt FlatBuffer bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | Generation without `flatc`. |
 | Use a pinned certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
+| Force trust for remote diagnostics | `uv run python scripts/generate_image.py --host gpu.local --prompt "..." --configuration-json config.json --output generated.png --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
 
-For remote or LAN servers, use `--root-cert PATH` instead of `--trust-server-cert`.
+For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-cert` only when you cannot pin a cert and accept the risk for that connection.
 
 ## Environment Variables
 

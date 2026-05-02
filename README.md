@@ -1,6 +1,6 @@
 # dts-util — Draw Things gRPC helper
 
-Python **3.12+** helpers for **Draw Things `gRPCServerCLI`**: **`dts-util install` / `test` / `restart`** on macOS (LaunchAgent), plus **`dts-util generate`** → PNG over **`GenerateImage`**, **`reflect`**, **`configs`**, and **`models`** (local community-model index).
+Python **3.12+** helpers for **Draw Things `gRPCServerCLI`**: **`dts-util server install`**, **`server check`** / **`server test`**, **`server restart`** on macOS (LaunchAgent), plus **`dts-util generate`** → PNG over **`GenerateImage`**, **`reflect`**, **`configs`**, and **`models`** (local community-model index).
 
 **gRPC API, proto, and FlatBuffer layout:** [CLI.md](CLI.md), [API.md](API.md), [PROTOBUF.md](PROTOBUF.md). **Draw Things app** (models, diffusion, GPU): [Draw Things documentation](https://drawthings.ai/docs).
 
@@ -46,9 +46,9 @@ uv run dts-util generate \
 
 - **Python 3.12+** and [**`uv`**](https://github.com/astral-sh/uv) (`uv sync`, `uv run …`).
 - **`flatc` on `PATH`** whenever the resolved config is **JSON** (saved names expand to **`NAME.json`** inside the directory from **`uv run dts-util configs path`**). Omitted for **raw FlatBuffer** payloads.
-- **`server install`** (or **`install`**), **`server restart`**, **`server uninstall`**, **`server check`/`test`**: assume **local macOS** LaunchAgent layout and **local `pgrep` / `lsof`** probes for **`gRPCServerCLI`**. Prefer the **`server …`** spelling so these are not confused with **`pytest`** or other “test” commands.
+- **`server install`**, **`server restart`**, **`server uninstall`**, **`server check`** / **`server test`**: assume **local macOS** LaunchAgent layout and **local `pgrep` / `lsof`** probes for **`gRPCServerCLI`**. Use the **`server …`** prefix so these are not confused with **`pytest`** or other “test” commands.
 - **`generate`** and **`reflect`**: run wherever this Python environment runs, given **network** reachability to the server.
-- **Pinned PEM (optional):** **`uv run dts-util tls export`** or **`uv run dts-util install --export-tls-cert`** saves the server's **presented** certificate next to **`configs path`**-style dirs for **`--root-cert`** (**`gRPCServerCLI`** keystores are unchanged—I/O only).
+- **Pinned PEM (optional):** **`uv run dts-util tls export`** or **`uv run dts-util server install --export-tls-cert`** saves the server's **presented** certificate next to **`configs path`**-style dirs for **`--root-cert`** (**`gRPCServerCLI`** keystores are unchanged—I/O only).
 - **`configs path`** / **`configs list`**: local filesystem only.
 - **`models`** subcommands: clone and index public metadata (optional Hugging Face calls); **no** **`GenerateImage`** server required.
 - **`uv run dts-util <subcommand> --help`** and **[CLI.md](CLI.md)** for the full flag surface.
@@ -95,7 +95,7 @@ Reference sequence commonly used during initial setup:
 
 | Step | Command |
 | --- | --- |
-| 1. Install binary + LaunchAgent defaults | `uv run dts-util server install` (legacy: `dts-util install`) |
+| 1. Install binary + LaunchAgent defaults | `uv run dts-util server install` |
 | 2. Confirm process + port | `uv run dts-util server check` (aliases: `server test`, `check`, `test`) |
 | 3. Optional: TLS secret, port, models path | `uv run dts-util server install --shared-secret "…"` · `--port 7860` · `--model-path /path/to/models` |
 | 4. Optional: extra flags once installed | `uv run dts-util server install --model-browser --debug` |
@@ -243,7 +243,7 @@ Filters you might use: `--family`, `--type`, `--author`, `--license`, `--has-sou
 
 | Symptom | Often correlates with |
 | --- | --- |
-| `dts-util test` unhappy | Logs: `~/.config/draw-things/server.log` · LaunchAgent reload via `dts-util restart` · alternate port probes: `dts-util test --port PORT` |
+| `dts-util server test` unhappy | Logs: `~/.config/draw-things/server.log` · LaunchAgent reload via `dts-util server restart` · alternate port probes: `dts-util server test --port PORT` |
 | TLS errors on **`localhost`** | `--trust-server-cert` (loopback restriction) · [TLS patterns](#tls-patterns) |
 | `generate` dies fast or “socket closed” | Missing `--configuration` / `--configuration-json` · mismatched checkpoints vs config on server |
 | Unsure what the server exposes | `dts-util reflect` · `--json` for machine-readable dumps |

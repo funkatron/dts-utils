@@ -14,32 +14,18 @@ uv run dts-util <command> [options]
 
 These commands manage **macOS LaunchAgent + `gRPCServerCLI`** (not pytest, not Docker).
 
-**Grouped spelling** (recommended — makes “server daemon” ops obvious):
-
-```bash
-uv run dts-util server install [...]
-uv run dts-util server uninstall
-uv run dts-util server restart [--model-browser]
-uv run dts-util server test|check [--port PORT]
-```
-
-- **`test`** probes that something is listening locally (today: gRPC readiness check + process hints in the installer).
-- **`check`** is an alias for **`test`** (avoids sounding like unit tests).
-
-**Legacy** (same behavior): drop the `server` token, e.g. `dts-util install`, `dts-util test`.
+**Required spelling:** **`dts-util server <subcommand>`** for install, uninstall, restart, **`test`**, and **`check`**. Omitting **`server`** (e.g. `dts-util install`) is rejected (**stderr + exit code `2`**).
 
 Bare **`dts-util server`** prints this summary.
 
 ## Available Commands
 
-### install
+### install (`dts-util server install`)
 
-Prefer **`dts-util server install`** (see [Server lifecycle](#server-lifecycle-launchagent)); **`dts-util install`** is the same.
-
-Installs and configures the Draw Things gRPC server.
+Installs and configures the Draw Things gRPC server via the macOS LaunchAgent workflow.
 
 ```bash
-uv run dts-util install [options]
+uv run dts-util server install [options]
 ```
 
 Options:
@@ -66,7 +52,7 @@ Options:
 Removes the Draw Things gRPC server and all related files.
 
 ```bash
-uv run dts-util uninstall
+uv run dts-util server uninstall
 ```
 
 ### restart
@@ -74,7 +60,7 @@ uv run dts-util uninstall
 Restarts the Draw Things gRPC server service.
 
 ```bash
-uv run dts-util restart [--model-browser]
+uv run dts-util server restart [--model-browser]
 ```
 
 Options:
@@ -86,15 +72,14 @@ Probes localhost for a reachable gRPC listener (installer workflow; not **`pytes
 
 ```bash
 uv run dts-util server test [--port PORT]
-# or legacy:
-uv run dts-util test [options]
-uv run dts-util check [--port PORT]
+uv run dts-util server check [--port PORT]
 ```
 
 Options:
+
 - `--port PORT`: Port to probe (default: 7859)
 
-**`check`** is a synonym for **`test`** at the same level (after optional `dts-util server`, `dts-util server check` expands to `dts-util check`).
+**`check`** is a synonym for **`test`** (same flags). Both require the **`server`** prefix alongside **`install`**, **`uninstall`**, and **`restart`**.
 
 ### reflect
 
@@ -149,7 +134,7 @@ Subcommands:
 - **`tls path`**: Print default PEM destination (usually under your `dts-util` config hierarchy / `trusted/`), creating parents unless `--no-create`.
 - **`tls export`**: Connect with TLS, capture the presented PEM, `--output`/`-o` path (defaults to **`tls path`**), **`--force`** to replace, **`--host`** / **`--port`**, **`--retries`** for post-install backoff.
 
-Combined with **`install`** (macOS LaunchAgent workflow): `uv run dts-util install --export-tls-cert` runs **`export`** to the default PEM after **`test`** passes (skipped when **`--no-tls`** is set).
+Combined with **`server install`** (macOS LaunchAgent workflow): `uv run dts-util server install --export-tls-cert` runs **`export`** to the default PEM after **`server test`** passes (skipped when **`--no-tls`** is set).
 
 ### generate
 
@@ -183,33 +168,33 @@ Important options:
 
 ```bash
 # Install with default settings
-uv run dts-util install
+uv run dts-util server install
 
 # Install with custom model path
-uv run dts-util install -m /path/to/models
+uv run dts-util server install -m /path/to/models
 ```
 
 ### Advanced Installation
 
 ```bash
 # Install with custom port, name, and model path
-uv run dts-util install -p 7860 -n "MyServer" -m /path/to/models
+uv run dts-util server install -p 7860 -n "MyServer" -m /path/to/models
 
 # Install with security settings
-uv run dts-util install -s "your-secret-here"
+uv run dts-util server install -s "your-secret-here"
 
 # Install with advanced settings
-uv run dts-util install --model-browser --debug --no-flash-attention
+uv run dts-util server install --model-browser --debug --no-flash-attention
 ```
 
 ### Server Management
 
 ```bash
-# Check if server is running
-uv run dts-util test
+# Check if server is listening locally
+uv run dts-util server test
 
-# Test connection on a specific port
-uv run dts-util test --port 7860
+# Probe a specific port
+uv run dts-util server test --port 7860
 
 # List reflected gRPC services and methods
 uv run dts-util reflect --trust-server-cert
@@ -222,13 +207,13 @@ uv run dts-util tls path
 uv run dts-util tls export
 
 # Restart the server
-uv run dts-util restart
+uv run dts-util server restart
 
 # Enable model browser and restart the server
-uv run dts-util restart --model-browser
+uv run dts-util server restart --model-browser
 
 # Uninstall the server
-uv run dts-util uninstall
+uv run dts-util server uninstall
 ```
 
 ## Image generation
@@ -272,7 +257,7 @@ For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-
   export DRAW_THINGS_MODEL_PATH=/path/to/your/models
 
   # Now you can run commands without specifying --model-path
-  uv run dts-util install
+  uv run dts-util server install
   ```
 
   Note: If you use both the environment variable and the `--model-path` option, the command line option takes precedence.
@@ -291,6 +276,7 @@ uv run pytest
 
 - `0`: Success
 - `1`: Error occurred during command execution
+- `2`: Invalid arguments (for example, bare LaunchAgent lifecycle verbs without the `server` prefix)
 
 ## See Also
 

@@ -11,7 +11,12 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(project_root, "src"))
 
-from dts_util.installer.server_installer import DTSServerInstaller, is_server_running
+from dts_util.installer.server_installer import DTSServerInstaller, prepare_argv_for_installer_dispatch
+
+
+def _setup_server_argv(monkeypatch: pytest.MonkeyPatch, *tokens: str) -> None:
+    monkeypatch.setattr("sys.argv", ["dts-util", "server", *tokens])
+    assert prepare_argv_for_installer_dispatch(sys.argv) is None
 
 
 @pytest.fixture
@@ -50,7 +55,7 @@ class TestCLICommands:
     def test_install_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the install command."""
         # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util', 'install'])
+        _setup_server_argv(monkeypatch, 'install')
 
         # Create instance but patch run to prevent installation
         with patch.object(DTSServerInstaller, 'run') as mock_run:
@@ -69,7 +74,7 @@ class TestCLICommands:
     def test_uninstall_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the uninstall command."""
         # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util', 'uninstall'])
+        _setup_server_argv(monkeypatch, 'uninstall')
 
         # Create instance and parse args
         installer = DTSServerInstaller()
@@ -84,7 +89,7 @@ class TestCLICommands:
     def test_restart_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the restart command."""
         # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util', 'restart'])
+        _setup_server_argv(monkeypatch, 'restart')
 
         # Create instance and parse args
         installer = DTSServerInstaller()
@@ -98,7 +103,7 @@ class TestCLICommands:
 
     def test_restart_command_can_enable_model_browser(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test restarting while enabling model browser."""
-        monkeypatch.setattr('sys.argv', ['dts-util', 'restart', '--model-browser'])
+        _setup_server_argv(monkeypatch, 'restart', '--model-browser')
 
         installer = DTSServerInstaller()
         installer.parse_args()
@@ -109,7 +114,7 @@ class TestCLICommands:
     def test_test_command_server_running(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the test command when server is running."""
         # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util', 'test'])
+        _setup_server_argv(monkeypatch, 'test')
 
         # Mock server as running
         mock_installer_methods['is_running'].return_value = True
@@ -127,7 +132,7 @@ class TestCLICommands:
     def test_test_command_server_not_running(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the test command when server is not running."""
         # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util', 'test'])
+        _setup_server_argv(monkeypatch, 'test')
 
         # Mock server as not running
         mock_installer_methods['is_running'].return_value = False
@@ -144,7 +149,7 @@ class TestCLICommands:
 
     def test_check_alias_invokes_listener_probe(self, mock_installer_methods, monkeypatch, mock_exit):
         """``check`` is synonymous with ``test`` (listener probe, not pytest)."""
-        monkeypatch.setattr("sys.argv", ["dts-util", "check"])
+        _setup_server_argv(monkeypatch, 'check')
 
         mock_installer_methods["is_running"].return_value = True
 
@@ -175,7 +180,7 @@ class TestCLICommands:
     def test_command_with_custom_port(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test using a command with a custom port."""
         # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util', 'test', '--port', '7860'])
+        _setup_server_argv(monkeypatch, 'test', '--port', '7860')
 
         # Mock server as running
         mock_installer_methods['is_running'].return_value = True

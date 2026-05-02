@@ -104,9 +104,9 @@ Requirements for this command:
 Use `dts-util` for installing and restarting the Draw Things server process:
 
 ```bash
-uv run dts-util install --model-browser
-uv run dts-util restart --model-browser
-uv run dts-util test
+uv run dts-util server install --model-browser
+uv run dts-util server restart --model-browser
+uv run dts-util server test
 ```
 
 For command details, see `CLI.md`. For the prompt-to-image workflow, see `README.md`.

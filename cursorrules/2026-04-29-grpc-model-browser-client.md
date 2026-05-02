@@ -1,6 +1,6 @@
 # 2026-04-29 gRPC Model Browser and Image Client
 
-- Added restart-time model browser enablement with `dts-util restart --model-browser`.
+- Added restart-time model browser enablement with `dts-util server restart --model-browser`.
 - Preserved existing LaunchAgent settings by mutating only the installed service `ProgramArguments`.
 - Added `dts-util generate` (package `dts_util.generate`) to call upstream streaming `GenerateImage` and write returned image bytes to disk.
 - Added `--configuration-json` to convert Draw Things JSON config into FlatBuffer bytes with `flatc` and the bundled `config.fbs` schema.

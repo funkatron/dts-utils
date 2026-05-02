@@ -1,6 +1,11 @@
 # dts-util — Draw Things gRPC helper
 
-Python **3.12+** helpers for **Draw Things `gRPCServerCLI`**: **`dts-util server install`**, **`server check`** / **`server test`**, **`server restart`** on macOS (LaunchAgent), plus **`dts-util generate`** → PNG over **`GenerateImage`**, **`reflect`**, **`configs`**, and **`models`** (local community-model index).
+A Python CLI tool for macOS to install, manage, and interact with the Draw Things **`gRPCServerCLI`**.
+
+Available commands:
+- `dts-util server` (install, uninstall, restart, test, check)
+- `dts-util generate` 
+- `dts-util models` (local community-model index)
 
 **gRPC API, proto, and FlatBuffer layout:** [CLI.md](CLI.md), [API.md](API.md), [PROTOBUF.md](PROTOBUF.md). **Draw Things app** (models, diffusion, GPU): [Draw Things documentation](https://drawthings.ai/docs).
 
@@ -30,7 +35,7 @@ Point **`generate`** and **`reflect`** at the host with **`--host`** (and the ma
 
 ### Generate one PNG (localhost + Draw Things TLS)
 
-**Generation needs a Draw Things configuration:** a **saved name** (JSON under `configs path`), a **`.json`** file path, or **raw FlatBuffer bytes** (any **existing** path that is **not** JSON is read as opaque bytes—extension is not limited to **`.bin`**).
+**Generation needs a Draw Things configuration:** a **saved name** (JSON under **`configs path`**), a **`.json`** file path, or **raw FlatBuffer bytes** (any **existing** path that is **not** JSON is read as opaque bytes—extension is not limited to **`.bin`**).
 
 ```bash
 uv run dts-util generate \
@@ -46,7 +51,7 @@ uv run dts-util generate \
 
 - **Python 3.12+** and [**`uv`**](https://github.com/astral-sh/uv) (`uv sync`, `uv run …`).
 - **`flatc` on `PATH`** whenever the resolved config is **JSON** (saved names expand to **`NAME.json`** inside the directory from **`uv run dts-util configs path`**). Omitted for **raw FlatBuffer** payloads.
-- **`server install`**, **`server restart`**, **`server uninstall`**, **`server check`** / **`server test`**: assume **local macOS** LaunchAgent layout and **local `pgrep` / `lsof`** probes for **`gRPCServerCLI`**. Use the **`server …`** prefix so these are not confused with **`pytest`** or other “test” commands.
+- **`server install`**, **`server restart`**, **`server uninstall`**, **`server check`** / **`server test`**: assume **local macOS** LaunchAgent layout and **`pgrep` / `lsof`** probes for **`gRPCServerCLI`**. Use the **`server …`** prefix so these are not confused with **`pytest`** or other “test” commands.
 - **`generate`** and **`reflect`**: run wherever this Python environment runs, given **network** reachability to the server.
 - **Pinned PEM (optional):** **`uv run dts-util tls export`** or **`uv run dts-util server install --export-tls-cert`** saves the server's **presented** certificate next to **`configs path`**-style dirs for **`--root-cert`** (**`gRPCServerCLI`** keystores are unchanged—I/O only).
 - **`configs path`** / **`configs list`**: local filesystem only.
@@ -57,25 +62,16 @@ uv run dts-util generate \
 
 ## Reading map
 
-| Topic | Section |
-| --- | --- |
-| Tooling and platform notes | [Requirements](#requirements) (under **How to use it**) |
-| Repo URL / extra help invocations | [Installation](#installation) |
-| Restart, model browsing, uninstall | [Server lifecycle](#server-lifecycle-macos) (+ [CLI.md](CLI.md)) |
-| **`--configuration`**, TLS tables, examples | [Image generation](#image-generation) |
-| Local Draw Things metadata index | [Model inspector](#uncurated-model-inspector) |
-| TLS / sockets / configs | [Troubleshooting](#troubleshooting) |
-| Repo tree | [Package layout](#package-layout) |
 
----
-
-## Overview
-
-The runnable path is **[How to use it](#how-to-use-it)** above. Short recap:
-
-- **macOS** packaging wires **LaunchAgent** + **`gRPCServerCLI`**; other subcommands are **`uv run`** entry points you already saw.
-- **`generate`** requires **`--configuration`** (saved JSON name resolved inside the directory from **`configs path`**, a **`.json`** path converted with **`flatc`**, or an existing non-JSON path read as FlatBuffer bytes).
-- **`dts-util models`** indexes Draw Things **`community-models`** metadata locally; it is separate from **`GenerateImage`**.
+| Topic                                       | Section                                                          |
+| ------------------------------------------- | ---------------------------------------------------------------- |
+| Tooling and platform notes                  | [Requirements](#requirements) (under **How to use it**)          |
+| Repo URL / extra help invocations           | [Installation](#installation)                                    |
+| Restart, model browsing, uninstall          | [Server lifecycle](#server-lifecycle-macos) (+ [CLI.md](CLI.md)) |
+| **`--configuration`**, TLS tables, examples              | [Image generation](#image-generation)                            |
+| Local Draw Things metadata index            | [Model inspector](#uncurated-model-inspector)                    |
+| TLS / sockets / configs                     | [Troubleshooting](#troubleshooting)                              |
+| Repo tree                                   | [Package layout](#package-layout)                                |
 
 ---
 
@@ -93,14 +89,16 @@ uv run dts-util models --help
 
 Reference sequence commonly used during initial setup:
 
-| Step | Command |
-| --- | --- |
-| 1. Install binary + LaunchAgent defaults | `uv run dts-util server install` |
-| 2. Confirm process + port | `uv run dts-util server check` (aliases: `server test`, `check`, `test`) |
-| 3. Optional: TLS secret, port, models path | `uv run dts-util server install --shared-secret "…"` · `--port 7860` · `--model-path /path/to/models` |
-| 4. Optional: extra flags once installed | `uv run dts-util server install --model-browser --debug` |
-| 5. Turn on **model browsing** without reinstalling everything | `uv run dts-util server restart --model-browser` |
-| 6. Routine restart / full removal | `uv run dts-util server restart` · `uv run dts-util server uninstall` |
+
+| Step                                                          | Command                                                                                               |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| 1. Install binary + LaunchAgent defaults                      | `uv run dts-util server install`                                                                      |
+| 2. Confirm process + port                                     | `uv run dts-util server check` (aliases: `server test`, `check`, `test`)                              |
+| 3. Optional: TLS secret, port, models path                    | `uv run dts-util server install --shared-secret "…"` · `--port 7860` · `--model-path /path/to/models` |
+| 4. Optional: extra flags once installed                       | `uv run dts-util server install --model-browser --debug`                                              |
+| 5. Turn on **model browsing** without reinstalling everything | `uv run dts-util server restart --model-browser`                                                      |
+| 6. Routine restart / full removal                             | `uv run dts-util server restart` · `uv run dts-util server uninstall`                                 |
+
 
 Full flag text lives in **[CLI.md](CLI.md)**.
 
@@ -112,11 +110,13 @@ Full flag text lives in **[CLI.md](CLI.md)**.
 
 ### How `--configuration` resolves
 
-| You pass… | Effect |
-| --- | --- |
+
+| You pass…                                     | Effect                                                                                           |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | A **name** (no slashes; not an existing path) | Resolves **`NAME.json`** inside [the directory **`configs path` prints](#saved-config-location). |
-| A **`.json` path** | Converts with **`flatc`** + bundled **`config.fbs`**. |
-| An **existing path that is not JSON** | Read as raw FlatBuffer bytes (no **`flatc`**; extension is not limited to **`.bin`**). |
+| A **`.json` path**                            | Converts with **`flatc`** + bundled **`config.fbs`**.                                            |
+| An **existing path that is not JSON**         | Read as raw FlatBuffer bytes (no **`flatc`**; extension is not limited to **`.bin`**).           |
+
 
 `--configuration-json` is JSON-only (name or path), **mutually exclusive** with `--configuration` in argparse. **`--configuration`** is the single knob for names, **`.json`**, and raw bytes.
 
@@ -145,13 +145,15 @@ uv run dts-util generate \
 
 ### TLS patterns
 
-| Situation | Typical flag |
-| --- | --- |
-| Localhost / loopback, cert not in system trust | `--trust-server-cert` (loopback-only) |
-| Remote or LAN, PEM you trust | `--root-cert PATH` (often with `--host`) |
+
+| Situation                                               | Typical flag                                              |
+| ------------------------------------------------------- | --------------------------------------------------------- |
+| Localhost / loopback, cert not in system trust          | `--trust-server-cert` (loopback-only)                     |
+| Remote or LAN, PEM you trust                            | `--root-cert PATH` (often with `--host`)                  |
 | Debugging only — MITM risk accepted for that connection | `--force-trust-server-cert` (+ `--host …` when not local) |
-| Server installed without TLS | `--no-tls` on the client |
-| plist uses a shared secret | `--shared-secret` on `generate` |
+| Server installed without TLS                            | `--no-tls` on the client                                  |
+| plist uses a shared secret                              | `--shared-secret` on `generate`                           |
+
 
 ### Behind the scenes (one line each)
 
@@ -170,14 +172,16 @@ Example: **`portrait.json`** inside that directory matches **`--configuration po
 
 ### Task cheat sheet
 
-| Goal | Typical flags / shape |
-| --- | --- |
-| Saved name + open viewer (desktop) | `--configuration NAME … --trust-server-cert --open` |
-| Inline JSON path | `--configuration path/to.json …` |
-| PEM pinned verification | `--root-cert cert.pem` (often with `--host`; replaces loopback trust) |
-| Plaintext gRPC | `--no-tls` |
-| Raw FlatBuffer file on disk | `--configuration /path/to/payload` (not **`.json`**; e.g. **`.bin`**) |
-| Remote diagnostic trust (**risk**) | `--host HOST --force-trust-server-cert` |
+
+| Goal                               | Typical flags / shape                                                 |
+| ---------------------------------- | --------------------------------------------------------------------- |
+| Saved name + open viewer (desktop) | `--configuration NAME … --trust-server-cert --open`                   |
+| Inline JSON path                   | `--configuration path/to.json …`                                      |
+| PEM pinned verification            | `--root-cert cert.pem` (often with `--host`; replaces loopback trust) |
+| Plaintext gRPC                     | `--no-tls`                                                            |
+| Raw FlatBuffer file on disk        | `--configuration /path/to/payload` (not **`.json`**; e.g. **`.bin`**) |
+| Remote diagnostic trust (**risk**) | `--host HOST --force-trust-server-cert`                               |
+
 
 ### Reflection (optional)
 
@@ -204,6 +208,8 @@ except Exception as e:
 
 ## Uncurated model inspector
 
+*This feature is still in flux..*
+
 Clone / update upstream metadata into **`.cache/`**, build local tables:
 
 ```bash
@@ -226,14 +232,16 @@ Filters you might use: `--family`, `--type`, `--author`, `--license`, `--has-sou
 
 ### Output paths
 
-| Path | Meaning |
-| --- | --- |
-| `data/drawthings_uncurated_models.json` | Full dataset |
-| `data/drawthings_uncurated_models.csv` | CSV slice |
-| `data/drawthings_models.sqlite` | SQLite DB |
-| `data/report.html` | HTML report |
-| `.cache/community-models/` | Cloned **`drawthingsai/community-models`** |
-| `.cache/huggingface/` | HF API cache |
+
+| Path                                    | Meaning                                    |
+| --------------------------------------- | ------------------------------------------ |
+| `data/drawthings_uncurated_models.json` | Full dataset                               |
+| `data/drawthings_uncurated_models.csv`  | CSV slice                                  |
+| `data/drawthings_models.sqlite`         | SQLite DB                                  |
+| `data/report.html`                      | HTML report                                |
+| `.cache/community-models/`              | Cloned **`drawthingsai/community-models`** |
+| `.cache/huggingface/`                   | HF API cache                               |
+
 
 `build` reads `uncurated_models.txt`, SHA manifests, and `metadata.json` trees. Bad rows become warnings instead of crashing the build.
 
@@ -241,13 +249,15 @@ Filters you might use: `--family`, `--type`, `--author`, `--license`, `--has-sou
 
 ## Troubleshooting
 
-| Symptom | Often correlates with |
-| --- | --- |
-| `dts-util server test` unhappy | Logs: `~/.config/draw-things/server.log` · LaunchAgent reload via `dts-util server restart` · alternate port probes: `dts-util server test --port PORT` |
-| TLS errors on **`localhost`** | `--trust-server-cert` (loopback restriction) · [TLS patterns](#tls-patterns) |
-| `generate` dies fast or “socket closed” | Missing `--configuration` / `--configuration-json` · mismatched checkpoints vs config on server |
-| Unsure what the server exposes | `dts-util reflect` · `--json` for machine-readable dumps |
-| “Cannot resolve … config” | `configs path`, `configs list`, file naming inside that directory vs absolute `--configuration` path |
+
+| Symptom                                 | Often correlates with                                                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dts-util server test` unhappy          | Logs: `~/.config/draw-things/server.log` · LaunchAgent reload via `dts-util server restart` · alternate port probes: `dts-util server test --port PORT` |
+| TLS errors on **`localhost`**           | `--trust-server-cert` (loopback restriction) · [TLS patterns](#tls-patterns)                                                                            |
+| `generate` dies fast or “socket closed” | Missing `--configuration` / `--configuration-json` · mismatched checkpoints vs config on server                                                         |
+| Unsure what the server exposes          | `dts-util reflect` · `--json` for machine-readable dumps                                                                                                |
+| “Cannot resolve … config”               | `configs path`, `configs list`, file naming inside that directory vs absolute `--configuration` path                                                    |
+
 
 ---
 
@@ -269,12 +279,14 @@ Installer + flag behavior stays in **[CLI.md](CLI.md)**, not here.
 
 ## Related documentation
 
-| Doc | Covers |
-| --- | --- |
-| [CLI.md](CLI.md) | Every subcommand |
-| [API.md](API.md) | `ImageGenerationRequest`, streaming caveats |
-| [PROTOBUF.md](PROTOBUF.md) | Proto + FlatBuffer **`GenerationConfiguration`** |
-| [Draw Things](https://drawthings.ai/docs) | Product docs outside this repo |
+
+| Doc                                       | Covers                                           |
+| ----------------------------------------- | ------------------------------------------------ |
+| [CLI.md](CLI.md)                          | Every subcommand                                 |
+| [API.md](API.md)                          | `ImageGenerationRequest`, streaming caveats      |
+| [PROTOBUF.md](PROTOBUF.md)                | Proto + FlatBuffer **`GenerationConfiguration`** |
+| [Draw Things](https://drawthings.ai/docs) | Product docs outside this repo                   |
+
 
 ---
 

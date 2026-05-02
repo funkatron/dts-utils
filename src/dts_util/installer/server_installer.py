@@ -17,6 +17,7 @@ from ..configs import main as configs_main
 from ..generate import main as generate_main
 from ..grpc.utils import is_server_running, handle_grpc_error
 from ..grpc.reflect import main as reflect_main
+from ..tls_export import main as tls_main
 from dt_model_index.cli import main as models_main
 
 class DTSServerInstaller:
@@ -69,6 +70,7 @@ Usage:
     dts-util generate --prompt PROMPT --configuration CONFIG [...]
     dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
     dts-util configs <path|list> [...]
+    dts-util tls <path|export> [...]
     dts-util models <build|search|show|report> [...]
 
 The installer will:
@@ -84,12 +86,18 @@ Commands:
     generate            Generate an image through the Draw Things gRPC API
     reflect             List gRPC reflection services and methods
     configs             Show and list saved JSON generation configurations
+    tls                 Export the server's presented TLS certificate as PEM
     models              Build and inspect a local Draw Things model index
 
 Installer Options:
     -m, --model-path     Custom path to store models (default: Draw Things app models directory)
     -h, --help          Show this help message
-    -q, --quiet        Minimize output and assume default answers to prompts
+    -q, --quiet            Minimize output and assume default answers to prompts
+
+Install PEM export (requires TLS-enabled server install):
+    --export-tls-cert      After successful install, write presented server PEM for ``--root-cert``
+    --export-tls-cert-path PATH   PEM destination (default: ``dts-util tls path`` output)
+    --export-tls-cert-force       Overwrite an existing PEM
 
 gRPCServerCLI Options:
     -n, --name             Server name in local network (default: machine name)
@@ -121,6 +129,9 @@ Advanced Options:
 Examples:
     # Install using default settings
     dts-util install
+
+    # Install and save the presented TLS certificate for ``--root-cert``
+    dts-util install --export-tls-cert
 
     # Install with custom model path
     dts-util install -m /path/to/models
@@ -157,6 +168,9 @@ Examples:
 
     # Show where named JSON generation configs are stored
     dts-util configs path
+
+    # Pin the server's TLS certificate locally (PEM for ``--root-cert``):
+    dts-util tls export
 
     # Quiet install with defaults
     dts-util install -q
@@ -238,6 +252,26 @@ Examples:
                           help='Enable verbose model inference logging')
         parser.add_argument('--join',
                           help='JSON configuration for proxy setup')
+        parser.add_argument(
+            '--export-tls-cert',
+            action='store_true',
+            help=(
+                'After a successful install with TLS, write the presented server certificate '
+                'to a PEM file (default path: run ``dts-util tls path``).'
+            ),
+        )
+        parser.add_argument(
+            '--export-tls-cert-path',
+            type=Path,
+            default=None,
+            metavar='PATH',
+            help='Destination PEM when using --export-tls-cert (default: tls path).',
+        )
+        parser.add_argument(
+            '--export-tls-cert-force',
+            action='store_true',
+            help='Overwrite an existing PEM when using --export-tls-cert.',
+        )
 
         args = parser.parse_args()
 
@@ -693,6 +727,31 @@ Examples:
         finally:
             sock.close()
 
+    def maybe_export_installed_tls_pem(self, args: argparse.Namespace) -> None:
+        """Optionally fetch the presented server cert after a successful TLS install."""
+        if not getattr(args, "export_tls_cert", False):
+            return
+        assert self.server_args is not None
+        if self.server_args.get("no_tls"):
+            print("\n(--export-tls-cert skipped: server was installed with --no-tls)")
+            return
+        from ..tls_export import default_server_pem_path, export_presented_certificate_with_retries
+
+        dest = args.export_tls_cert_path if args.export_tls_cert_path else default_server_pem_path()
+        try:
+            resolved = export_presented_certificate_with_retries(
+                "localhost",
+                self.server_args["port"],
+                dest,
+                force=args.export_tls_cert_force,
+                attempts=10,
+            )
+            print("\nPresented server TLS certificate saved (pin with client --root-cert):")
+            print(f"    {resolved}")
+            print(f"Example: uv run dts-util generate --root-cert {resolved} ...")
+        except Exception as exc:
+            print(f"\nWARNING: Could not export TLS PEM: {exc}", file=sys.stderr)
+
     def run(self):
         args = self.parse_args()
 
@@ -736,6 +795,7 @@ Examples:
                     print("You can manage it with these commands:")
                     print(f"    launchctl unload ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
                     print(f"    launchctl load ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    self.maybe_export_installed_tls_pem(args)
                 else:
                     print("\nWARNING: Installation completed but server may not be running correctly.")
                     print("Try these troubleshooting steps:")
@@ -822,6 +882,8 @@ def main():
         sys.exit(configs_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "reflect":
         sys.exit(reflect_main(sys.argv[2:]))
+    if len(sys.argv) > 1 and sys.argv[1] == "tls":
+        sys.exit(tls_main(sys.argv[2:]))
     if len(sys.argv) > 1 and sys.argv[1] == "models":
         sys.exit(models_main(sys.argv[2:]))
     installer = DTSServerInstaller()

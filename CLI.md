@@ -35,6 +35,9 @@ Options:
 - `--no-flash-attention`: Disable Flash Attention
 - `--debug`: Enable verbose logging
 - `--join JSON`: JSON configuration for proxy setup
+- `--export-tls-cert`: After a successful install with TLS, write the server's presented PEM (see **tls export** below)
+- `--export-tls-cert-path PATH`: Destination PEM for `--export-tls-cert` (default: `dts-util tls path`)
+- `--export-tls-cert-force`: Overwrite an existing PEM during `--export-tls-cert`
 
 ### uninstall
 
@@ -106,6 +109,21 @@ Options:
 
 Save files like `portrait.json` in this directory, then use `--configuration portrait` with `dts-util generate`.
 
+### tls
+
+Writes the server's **presented** TLS certificate to a PEM file for **`dts-util generate --root-cert …`** / **`reflect --root-cert …`** (trust-on-fetch; same bytes Python's `ssl.get_server_certificate` returns). **`gRPCServerCLI`** keystores are not modified.
+
+```bash
+uv run dts-util tls path
+uv run dts-util tls export
+```
+
+Subcommands:
+- **`tls path`**: Print default PEM destination (usually under your `dts-util` config hierarchy / `trusted/`), creating parents unless `--no-create`.
+- **`tls export`**: Connect with TLS, capture the presented PEM, `--output`/`-o` path (defaults to **`tls path`**), **`--force`** to replace, **`--host`** / **`--port`**, **`--retries`** for post-install backoff.
+
+Combined with **`install`** (macOS LaunchAgent workflow): `uv run dts-util install --export-tls-cert` runs **`export`** to the default PEM after **`test`** passes (skipped when **`--no-tls`** is set).
+
 ### generate
 
 Generates an image through the upstream Draw Things streaming gRPC API.
@@ -171,6 +189,10 @@ uv run dts-util reflect --trust-server-cert
 
 # Print the saved JSON config directory
 uv run dts-util configs path
+
+# Print PEM path and pin server cert locally
+uv run dts-util tls path
+uv run dts-util tls export
 
 # Restart the server
 uv run dts-util restart

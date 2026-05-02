@@ -119,3 +119,4 @@ For command details, see `CLI.md`. For the prompt-to-image workflow, see `README
 - Use `--root-cert PATH` when you have a pinned PEM certificate file.
 - Use `--force-trust-server-cert` only when a remote or LAN diagnostic requires trusting the presented certificate and you accept the man-in-the-middle risk for that connection.
 - Use `--no-tls` on the client only when the server was started with `--no-tls`.
+

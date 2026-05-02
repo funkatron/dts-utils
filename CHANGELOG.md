@@ -17,14 +17,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `--force-trust-server-cert` for explicit remote trust-on-first-use diagnostics when users accept the MITM risk.
 - `dts-util configs path/list` and `dts-util generate --configuration` support for saved JSON config names and `.json` auto-conversion.
 - Client commands now use `--no-tls` instead of `--insecure` for plaintext connections to servers installed with `--no-tls`.
+- `dts-util tls path` and `dts-util tls export` to fetch the server's **presented** certificate over TLS (Python `ssl.get_server_certificate`) and save PEM for **`--root-cert`** on **`generate`** / **`reflect`**. **`install`** can take **`--export-tls-cert`** (with optional **`--export-tls-cert-path`**, **`--export-tls-cert-force`**) after a successful TLS install on macOS. This pins what the binary serves; **`gRPCServerCLI`** keystores are not altered from **`dts-util`**.
 - Comprehensive test suite for gRPC utilities
-
-### Removed
-
-- `scripts/generate_image.py`; use `uv run dts-util generate` instead.
   - Server availability checking
   - Error handling for various gRPC scenarios
   - Channel creation with different configurations
 - Improved error handling in `handle_grpc_error`
   - Simplified error code checking
-  - Better handling of missing code() methods
+  - Better handling of missing `code()` methods
+
+### Removed
+
+- `scripts/generate_image.py`; use `uv run dts-util generate` instead.

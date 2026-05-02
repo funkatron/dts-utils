@@ -23,7 +23,7 @@ uv sync
 uv run dts-util --help
 ```
 
-`dts-utils` is the canonical repo; older installer-only repos are superseded.
+
 
 ---
 
@@ -45,7 +45,7 @@ What each step does:
 
 1. `server install` writes the LaunchAgent and starts `gRPCServerCLI` with default settings.
 2. `server check` probes the local port to confirm the process is listening. (`server test` is a synonym.)
-3. `generate` streams an image from the server using the saved config `portrait.json` and writes a PNG.
+3. `generate` streams an image from the server using the saved config `portrait.json` and writes a PNG. The path you pass to `--output` gets a Unix millisecond suffix before the extension (for example `generated.png` becomes `generated-1735123456789.png`) so repeated runs do not overwrite earlier files.
 
 Skip steps 1 and 2 if the server already runs elsewhere — see [Remote or existing servers](#remote-or-existing-servers).
 
@@ -57,11 +57,13 @@ Skip steps 1 and 2 if the server already runs elsewhere — see [Remote or exist
 
 `--configuration VALUE` accepts three forms:
 
-| You pass | What happens |
-| --- | --- |
+
+| You pass                                                  | What happens                                                                         |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | A name like `portrait` (no slashes, not an existing path) | Resolves to `portrait.json` inside the directory printed by `dts-util configs path`. |
-| A `.json` file path | Converted to FlatBuffer bytes via `flatc` and the bundled `config.fbs`. |
-| Any other existing file | Read as raw FlatBuffer bytes. The extension does not have to be `.bin`. |
+| A `.json` file path                                       | Converted to FlatBuffer bytes via `flatc` and the bundled `config.fbs`.              |
+| Any other existing file                                   | Read as raw FlatBuffer bytes. The extension does not have to be `.bin`.              |
+
 
 `--configuration-json` is a JSON-only variant (name or path) and is mutually exclusive with `--configuration`. Most users only need `--configuration`.
 
@@ -78,13 +80,15 @@ uv run dts-util configs list     # list saved JSON config names
 
 Pick the flag that matches your situation:
 
-| Situation | Flag |
-| --- | --- |
-| Localhost, server cert not in system trust | `--trust-server-cert` (loopback only) |
-| Remote or LAN, you have a PEM you trust | `--root-cert PATH` (usually with `--host`) |
-| Server installed with `--no-tls` | `--no-tls` on the client |
-| Server uses a shared secret | `--shared-secret SECRET` |
-| Short remote diagnostic, no PEM available | `--force-trust-server-cert` (accepts any cert; MITM risk) |
+
+| Situation                                  | Flag                                                      |
+| ------------------------------------------ | --------------------------------------------------------- |
+| Localhost, server cert not in system trust | `--trust-server-cert` (loopback only)                     |
+| Remote or LAN, you have a PEM you trust    | `--root-cert PATH` (usually with `--host`)                |
+| Server installed with `--no-tls`           | `--no-tls` on the client                                  |
+| Server uses a shared secret                | `--shared-secret SECRET`                                  |
+| Short remote diagnostic, no PEM available  | `--force-trust-server-cert` (accepts any cert; MITM risk) |
+
 
 To pin the server's presented certificate to a local PEM file:
 
@@ -101,13 +105,15 @@ uv run dts-util tls export       # connect, capture cert, write PEM
 
 These commands assume the macOS LaunchAgent layout and use `pgrep` / `lsof` to probe the local process. The `server` prefix is required so they are never confused with `pytest` or other "test" commands.
 
-| Goal | Command |
-| --- | --- |
-| Install with defaults | `uv run dts-util server install` |
-| Confirm process + port | `uv run dts-util server check` (or `server test`) |
+
+| Goal                                             | Command                                                                                       |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| Install with defaults                            | `uv run dts-util server install`                                                              |
+| Confirm process + port                           | `uv run dts-util server check` (or `server test`)                                             |
 | Install with custom port, secret, or models path | `uv run dts-util server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
-| Enable model browsing on an existing install | `uv run dts-util server restart --model-browser` |
-| Restart or remove | `uv run dts-util server restart` · `uv run dts-util server uninstall` |
+| Enable model browsing on an existing install     | `uv run dts-util server restart --model-browser`                                              |
+| Restart or remove                                | `uv run dts-util server restart` · `uv run dts-util server uninstall`                         |
+
 
 Full flag text is in [CLI.md](CLI.md).
 
@@ -137,16 +143,20 @@ uv run dts-util reflect --host gpu.local --root-cert ./gpu.pem --json
 
 ## Generation tasks
 
-| Goal | Flags |
-| --- | --- |
-| Saved config + open in viewer | `--configuration NAME --trust-server-cert --open` |
-| Inline JSON path | `--configuration path/to/config.json --trust-server-cert` |
-| Pinned PEM verification | `--root-cert cert.pem` (often with `--host`) |
-| Plaintext gRPC | `--no-tls` |
-| Raw FlatBuffer file on disk | `--configuration /path/to/payload` (any extension) |
-| Remote diagnostic, no PEM | `--host HOST --force-trust-server-cert` (MITM risk) |
+
+| Goal                          | Flags                                                     |
+| ----------------------------- | --------------------------------------------------------- |
+| Saved config + open in viewer | `--configuration NAME --trust-server-cert --open`         |
+| Inline JSON path              | `--configuration path/to/config.json --trust-server-cert` |
+| Pinned PEM verification       | `--root-cert cert.pem` (often with `--host`)              |
+| Plaintext gRPC                | `--no-tls`                                                |
+| Raw FlatBuffer file on disk   | `--configuration /path/to/payload` (any extension)        |
+| Remote diagnostic, no PEM     | `--host HOST --force-trust-server-cert` (MITM risk)       |
+
 
 `--open` opens the written file with the platform default viewer (`open` on macOS, `xdg-open` on Linux, `start` on Windows).
+
+`--output` always receives that millisecond suffix on disk; scripts should parse stdout (`Wrote …`) or glob the parent directory if they need the exact path.
 
 ---
 
@@ -167,14 +177,16 @@ Filters: `--family`, `--type`, `--author`, `--license`, `--has-source`, `--has-h
 
 Output paths:
 
-| Path | Contents |
-| --- | --- |
-| `data/drawthings_uncurated_models.json` | Full dataset |
-| `data/drawthings_uncurated_models.csv` | CSV slice |
-| `data/drawthings_models.sqlite` | SQLite database |
-| `data/report.html` | HTML report |
-| `.cache/community-models/` | Cloned `drawthingsai/community-models` |
-| `.cache/huggingface/` | Hugging Face API cache |
+
+| Path                                    | Contents                               |
+| --------------------------------------- | -------------------------------------- |
+| `data/drawthings_uncurated_models.json` | Full dataset                           |
+| `data/drawthings_uncurated_models.csv`  | CSV slice                              |
+| `data/drawthings_models.sqlite`         | SQLite database                        |
+| `data/report.html`                      | HTML report                            |
+| `.cache/community-models/`              | Cloned `drawthingsai/community-models` |
+| `.cache/huggingface/`                   | Hugging Face API cache                 |
+
 
 `build` reads `uncurated_models.txt`, SHA manifests, and `metadata.json` trees. Bad rows become warnings rather than failing the build.
 
@@ -182,13 +194,15 @@ Output paths:
 
 ## Troubleshooting
 
-| Symptom | Where to look |
-| --- | --- |
-| `server check` fails | `~/.config/draw-things/server.log`; reload with `dts-util server restart`; try `--port PORT` if you changed the default |
-| TLS error against `localhost` | Add `--trust-server-cert` (loopback restriction). See [TLS](#tls) |
-| `generate` exits immediately or "socket closed" | Missing `--configuration` / `--configuration-json`, or checkpoints on the server do not match the config |
-| Unsure what the server exposes | `dts-util reflect` (add `--json` for machine-readable output) |
-| "Cannot resolve … config" | Check `dts-util configs path` and `dts-util configs list`; either save the file there or pass an absolute path |
+
+| Symptom                                         | Where to look                                                                                                           |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `server check` fails                            | `~/.config/draw-things/server.log`; reload with `dts-util server restart`; try `--port PORT` if you changed the default |
+| TLS error against `localhost`                   | Add `--trust-server-cert` (loopback restriction). See [TLS](#tls)                                                       |
+| `generate` exits immediately or "socket closed" | Missing `--configuration` / `--configuration-json`, or checkpoints on the server do not match the config                |
+| Unsure what the server exposes                  | `dts-util reflect` (add `--json` for machine-readable output)                                                           |
+| "Cannot resolve … config"                       | Check `dts-util configs path` and `dts-util configs list`; either save the file there or pass an absolute path          |
+
 
 ---
 
@@ -210,12 +224,14 @@ Per-flag behavior lives in [CLI.md](CLI.md), not here.
 
 ## Related documentation
 
-| Doc | Covers |
-| --- | --- |
-| [CLI.md](CLI.md) | Every subcommand and flag |
-| [API.md](API.md) | `ImageGenerationRequest`, streaming caveats |
-| [PROTOBUF.md](PROTOBUF.md) | Proto + FlatBuffer `GenerationConfiguration` |
-| [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo |
+
+| Doc                                            | Covers                                       |
+| ---------------------------------------------- | -------------------------------------------- |
+| [CLI.md](CLI.md)                               | Every subcommand and flag                    |
+| [API.md](API.md)                               | `ImageGenerationRequest`, streaming caveats  |
+| [PROTOBUF.md](PROTOBUF.md)                     | Proto + FlatBuffer `GenerationConfiguration` |
+| [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo      |
+
 
 ---
 

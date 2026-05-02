@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -32,7 +33,16 @@ def build_parser() -> argparse.ArgumentParser:
         description="Send a prompt to Draw Things gRPCServerCLI and save the returned image.",
     )
     parser.add_argument("--prompt", required=True, help="Prompt to generate.")
-    parser.add_argument("--output", type=Path, default=Path("generated.png"), help="Output image path.")
+    parser.add_argument(
+        "--output",
+        type=Path,
+        default=Path("generated.png"),
+        help=(
+            "Output path; inserts -<unix_ms> before the extension so repeated runs do not overwrite "
+            "prior files (e.g. out/foo.png → out/foo-1735123456789.png). "
+            "Additional images from the same run append -2, -3, ... before the extension."
+        ),
+    )
     parser.add_argument("--host", default="localhost", help="gRPC server host.")
     parser.add_argument("--port", type=int, default=7859, help="gRPC server port.")
     parser.add_argument("--negative-prompt", default="", help="Negative prompt.")
@@ -240,6 +250,12 @@ def normalize_configuration_for_flatc(configuration: dict) -> dict:
     return normalized
 
 
+def unique_ms_timestamp_output_path(output_path: Path) -> Path:
+    """Insert Unix milliseconds before the suffix so repeated runs do not clobber prior files."""
+    ms = time.time_ns() // 1_000_000
+    return output_path.with_name(f"{output_path.stem}-{ms}{output_path.suffix}")
+
+
 def indexed_output_path(output_path: Path, index: int) -> Path:
     if index == 0:
         return output_path
@@ -361,7 +377,7 @@ def main(argv: list[str] | None = None) -> int:
         print("No generated images returned by the server.", file=sys.stderr)
         return 1
 
-    written_paths = write_images(images, args.output)
+    written_paths = write_images(images, unique_ms_timestamp_output_path(args.output))
     for path in written_paths:
         print(f"Wrote {path}")
     if args.open:

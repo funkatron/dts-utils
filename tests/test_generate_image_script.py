@@ -13,6 +13,9 @@ import pytest
 
 from dts_util.installer import server_installer
 
+_FIXED_MS = 1_735_123_456_789
+_FIXED_NS = _FIXED_MS * 1_000_000
+
 
 def load_generate_image_module():
     return reload(import_module("dts_util.generate"))
@@ -53,6 +56,7 @@ def make_uncompressed_dt_tensor(width=1, height=1, channels=3, values=None):
 def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
     """Exercise the script from CLI args through streamed response image writes."""
     module = load_generate_image_module()
+    monkeypatch.setattr(module.time, "time_ns", lambda: _FIXED_NS)
     channel = FakeChannel()
     stub = FakeImageGenerationStub(
         [
@@ -85,8 +89,9 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
 
     assert result == 0
     assert channel.closed is True
-    assert output_path.read_bytes().startswith(b"\x89PNG")
-    assert (tmp_path / "result-2.png").read_bytes().startswith(b"\x89PNG")
+    stamped = tmp_path / f"result-{_FIXED_MS}.png"
+    assert stamped.read_bytes().startswith(b"\x89PNG")
+    assert (tmp_path / f"result-{_FIXED_MS}-2.png").read_bytes().startswith(b"\x89PNG")
     assert stub.request.prompt == "a small robot painting clouds"
     assert stub.request.negativePrompt == "blurry"
     assert stub.request.sharedSecret == "secret"
@@ -96,6 +101,7 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
 def test_generate_image_script_can_open_generated_images(monkeypatch, tmp_path):
     """Verify --open launches the default viewer after successful writes."""
     module = load_generate_image_module()
+    monkeypatch.setattr(module.time, "time_ns", lambda: _FIXED_NS)
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     opened_paths = []
     output_path = tmp_path / "result.png"
@@ -119,8 +125,9 @@ def test_generate_image_script_can_open_generated_images(monkeypatch, tmp_path):
     )
 
     assert result == 0
-    assert opened_paths == [output_path]
-    assert output_path.read_bytes().startswith(b"\x89PNG")
+    stamped = tmp_path / f"result-{_FIXED_MS}.png"
+    assert opened_paths == [stamped]
+    assert stamped.read_bytes().startswith(b"\x89PNG")
 
 
 def test_generate_image_script_sends_configuration_bytes(monkeypatch, tmp_path):
@@ -330,7 +337,15 @@ def test_generate_image_script_fails_when_no_images_returned(monkeypatch, tmp_pa
     captured = capsys.readouterr()
     assert result == 1
     assert "No generated images returned" in captured.err
-    assert not (tmp_path / "result.png").exists()
+    assert list(tmp_path.glob("result*.png")) == []
+
+
+def test_unique_ms_timestamp_output_path(monkeypatch):
+    """Unix milliseconds are inserted before the extension."""
+    module = load_generate_image_module()
+    monkeypatch.setattr(module.time, "time_ns", lambda: _FIXED_NS)
+    assert module.unique_ms_timestamp_output_path(Path("generated.png")) == Path(f"generated-{_FIXED_MS}.png")
+    assert module.unique_ms_timestamp_output_path(Path("out/foo.bar.webp")) == Path(f"out/foo.bar-{_FIXED_MS}.webp")
 
 
 def test_generate_image_script_requires_configuration(capsys):

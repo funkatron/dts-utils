@@ -2,6 +2,8 @@
 
 A Python package providing utilities for interacting with the Draw Things gRPC server. This package includes tools for server installation, management, and client communication.
 
+It also includes a local model-indexing workflow for inspecting Draw Things uncurated community models.
+
 ## What This Package Provides
 
 - **Server Management Tools**:
@@ -52,9 +54,77 @@ uv sync
 
 # Run the CLI
 uv run dts-util --help
+
+# Model inspector help
+uv run dts-util models --help
 ```
 
 ## Getting Started
+
+### Uncurated Model Inspector
+
+Build the local model index:
+
+```bash
+uv run dts-util models build
+```
+
+Search the generated index:
+
+```bash
+uv run dts-util models search flux
+uv run dts-util models search sdxl anime
+uv run dts-util models search --family Flux --has-hf
+uv run dts-util models search --family SDXL --has-license
+```
+
+Show one record in detail:
+
+```bash
+uv run dts-util models show MODEL_ID
+```
+
+`show` includes a `Suggested Config` block when the metadata provides usable hints, such as:
+
+- `default_scale`
+- `hires_fix_scale`
+- `upcast_attention`
+- `guidance_embed`
+- `frames_per_second`
+- recommended steps, text guidance, shift, resolution, sampler, and prompt format when these can be inferred from model notes
+
+Generate the HTML report:
+
+```bash
+uv run dts-util models report
+uv run dts-util models report --summary-only
+```
+
+Useful search filters:
+
+- `--family Flux`
+- `--type model`
+- `--author NAME`
+- `--license apache-2.0`
+- `--has-source`
+- `--has-hf`
+- `--has-license`
+- `--has-downloads`
+- `--has-warnings`
+
+Generated files:
+
+- `data/drawthings_uncurated_models.json`
+- `data/drawthings_uncurated_models.csv`
+- `data/drawthings_models.sqlite`
+- `data/report.html`
+
+Cache directories:
+
+- `.cache/community-models/` for the cloned upstream repository
+- `.cache/huggingface/` for cached Hugging Face API responses
+
+The `build` command clones or updates `drawthingsai/community-models`, parses `uncurated_models.txt`, `uncurated_models_sha256.json`, and matching `metadata.json` files under `uncurated_models/`, `models/`, and `loras/`. Hugging Face-backed models are enriched from the public API when possible, and malformed metadata is recorded as warnings instead of crashing the build.
 
 ### Quick Start Guide
 
@@ -72,22 +142,16 @@ uv run dts-util test
 ```
 
 3. **Generate Your First Image**:
-```python
-from dts_util.grpc.utils import create_channel_and_stub, handle_grpc_error
-from dts_util.grpc.proto.image_generation_pb2 import GenerateImageRequest
-
-# Connect to the server (defaults to localhost:7859 with TLS enabled)
-channel, stub = create_channel_and_stub(port=7859)
-
-# Generate an image
-with handle_grpc_error():
-    response = stub.GenerateImage(GenerateImageRequest(
-        prompt="a beautiful sunset over mountains",  # Describe what you want to generate
-        negative_prompt="",                          # What you don't want in the image
-        width=512,                                   # Image width in pixels
-        height=512                                   # Image height in pixels
-    ))
+```bash
+uv run python scripts/generate_image.py \
+  --prompt "a beautiful sunset over mountains" \
+  --configuration-json config.json \
+  --output generated.png \
+  --trust-server-cert \
+  --open
 ```
+
+`config.json` must contain a Draw Things generation configuration. The script converts that JSON to the FlatBuffer bytes required by `gRPCServerCLI`.
 
 ### Common Tasks
 
@@ -95,17 +159,20 @@ with handle_grpc_error():
 
 ```bash
 # Change port and model path
-dts-util install --port 7860 --model-path /path/to/model
+uv run dts-util install --port 7860 --model-path /path/to/model
 
 # Enable advanced features
-dts-util install --model-browser --debug
+uv run dts-util install --model-browser --debug
+
+# Enable model browser for an existing service
+uv run dts-util restart --model-browser
 ```
 
 #### Secure Setup
 
 ```bash
 # Enable TLS and set a shared secret
-dts-util install --shared-secret "your-secret-here"
+uv run dts-util install --shared-secret "your-secret-here"
 ```
 
 #### Server Management
@@ -116,6 +183,9 @@ uv run dts-util test
 
 # Restart the server
 uv run dts-util restart
+
+# Enable model browser and restart the server
+uv run dts-util restart --model-browser
 
 # Uninstall the server
 uv run dts-util uninstall
@@ -184,24 +254,31 @@ uv run dts-util install --model-browser --debug --no-flash-attention
 
 ### Python Client Examples
 
-#### Basic Image Generation
+#### Prompt-to-Image Script
 
-```python
-from dts_util.grpc.utils import create_channel_and_stub, handle_grpc_error
-from dts_util.grpc.proto.image_generation_pb2 import GenerateImageRequest
+If you only run one command, run this:
 
-# Connect to server
-channel, stub = create_channel_and_stub(port=7859)
-
-# Generate image
-with handle_grpc_error():
-    response = stub.GenerateImage(GenerateImageRequest(
-        prompt="a beautiful landscape",
-        negative_prompt="blurry, low quality",
-        width=512,
-        height=512
-    ))
+```bash
+uv run python scripts/generate_image.py \
+  --prompt "a small robot painting clouds" \
+  --output generated.png \
+  --configuration-json config.json \
+  --trust-server-cert \
+  --open
 ```
+
+Draw Things gRPCServerCLI commonly uses a local certificate issued by its own root CA. For local development, `--trust-server-cert` fetches and trusts the presented server certificate for this connection. A generation configuration is required: use `--configuration-json` to pass a Draw Things generation configuration as JSON. This requires `flatc` on `PATH` so the script can convert JSON to the FlatBuffer bytes expected by gRPC. If the server was installed with `--no-tls`, use `--insecure` instead. If the server requires authentication, add `--shared-secret`.
+
+The script writes PNG files. Draw Things returns generated image tensors over gRPC; the script reassembles chunked responses and decodes those tensors before writing the output file.
+
+Common prompt-to-image tasks:
+
+| Goal | Command | What you get |
+| --- | --- | --- |
+| Generate and open one image | `uv run python scripts/generate_image.py --prompt "a small robot painting clouds" --configuration-json config.json --output generated.png --trust-server-cert --open` | A decoded PNG opened in the default viewer. |
+| Use a pinned local certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
+| Connect to a non-TLS server | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --insecure` | Plain gRPC for servers installed with `--no-tls`. |
+| Send prebuilt config bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | No `flatc` conversion step. |
 
 #### Error Handling
 
@@ -219,18 +296,20 @@ except Exception as e:
 ## Documentation
 
 ### Package Documentation
-- [API Documentation](API.md): Documentation for this package's utilities and functions
+- [API Documentation](API.md): Notes on the upstream Draw Things gRPC API used by this repository
 - [CLI Reference](CLI.md): Complete reference for the `dts-util` command-line tool
 
 ### Draw Things gRPC Server Documentation
-- [Protocol Buffer Specifications](PROTOBUF.md): Documentation of the gRPC server's API and message definitions
+- [Protocol and Schema Reference](PROTOBUF.md): Practical reference for the upstream protobuf and FlatBuffer schemas
 - For complete server documentation, please refer to the [Draw Things documentation](https://drawthings.ai/docs)
 
 ## Development
 
 ### Requirements
 
-- Python 3.13.x
+- Python 3.12+
+- `uv`
+- `flatc` for `scripts/generate_image.py --configuration-json`
 - gRPC tools
 - Protocol Buffers compiler
 

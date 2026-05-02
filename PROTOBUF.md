@@ -1,156 +1,117 @@
-# Protocol Buffer Definitions
+# Protocol And Schema Reference
 
-This document details the protocol buffer definitions used by the Draw Things gRPC server. The definitions are located in `src/dts_util/grpc/proto/image_generation.proto`.
+This repository contains two protocol definitions:
 
-## Service Definition
+- `src/dts_util/grpc/proto/upstream/imageService.proto` is the live Draw Things gRPC API copy used by `scripts/generate_image.py`.
+- `src/dts_util/grpc/proto/image_generation.proto` is an older simplified local proto retained for legacy tests and documentation history. Do not use it for new Draw Things `gRPCServerCLI` client work.
+
+The Draw Things generation configuration schema is separate from protobuf:
+
+- `src/dts_util/grpc/proto/upstream/config.fbs` defines the FlatBuffer `GenerationConfiguration` table.
+
+## Upstream gRPC Service
+
+The live service is `ImageGenerationService`.
 
 ```protobuf
-syntax = "proto3";
-
-package drawthings;
-
 service ImageGenerationService {
-    // Echo endpoint for health check
-    rpc Echo(EchoRequest) returns (EchoResponse);
-
-    // Check if model files exist
-    rpc FilesExist(FilesExistRequest) returns (FilesExistResponse);
-
-    // Generate images based on parameters
-    rpc GenerateImage(ImageGenerationRequest) returns (ImageGenerationResponse);
-
-    // Upload model files
-    rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
+  rpc GenerateImage(ImageGenerationRequest) returns (stream ImageGenerationResponse);
+  rpc FilesExist(FileListRequest) returns (FileExistenceResponse);
+  rpc UploadFile(stream FileUploadRequest) returns (stream UploadResponse);
+  rpc Echo(EchoRequest) returns (EchoReply);
+  rpc Pubkey(PubkeyRequest) returns (PubkeyResponse);
+  rpc Hours(HoursRequest) returns (HoursResponse);
 }
 ```
 
-## Message Definitions
+## Request Shape For Image Generation
 
-### Echo Messages
-
-```protobuf
-message EchoRequest {
-}
-
-message EchoResponse {
-    string message = 1;  // Returns "HELLO" when server is running
-}
-```
-
-### File Existence Check Messages
-
-```protobuf
-message FilesExistRequest {
-    repeated string files = 1;  // List of files to check
-}
-
-message FilesExistResponse {
-    repeated string files = 1;   // List of checked files
-    repeated bool exists = 2;    // Existence status for each file
-    repeated string errors = 3;  // Error messages if any
-}
-```
-
-### Image Generation Messages
+The generation RPC takes prompt fields from protobuf and generation parameters from FlatBuffer bytes:
 
 ```protobuf
 message ImageGenerationRequest {
-    string prompt = 1;              // Generation prompt
-    string negative_prompt = 2;     // Negative prompt
-    int32 width = 3;               // Image width
-    int32 height = 4;              // Image height
-    int32 steps = 5;               // Number of steps
-    float cfg_scale = 6;           // CFG scale
-    int64 seed = 7;                // Random seed (-1 for random)
-    string sampler = 8;            // Sampler name
-    bool restore_faces = 9;        // Face restoration
-    bool enable_hr = 10;           // High-res fix
-    float denoising_strength = 11; // Denoising strength
-    int32 batch_size = 12;         // Images per batch
-    int32 batch_count = 13;        // Number of batches
+  optional bytes image = 1;
+  int32 scaleFactor = 2;
+  optional bytes mask = 3;
+  repeated HintProto hints = 4;
+  string prompt = 5;
+  string negativePrompt = 6;
+  bytes configuration = 7;
+  MetadataOverride override = 8;
+  repeated string keywords = 9;
+  string user = 10;
+  DeviceType device = 11;
+  repeated bytes contents = 12;
+  optional string sharedSecret = 13;
+  bool chunked = 14;
 }
+```
 
+Important details:
+
+- `configuration` must contain `GenerationConfiguration` FlatBuffer bytes.
+- `--configuration-json` in `scripts/generate_image.py` converts Draw Things JSON to those FlatBuffer bytes using `flatc`.
+- `chunked = true` allows large generated image tensors to arrive in multiple streamed messages.
+- `contents` carries content-addressed tensor payloads for image, mask, and hints when those fields are used.
+
+## Response Shape For Image Generation
+
+```protobuf
 message ImageGenerationResponse {
-    repeated bytes images = 1;     // Generated images (PNG format)
-    repeated string info = 2;      // Generation parameters
-    repeated SignpostEvent events = 3; // Progress events with timestamps/types
+  repeated bytes generatedImages = 1;
+  optional ImageGenerationSignpostProto currentSignpost = 2;
+  repeated ImageGenerationSignpostProto signposts = 3;
+  optional bytes previewImage = 4;
+  optional int32 scaleFactor = 5;
+  repeated string tags = 6;
+  optional int64 downloadSize = 7;
+  ChunkState chunkState = 8;
+  optional RemoteDownloadResponse remoteDownload = 9;
 }
 ```
 
-### File Upload Messages
+`generatedImages` contains Draw Things tensor bytes. The helper script decodes those bytes to PNG using `fpzip`, `numpy`, and `Pillow`.
 
-```protobuf
-message UploadFileRequest {
-    string filename = 1;   // Target filename
-    bytes chunk_data = 2;  // File data chunk
-}
+## FlatBuffer Configuration
 
-message UploadFileResponse {
-    bool success = 1;   // Indicates whether upload succeeded
-    string message = 2; // Status message
-}
-```
+The root FlatBuffer type is `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`.
 
-### Signpost Event Messages
+Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake_case. The helper script maps common fields before running `flatc`. Examples:
 
-```protobuf
-message SignpostEvent {
-    string name = 1;      // Event label
-    int64 timestamp = 2;  // Event timestamp
-    EventType type = 3;   // Categorized event type
-}
-```
+| Draw Things JSON | `config.fbs` field | Notes |
+| --- | --- | --- |
+| `width` | `start_width` | Converted from pixels to 64-pixel units. |
+| `height` | `start_height` | Converted from pixels to 64-pixel units. |
+| `batchCount` | `batch_count` | Must be at least `1` for practical generation. |
+| `guidanceScale` | `guidance_scale` | Float. |
+| `hiresFix` | `hires_fix` | Boolean. |
+| `zeroNegativePrompt` | `zero_negative_prompt` | Boolean. |
 
-## Using Protocol Buffers
+The script also drops empty `controls`, empty `loras`, and empty string values before conversion. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere.
 
-### Generating Code
+## Regenerating Python gRPC Code
 
-The protocol buffer code can be generated using:
+Use this only when `src/dts_util/grpc/proto/upstream/imageService.proto` changes:
 
 ```bash
-cd src/dts_util/grpc/proto
-python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. image_generation.proto
+uv run python -m grpc_tools.protoc \
+  -Isrc/dts_util/grpc/proto/upstream \
+  --python_out=src/dts_util/grpc/proto/upstream \
+  --grpc_python_out=src/dts_util/grpc/proto/upstream \
+  src/dts_util/grpc/proto/upstream/imageService.proto
 ```
 
-### Python Usage
+The generated upstream Python file imports `imageService_pb2` as a top-level module. `scripts/generate_image.py` adds `src/dts_util/grpc/proto/upstream` to `sys.path` before importing the generated stub.
 
-```python
-from dts_util.grpc.proto import image_generation_pb2, image_generation_pb2_grpc
-
-# Create a request
-request = image_generation_pb2.ImageGenerationRequest(
-    prompt="a beautiful landscape",
-    width=512,
-    height=512,
-    steps=20,
-    cfg_scale=7.0
-)
-
-# Use with gRPC channel
-with grpc.insecure_channel('localhost:7859') as channel:
-    stub = image_generation_pb2_grpc.ImageGenerationServiceStub(channel)
-    response = stub.GenerateImage(request)
-```
-
-## Server Management
-
-The server can be managed using the `dts-util` command-line tool:
+## Practical Client Command
 
 ```bash
-# Install with default settings
-dts-util install
-
-# Install with custom port
-dts-util install --port 7860
-
-# Check server status
-dts-util test
-
-# Restart the server
-dts-util restart
-
-# Uninstall the server
-dts-util uninstall
+uv run python scripts/generate_image.py \
+  --prompt "a small robot painting clouds" \
+  --configuration-json tmp_models/config.json \
+  --output generated.png \
+  --trust-server-cert \
+  --open
 ```
 
-For more details on server management, see the [README.md](README.md).
+Use `uv run python` for project code so imports and dependencies come from the uv-managed environment. Use `python3` only for system-level one-off snippets that do not need the project environment.

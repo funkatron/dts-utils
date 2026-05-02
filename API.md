@@ -1,136 +1,118 @@
-# Draw Things gRPC Server API
+# Draw Things gRPC API Notes
 
-This document describes the gRPC API endpoints provided by the Draw Things gRPC server. These endpoints can be managed using the `dts-util` tool.
+This document describes the Draw Things gRPC API surface that this repository uses for client calls. The server process is Draw Things `gRPCServerCLI`; `dts-util` installs and manages that process but does not define the server API.
 
-## Service Definition
+Authoritative references in this repository:
 
-The service is defined in `src/dts_util/grpc/proto/image_generation.proto`.
+- Live upstream proto copy: `src/dts_util/grpc/proto/upstream/imageService.proto`
+- Python generated upstream stubs: `src/dts_util/grpc/proto/upstream/imageService_pb2.py` and `src/dts_util/grpc/proto/upstream/imageService_pb2_grpc.py`
+- Draw Things generation config schema: `src/dts_util/grpc/proto/upstream/config.fbs`
+- Legacy local proto kept for older tests/docs history: `src/dts_util/grpc/proto/image_generation.proto`
 
-## Endpoints
+## Main Service
 
-### Echo
-
-Health check endpoint that returns a simple response.
+The upstream service is `ImageGenerationService`.
 
 ```protobuf
-rpc Echo(EchoRequest) returns (EchoResponse);
-
-message EchoRequest {
-}
-
-message EchoResponse {
-    string message = 1;
+service ImageGenerationService {
+  rpc GenerateImage(ImageGenerationRequest) returns (stream ImageGenerationResponse);
+  rpc FilesExist(FileListRequest) returns (FileExistenceResponse);
+  rpc UploadFile(stream FileUploadRequest) returns (stream UploadResponse);
+  rpc Echo(EchoRequest) returns (EchoReply);
+  rpc Pubkey(PubkeyRequest) returns (PubkeyResponse);
+  rpc Hours(HoursRequest) returns (HoursResponse);
 }
 ```
 
-### FilesExist
+## Endpoint Summary
 
-Check if model files exist in the server's model directory.
+| Endpoint | Purpose | Notes |
+| --- | --- | --- |
+| `Echo` | Check connectivity and return server metadata. | Useful before generation, especially when TLS or shared-secret setup is uncertain. |
+| `FilesExist` | Check whether model files exist in the server model directory. | File names are passed relative to the model directory, for example `pikon_realism_v2_alt_q6p_q8p.ckpt`. |
+| `GenerateImage` | Stream image generation progress and generated tensor bytes. | Requires FlatBuffer `GenerationConfiguration` bytes in `configuration`. |
+| `UploadFile` | Stream file chunks to the server. | Not wrapped by the current prompt-to-image helper. |
+| `Pubkey` / `Hours` | Server support endpoints. | Present in the upstream proto; not central to the current CLI workflow. |
 
-```protobuf
-rpc FilesExist(FilesExistRequest) returns (FilesExistResponse);
+## Image Generation Contract
 
-message FilesExistRequest {
-    repeated string files = 1;
-}
-
-message FilesExistResponse {
-    repeated string files = 1;
-    repeated bool exists = 2;
-    repeated string errors = 3;
-}
-```
-
-### GenerateImage
-
-Generate images based on provided parameters.
+`GenerateImage` is a server-streaming RPC. A request contains prompt text plus a binary Draw Things generation configuration:
 
 ```protobuf
-rpc GenerateImage(ImageGenerationRequest) returns (ImageGenerationResponse);
-
 message ImageGenerationRequest {
-    string prompt = 1;
-    string negative_prompt = 2;
-    int32 width = 3;
-    int32 height = 4;
-    int32 steps = 5;
-    float cfg_scale = 6;
-    int64 seed = 7;
-    string sampler = 8;
-    bool restore_faces = 9;
-    bool enable_hr = 10;
-    float denoising_strength = 11;
-    int32 batch_size = 12;
-    int32 batch_count = 13;
-}
-
-message ImageGenerationResponse {
-    repeated bytes images = 1;
-    repeated string info = 2;
-    repeated SignpostEvent events = 3;
-}
-
-message SignpostEvent {
-    string name = 1;
-    int64 timestamp = 2;
-    EventType type = 3;
+  optional bytes image = 1;
+  int32 scaleFactor = 2;
+  optional bytes mask = 3;
+  repeated HintProto hints = 4;
+  string prompt = 5;
+  string negativePrompt = 6;
+  bytes configuration = 7;       // FlatBuffer GenerationConfiguration bytes.
+  MetadataOverride override = 8;
+  repeated string keywords = 9;
+  string user = 10;
+  DeviceType device = 11;
+  repeated bytes contents = 12;
+  optional string sharedSecret = 13;
+  bool chunked = 14;
 }
 ```
 
-### UploadFile
+The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. `scripts/generate_image.py --configuration-json` accepts Draw Things JSON and converts it with `flatc` before sending the RPC.
 
-Upload model files to the server.
+Responses contain progress, previews, and generated image tensors:
 
 ```protobuf
-rpc UploadFile(stream UploadFileRequest) returns (UploadFileResponse);
-
-message UploadFileRequest {
-    string filename = 1;
-    bytes chunk_data = 2;
-}
-
-message UploadFileResponse {
-    bool success = 1;
-    string message = 2;
+message ImageGenerationResponse {
+  repeated bytes generatedImages = 1;
+  optional ImageGenerationSignpostProto currentSignpost = 2;
+  repeated ImageGenerationSignpostProto signposts = 3;
+  optional bytes previewImage = 4;
+  optional int32 scaleFactor = 5;
+  repeated string tags = 6;
+  optional int64 downloadSize = 7;
+  ChunkState chunkState = 8;
+  optional RemoteDownloadResponse remoteDownload = 9;
 }
 ```
 
-## Using the API
+`generatedImages` are Draw Things tensor bytes, not PNG files. The helper script decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
 
-The API can be accessed using any gRPC client. The server can be managed using the `dts-util` command-line tool:
+## Recommended Client Command
+
+Use the helper script for local development:
 
 ```bash
-# Install the server
-dts-util install
-
-# Check server status
-dts-util test
-
-# Uninstall the server
-dts-util uninstall
+uv run python scripts/generate_image.py \
+  --prompt "a small robot painting clouds" \
+  --configuration-json tmp_models/config.json \
+  --output generated.png \
+  --trust-server-cert \
+  --open
 ```
 
-For more details on server management, see the [README.md](README.md).
+Requirements for this command:
 
-## Security
+- `flatc` on `PATH` for JSON-to-FlatBuffer conversion.
+- A running Draw Things `gRPCServerCLI` on `localhost:7859`, unless `--host` or `--port` is provided.
+- `--trust-server-cert` for local TLS when the Draw Things root certificate is not trusted by Python.
+- `--shared-secret` if the server was installed with a shared secret.
 
-- By default, the server uses TLS encryption
-- Authentication can be enabled using the `--shared-secret` option
-- Default bind address is `0.0.0.0` on port `7859`
+## Server Management
 
-## Error Handling
-
-The server uses standard gRPC error codes:
-
-- `UNAVAILABLE`: Server is not running or not accessible
-- `INVALID_ARGUMENT`: Invalid request parameters
-- `NOT_FOUND`: Requested resource not found
-- `INTERNAL`: Server error during processing
-
-## Monitoring
-
-The server supports Datadog monitoring when configured with an API key:
+Use `dts-util` for installing and restarting the Draw Things server process:
 
 ```bash
-dts-util install --datadog-api-key YOUR_API_KEY
+uv run dts-util install --model-browser
+uv run dts-util restart --model-browser
+uv run dts-util test
 ```
+
+For command details, see `CLI.md`. For the prompt-to-image workflow, see `README.md`.
+
+## Security And Connection Notes
+
+- The server uses TLS by default.
+- Local Draw Things servers commonly present a certificate issued by `Draw Things Root CA`. Python does not automatically trust that root certificate.
+- `scripts/generate_image.py --trust-server-cert` fetches and trusts the presented server certificate for that connection. Use this for local development only.
+- Use `--root-cert PATH` when you have a pinned PEM certificate file.
+- Use `--insecure` only when the server was started with `--no-tls`.

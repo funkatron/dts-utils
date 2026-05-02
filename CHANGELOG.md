@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `dts-util restart --model-browser` to enable model browsing for an existing LaunchAgent service before restart.
+- `scripts/generate_image.py` for sending a prompt to the upstream Draw Things gRPC streaming API and writing returned images to PNG, including JSON-to-FlatBuffer configuration, local certificate trust options, and `--open` viewer launch support.
+- Clear prompt-only failure for `scripts/generate_image.py` when no generation configuration is provided.
+- Documentation for the upstream Draw Things proto/FlatBuffer split, chunked image streaming, local TLS trust options, and the task-first prompt-to-image command.
 - Comprehensive test suite for gRPC utilities
   - Server availability checking
   - Error handling for various gRPC scenarios

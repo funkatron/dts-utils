@@ -49,8 +49,11 @@ uv run dts-util uninstall
 Restarts the Draw Things gRPC server service.
 
 ```bash
-uv run dts-util restart
+uv run dts-util restart [--model-browser]
 ```
+
+Options:
+- `--model-browser`: Enable model browser in the installed service before restarting
 
 ### test
 
@@ -100,9 +103,48 @@ uv run dts-util test --port 7860
 # Restart the server
 uv run dts-util restart
 
+# Enable model browser and restart the server
+uv run dts-util restart --model-browser
+
 # Uninstall the server
 uv run dts-util uninstall
 ```
+
+## Helper Scripts
+
+`scripts/generate_image.py` is a development helper for calling the upstream Draw Things streaming gRPC API. It is not a `dts-util` subcommand yet.
+
+If you only run one command, run this:
+
+```bash
+uv run python scripts/generate_image.py \
+  --prompt "a small robot painting clouds" \
+  --configuration-json tmp_models/config.json \
+  --output generated.png \
+  --trust-server-cert \
+  --open
+```
+
+Important options:
+
+- `--configuration-json PATH`: Read a Draw Things JSON generation configuration and convert it to FlatBuffer bytes with `flatc`.
+- `--configuration PATH`: Read prebuilt FlatBuffer configuration bytes directly.
+- `--trust-server-cert`: Trust the certificate presented by the local server for this connection.
+- `--root-cert PATH`: Use a pinned PEM root/server certificate.
+- `--insecure`: Connect without TLS when the server was installed with `--no-tls`.
+- `--max-message-mb N`: Set gRPC send and receive message limits.
+- `--open`: Open written image files with the platform default viewer.
+
+Generation fails before opening a gRPC stream if neither `--configuration-json` nor `--configuration` is provided. This avoids the opaque socket-close behavior the server can produce for prompt-only requests.
+
+Common tasks:
+
+| Goal | Command | What you get |
+| --- | --- | --- |
+| Generate from Draw Things JSON | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --trust-server-cert` | A decoded PNG written to disk. |
+| Generate and open the result | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --trust-server-cert --open` | A PNG opened in the platform default viewer. |
+| Use prebuilt FlatBuffer bytes | `uv run python scripts/generate_image.py --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | Generation without `flatc`. |
+| Use a pinned certificate | `uv run python scripts/generate_image.py --prompt "..." --configuration-json config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
 
 ## Environment Variables
 
@@ -139,6 +181,6 @@ uv run pytest
 
 ## See Also
 
-- [API Documentation](API.md): Documentation for package utilities and functions
-- [Protocol Buffer Specifications](PROTOBUF.md): Documentation of the gRPC server's API
+- [API Documentation](API.md): Notes on the upstream Draw Things gRPC API used by this repository
+- [Protocol and Schema Reference](PROTOBUF.md): Practical reference for the upstream protobuf and FlatBuffer schemas
 - [README.md](README.md): General package information and usage

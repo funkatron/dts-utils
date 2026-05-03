@@ -24,6 +24,10 @@ Example:
 
 ## [Unreleased]
 
+### Added
+
+- **Docs:** sample PNG in [README.md](README.md) quickstart ([`docs/assets/sample-output.png`](docs/assets/sample-output.png)).
+
 ### Fixed
 
 - **`server check` / `server test`:** probe loopback with **TLS** using the server-presented certificate (same idea as `--trust-server-cert`), then fall back to plaintext, so the check matches default Draw Things `gRPCServerCLI`. Use `server test --no-tls` when the server runs without TLS.

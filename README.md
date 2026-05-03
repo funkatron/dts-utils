@@ -39,6 +39,10 @@ uv run dts-util server check
 uv run dts-util "a beautiful sunset over mountains"
 ```
 
+Example output (768×1024 PNG from a local `generate` run; appearance depends on model, prompt, and configuration):
+
+![Sample image written by dts-util generate](docs/assets/sample-output.png)
+
 What each step does:
 
 1. `server install` installs the LaunchAgent and starts `gRPCServerCLI` with default settings.

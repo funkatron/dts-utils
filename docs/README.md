@@ -1,6 +1,6 @@
 # Documentation map
 
-**Operators:** start with [README.md](../README.md) (install, quickstart, TLS, troubleshooting). **Exact flags:** [CLI.md](../CLI.md).
+**Operators:** start with [README.md](../README.md) (install, quickstart with a sample PNG, TLS, troubleshooting). **Exact flags:** [CLI.md](../CLI.md).
 
 ---
 

@@ -25,8 +25,6 @@ uv sync
 uv run dts-util --help
 ```
 
-After install, these names all invoke the same program: `dts-util`, `dtsutils`, `dts-utils` (see [CLI.md § Entry points](CLI.md#entry-points)).
-
 ---
 
 ## Quickstart

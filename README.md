@@ -200,10 +200,11 @@ Output paths:
 
 | Symptom | Where to look |
 | --- | --- |
-| `server check` fails | System log / service plist; `dts-util server restart`; match `--port` if you changed the default |
-| TLS error against `localhost` | Add `--trust-server-cert` for loopback. See [TLS](#tls) |
-| `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Implicit default profile](#implicit-default-profile-shorthand). Wrong or missing `model` in JSON also fails at the server |
-| Unsure what the server exposes | `dts-util reflect` (add `--json` for machine-readable output) |
+| `server check` fails | Wrong port; or use `dts-util server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-util server restart` |
+| TLS error against `localhost` | Add `--trust-server-cert` for loopback on `generate`. See [TLS](#tls) |
+| `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Implicit default profile](#implicit-default-profile-shorthand). Wrong or missing `model` in JSON often fails at the server |
+| `reflect` returns `UNIMPLEMENTED` | Draw Things `gRPCServerCLI` often omits gRPC reflection; generation can still work |
+| PNG looks like noise | Usually wrong `model` in `default.json` (basename must exist in the server model directory) or a bad tensor decode—open the JSON from `dts-util configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
 | “Cannot resolve … config” | `dts-util configs path` and `dts-util configs list`; save the file there or pass an absolute path |
 
 ---

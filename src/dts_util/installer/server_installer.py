@@ -290,7 +290,7 @@ Examples:
 
         # Handle test action (moved from run method to here for consistency)
         if args.action == 'test':
-            if is_server_running(port=args.port):
+            if is_server_running(port=args.port, prefer_plaintext=args.no_tls):
                 print("Server is running and responding!")
                 sys.exit(0)
             else:

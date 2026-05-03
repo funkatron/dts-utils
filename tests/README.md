@@ -38,8 +38,8 @@ uv run dts-util "smoke test" --output output/smoke-shorthand.png
 
 (Shorthand always adds `--trust-server-cert` and `--open`; omit `--open` by using explicit `dts-util generate …` if you need that.)
 
-- **`server check`:** listener / process probe (macOS LaunchAgent layout where applicable).
-- **`reflect`:** gRPC channel + reflection (add `--no-tls` or `--root-cert` if needed).
+- **`server check`:** gRPC readiness on the port (TLS first on loopback, then plaintext fallback; use `server check --no-tls` if the server runs with `--no-tls`).
+- **`reflect`:** gRPC **server reflection**. Many `gRPCServerCLI` builds do not implement it, so `UNIMPLEMENTED` is common even when generation works; treat this step as optional for Draw Things.
 - **`generate` / shorthand:** streaming decode and PNG write.
 
 If you **cannot** run against a live server for a release, say so in **Tested with** (e.g. “pytest + CI only; not smoke-tested against gRPCServerCLI”).

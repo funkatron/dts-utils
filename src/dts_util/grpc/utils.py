@@ -8,29 +8,70 @@ import grpc
 from contextlib import contextmanager
 from typing import Optional, Tuple
 
-def is_server_running(host: str = 'localhost', port: int = 7859, timeout: float = 1) -> bool:
-    """Check if the gRPC server is running.
+def is_server_running(
+    host: str = "localhost",
+    port: int = 7859,
+    timeout: float = 1,
+    *,
+    prefer_plaintext: bool = False,
+) -> bool:
+    """Check if a gRPC server accepts connections on ``host:port``.
+
+    Draw Things ``gRPCServerCLI`` uses TLS by default. On loopback addresses this function tries
+    TLS using the server-presented certificate (same idea as ``--trust-server-cert``), then falls
+    back to a plaintext channel. Use ``prefer_plaintext=True`` when the server runs with
+    ``--no-tls`` (matches ``dts-util server test --no-tls``).
 
     Args:
         host: Server hostname (default: localhost)
         port: Server port (default: 7859)
         timeout: Connection timeout in seconds (default: 1)
+        prefer_plaintext: If True, only try a plaintext (insecure) gRPC channel.
 
     Returns:
-        bool: True if server is running and accepting connections
+        True if the server responds, False otherwise.
 
     Example:
         >>> from dts_util.grpc.utils import is_server_running
         >>> is_server_running(port=7859)
         True
     """
+    from dts_util.grpc.connection import create_channel, is_loopback_host
+
+    def _probe(channel: grpc.Channel) -> bool:
+        try:
+            grpc.channel_ready_future(channel).result(timeout=timeout)
+            return True
+        except Exception:
+            return False
+        finally:
+            channel.close()
+
+    if prefer_plaintext:
+        try:
+            return _probe(create_channel(host, port, insecure=True))
+        except Exception:
+            return False
+
+    if is_loopback_host(host):
+        try:
+            return _probe(
+                create_channel(
+                    host,
+                    port,
+                    insecure=False,
+                    trust_server_cert=True,
+                )
+            )
+        except Exception:
+            pass
+        try:
+            return _probe(create_channel(host, port, insecure=True))
+        except Exception:
+            return False
+
     try:
-        with grpc.insecure_channel(f'{host}:{port}') as channel:
-            try:
-                grpc.channel_ready_future(channel).result(timeout=timeout)
-                return True
-            except grpc.FutureTimeoutError:
-                return False
+        return _probe(create_channel(host, port, insecure=True))
     except Exception:
         return False
 

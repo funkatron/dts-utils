@@ -24,8 +24,13 @@ Example:
 
 ## [Unreleased]
 
+### Fixed
+
+- **`server check` / `server test`:** probe loopback with **TLS** using the server-presented certificate (same idea as `--trust-server-cert`), then fall back to plaintext, so the check matches default Draw Things `gRPCServerCLI`. Use `server test --no-tls` when the server runs without TLS.
+
 ### Changed
 
+- **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior.
 - **Docs:** [README.md](README.md), [CLI.md](CLI.md), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md), [PROTOBUF.md](PROTOBUF.md), and [tests/README.md](tests/README.md) — prompt-first shorthand, implicit `default.json`, and related environment variables; reduced duplicate TLS/config prose where [README.md](README.md) points at [CLI.md](CLI.md).
 
 ### Removed

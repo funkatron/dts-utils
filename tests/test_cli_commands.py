@@ -122,7 +122,7 @@ class TestCLICommands:
             installer.parse_args()
 
         assert exc_info.value.code == 0
-        mock_installer_methods["is_running"].assert_called_once_with(port=7859)
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859, prefer_plaintext=False)
 
     def test_test_command_server_not_running(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the test command when server is not running."""
@@ -135,7 +135,7 @@ class TestCLICommands:
             installer.parse_args()
 
         assert exc_info.value.code == 1
-        mock_installer_methods["is_running"].assert_called_once_with(port=7859)
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859, prefer_plaintext=False)
 
     def test_check_alias_invokes_listener_probe(self, mock_installer_methods, monkeypatch, mock_exit):
         """``check`` is synonymous with ``test`` (listener probe, not pytest)."""
@@ -148,7 +148,7 @@ class TestCLICommands:
             installer.parse_args()
 
         assert exc_info.value.code == 0
-        mock_installer_methods["is_running"].assert_called_once_with(port=7859)
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859, prefer_plaintext=False)
 
     def test_no_arguments_shows_usage(self, monkeypatch, mock_exit):
         """Test that running with no arguments shows usage."""
@@ -173,7 +173,20 @@ class TestCLICommands:
             installer.parse_args()
 
         assert exc_info.value.code == 0
-        mock_installer_methods["is_running"].assert_called_once_with(port=7860)
+        mock_installer_methods["is_running"].assert_called_once_with(port=7860, prefer_plaintext=False)
+
+    def test_test_command_no_tls_uses_plaintext_probe(self, mock_installer_methods, monkeypatch, mock_exit):
+        """``server test --no-tls`` probes plaintext gRPC (matches no-TLS installs)."""
+        _setup_server_argv(monkeypatch, "test", "--no-tls")
+
+        mock_installer_methods["is_running"].return_value = True
+
+        installer = DTSServerInstaller()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
+
+        assert exc_info.value.code == 0
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859, prefer_plaintext=True)
 
 
 if __name__ == "__main__":

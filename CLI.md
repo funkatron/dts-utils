@@ -80,6 +80,9 @@ uv run dts-util server check [--port PORT]
 Options:
 
 - `--port PORT`: Port to probe (default: 7859)
+- `--no-tls`: Probe plaintext gRPC only (use when `gRPCServerCLI` was installed with `--no-tls`).
+
+On `localhost` / loopback, the default probe tries **TLS** with the server-presented certificate first (same idea as client `--trust-server-cert`), then falls back to plaintext.
 
 `check` is a synonym for `test` (same flags). Both require the `server` prefix, like `install`, `uninstall`, and `restart`.
 

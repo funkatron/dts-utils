@@ -29,7 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `dts-util generate --output` inserts `-<unix_ms>` before the extension on every run (for example `generated.png` → `generated-1735123456789.png`) so successive invocations never clobber earlier PNGs; multiple images in one response use `-2`, `-3`, … after the timestamped stem.
+- `dts-util generate` default `--output` is **`output/generated.png`** (under `./output`). The `output/` directory is gitignored except **`output/.gitkeep`**.
+- `dts-util generate --output` inserts `-<unix_ms>` before the extension on every run (for example `output/generated.png` → `output/generated-1735123456789.png`) so successive invocations never clobber earlier PNGs; multiple images in one response use `-2`, `-3`, … after the timestamped stem.
 - LaunchAgent lifecycle verbs must use the **`dts-util server …`** prefix. Bare **`dts-util install`**, **`uninstall`**, **`restart`**, **`test`**, and **`check`** exit with usage on stderr (**exit code `2`**).
 
 ### Removed

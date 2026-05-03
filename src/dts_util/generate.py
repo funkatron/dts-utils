@@ -41,9 +41,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--output",
         type=Path,
-        default=Path("generated.png"),
+        default=Path("output/generated.png"),
         help=(
-            "Output path; inserts -<unix_ms> before the extension so repeated runs do not overwrite "
+            "Output path (default: output/generated.png under ./output); inserts -<unix_ms> before the extension so repeated runs do not overwrite "
             "prior files (e.g. out/foo.png → out/foo-1735123456789.png). "
             "Additional images from the same run append -2, -3, ... before the extension."
         ),

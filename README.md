@@ -37,7 +37,6 @@ uv run dts-util server check
 uv run dts-util generate \
   --prompt "a beautiful sunset over mountains" \
   --configuration portrait \
-  --output generated.png \
   --trust-server-cert
 ```
 
@@ -45,7 +44,7 @@ What each step does:
 
 1. `server install` writes the LaunchAgent and starts `gRPCServerCLI` with default settings.
 2. `server check` probes the local port to confirm the process is listening. (`server test` is a synonym.)
-3. `generate` streams an image from the server using the saved config `portrait.json` and writes a PNG. The path you pass to `--output` gets a Unix millisecond suffix before the extension (for example `generated.png` becomes `generated-1735123456789.png`) so repeated runs do not overwrite earlier files.
+3. `generate` streams an image from the server using the saved config `portrait.json` and writes a PNG under `./output` by default (`output/generated.png`). The path you pass to `--output` gets a Unix millisecond suffix before the extension (for example `output/generated.png` becomes `output/generated-1735123456789.png`) so repeated runs do not overwrite earlier files.
 
 Skip steps 1 and 2 if the server already runs elsewhere — see [Remote or existing servers](#remote-or-existing-servers).
 
@@ -128,7 +127,6 @@ uv run dts-util generate \
   --host gpu.local \
   --prompt "a beautiful sunset over mountains" \
   --configuration portrait \
-  --output generated.png \
   --root-cert ./gpu.pem
 ```
 

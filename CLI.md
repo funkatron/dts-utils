@@ -146,14 +146,13 @@ If you only run one command, run this:
 uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --configuration portrait \
-  --output generated.png \
   --trust-server-cert \
   --open
 ```
 
 Important options:
 
-- `--output PATH`: Base path for output files. The CLI inserts `-<unix_ms>` before the extension on disk (for example `generated.png` → `generated-1735123456789.png`) so successive runs do not overwrite earlier outputs. Multiple images use `-2`, `-3`, … before the extension on the same stem. Successful writes are printed as `Wrote …` lines on stdout.
+- `--output PATH`: Base path for output files. **Default:** `output/generated.png` (files land under `./output`). The CLI inserts `-<unix_ms>` before the extension on disk (for example `output/generated.png` → `output/generated-1735123456789.png`) so successive runs do not overwrite earlier outputs. Multiple images use `-2`, `-3`, … before the extension on the same stem. Successful writes are printed as `Wrote …` lines on stdout.
 - `--configuration VALUE`: Read a Draw Things configuration. Existing `.json` files are converted to FlatBuffer bytes, other existing files are sent as raw FlatBuffer bytes, and simple names resolve to saved JSON configs.
 - `--configuration-json VALUE`: Read a Draw Things JSON configuration file or saved config name.
 - `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
@@ -225,25 +224,24 @@ If you only run one command, run this:
 uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --configuration portrait \
-  --output generated.png \
   --trust-server-cert \
   --open
 ```
 
 Generation fails before opening a gRPC stream if neither `--configuration-json` nor `--configuration` is provided. This avoids the opaque socket-close behavior the server can produce for prompt-only requests.
 
-Each successful run writes timestamped filenames derived from `--output`: `-<unix_ms>` is inserted before the extension (for example `generated.png` → `generated-1735123456789.png`). When the server returns multiple images in one invocation, additional files append `-2`, `-3`, … before the extension.
+Each successful run writes timestamped filenames derived from `--output` (default `output/generated.png`): `-<unix_ms>` is inserted before the extension (for example `output/generated.png` → `output/generated-1735123456789.png`). When the server returns multiple images in one invocation, additional files append `-2`, `-3`, … before the extension.
 
 Common tasks:
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Generate from a saved config | `uv run dts-util generate --prompt "..." --configuration portrait --output generated.png --trust-server-cert` | A decoded PNG (`generated-<unix_ms>.png`) using `portrait.json` from the saved config directory. |
-| Generate from Draw Things JSON | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --trust-server-cert` | A decoded PNG (`generated-<unix_ms>.png`) after JSON-to-FlatBuffer conversion. |
-| Generate and open the result | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --trust-server-cert --open` | Timestamp-suffixed PNG opened in the platform default viewer. |
-| Use prebuilt FlatBuffer bytes | `uv run dts-util generate --prompt "..." --configuration config.bin --output generated.png --trust-server-cert` | PNG written without invoking `flatc`. |
-| Use a pinned certificate | `uv run dts-util generate --prompt "..." --configuration config.json --output generated.png --root-cert cert.pem` | TLS verification against a known PEM file. |
-| Force trust for remote diagnostics | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --output generated.png --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
+| Generate from a saved config | `uv run dts-util generate --prompt "..." --configuration portrait --trust-server-cert` | A decoded PNG under `./output` (`output/generated-<unix_ms>.png` by default) using `portrait.json` from the saved config directory. |
+| Generate from Draw Things JSON | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert` | A decoded PNG under `./output` after JSON-to-FlatBuffer conversion. |
+| Generate and open the result | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert --open` | Timestamp-suffixed PNG under `./output`, opened in the platform default viewer. |
+| Use prebuilt FlatBuffer bytes | `uv run dts-util generate --prompt "..." --configuration config.bin --trust-server-cert` | PNG written without invoking `flatc`. |
+| Use a pinned certificate | `uv run dts-util generate --prompt "..." --configuration config.json --root-cert cert.pem` | TLS verification against a known PEM file. |
+| Force trust for remote diagnostics | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
 
 For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-cert` only when you cannot pin a cert and accept the risk for that connection.
 

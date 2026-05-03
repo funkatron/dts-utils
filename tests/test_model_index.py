@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from dt_model_index.cli import main as models_main
-from dt_model_index.export import write_html_report
-from dt_model_index.huggingface import _cache_paths
-from dt_model_index.local import compute_index_status, doctor_local_models, scan_local_models, summarize_installed_models
-from dt_model_index.parse import ModelRecord, build_records, enrich_huggingface_records
-from dt_model_index.search import filter_records, format_record_detail, format_summary, search_records
+from dts_util.model_index.cli import main as models_main
+from dts_util.model_index.export import write_html_report
+from dts_util.model_index.huggingface import _cache_paths
+from dts_util.model_index.local import compute_index_status, doctor_local_models, scan_local_models, summarize_installed_models
+from dts_util.model_index.parse import ModelRecord, build_records, enrich_huggingface_records
+from dts_util.model_index.search import filter_records, format_record_detail, format_summary, search_records
 
 
 def _write_text(path: Path, content: str) -> None:
@@ -383,3 +383,11 @@ def test_write_html_report_includes_sortable_table(tmp_path: Path) -> None:
     html_text = report_path.read_text(encoding="utf-8")
     assert "Draw Things Uncurated Model Report" in html_text
     assert "models-table" in html_text
+
+
+def test_dt_model_index_shim_aliases_canonical_main():
+    """``dt_model_index`` remains importable for older scripts."""
+    import dt_model_index
+    from dts_util.model_index.cli import main as canonical_main
+
+    assert dt_model_index.main is canonical_main

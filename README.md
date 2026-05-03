@@ -25,7 +25,7 @@ uv sync
 uv run dts-util --help
 ```
 
-
+From [PyPI](https://pypi.org/project/dts-util/) (releases from **`v*.*.*` tags**): `uv tool install dts-util` or `pip install dts-util`.
 
 ---
 

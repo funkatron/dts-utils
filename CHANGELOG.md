@@ -24,6 +24,17 @@ Example:
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-05-03
+
+### Tested with
+
+- **gRPCServerCLI:** not smoke-tested for this tag. **pytest:** 113 passed, 6 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+
+### Added
+
+- **PyPI:** GitHub Actions workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml) builds and uploads on **`v*.*.*` tags** via [trusted publishing](https://docs.pypi.org/trusted-publishers/) (`uv publish --trusted-publishing always`). Configure the **dts-util** project on PyPI to allow this repository as a publisher before the first upload.
+- **[`project.urls`](pyproject.toml)** `Repository` link for the package index page.
+
 ### Changed
 
 - **CI:** `actions/checkout@v6` and `astral-sh/setup-uv@v8.1.0` (Node 24–aligned action runtimes; clears GitHub’s Node 20 deprecation noise on `ubuntu-latest`).

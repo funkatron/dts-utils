@@ -1,0 +1,27 @@
+name: Publish to PyPI
+
+# Pushes a matching tag (e.g. v0.3.1) upload to PyPI using trusted publishing.
+# One-time: https://pypi.org/manage/account/publishing/ — add this repo as a publisher for project **dts-util**.
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: astral-sh/setup-uv@v8.1.0
+
+      - name: Build
+        run: uv build
+
+      - name: Publish
+        run: uv publish --trusted-publishing always

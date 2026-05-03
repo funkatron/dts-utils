@@ -394,6 +394,101 @@ def test_dts_util_main_dispatches_generate(monkeypatch):
     assert exc_info.value.code == 0
 
 
+def test_dts_util_main_generate_shorthand_prompt_and_profile(monkeypatch):
+    """``dts-util PROMPT PROFILE`` expands to generate with trust + open defaults."""
+    monkeypatch.setattr("sys.argv", ["dts-util", "hello", "portrait"])
+    with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            cli_router.main()
+
+    generate_main.assert_called_once_with(
+        ["--prompt", "hello", "--configuration", "portrait", "--trust-server-cert", "--open"]
+    )
+    assert exc_info.value.code == 0
+
+
+def test_dts_util_main_generate_shorthand_default_from_env(monkeypatch):
+    monkeypatch.setenv(cli_router.DEFAULT_CONFIGURATION_ENV, "landscape")
+    monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
+    with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            cli_router.main()
+
+    generate_main.assert_called_once_with(
+        ["--prompt", "hello", "--configuration", "landscape", "--trust-server-cert", "--open"]
+    )
+    assert exc_info.value.code == 0
+
+
+def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
+    monkeypatch.delenv(cli_router.DEFAULT_CONFIGURATION_ENV, raising=False)
+    monkeypatch.setattr(cli_router, "configurations_dir", lambda: tmp_path)
+    (tmp_path / "default.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
+    with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            cli_router.main()
+
+    generate_main.assert_called_once_with(
+        [
+            "--prompt",
+            "hello",
+            "--configuration",
+            cli_router.FALLBACK_SAVED_CONFIG_NAME,
+            "--trust-server-cert",
+            "--open",
+        ]
+    )
+    assert exc_info.value.code == 0
+
+
+def test_dts_util_main_generate_shorthand_no_configuration_exits_2(monkeypatch, capsys, tmp_path):
+    monkeypatch.delenv(cli_router.DEFAULT_CONFIGURATION_ENV, raising=False)
+    monkeypatch.setattr(cli_router, "configurations_dir", lambda: tmp_path)
+    monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
+    with patch.object(cli_router, "generate_main") as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            cli_router.main()
+
+    generate_main.assert_not_called()
+    assert exc_info.value.code == 2
+    err = capsys.readouterr().err
+    assert "dts-util: generation needs a saved configuration" in err
+    assert cli_router.DEFAULT_CONFIGURATION_ENV in err
+
+
+def test_dts_util_main_generate_shorthand_too_many_positionals(monkeypatch, capsys):
+    monkeypatch.setattr("sys.argv", ["dts-util", "a", "b", "c"])
+    with patch.object(cli_router, "generate_main") as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            cli_router.main()
+
+    generate_main.assert_not_called()
+    assert exc_info.value.code == 2
+    assert "too many positional arguments" in capsys.readouterr().err
+
+
+def test_dts_util_main_generate_shorthand_passes_trailing_flags(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["dts-util", "hello", "portrait", "--negative-prompt", "blur"])
+    with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
+        with pytest.raises(SystemExit) as exc_info:
+            cli_router.main()
+
+    generate_main.assert_called_once_with(
+        [
+            "--prompt",
+            "hello",
+            "--configuration",
+            "portrait",
+            "--trust-server-cert",
+            "--open",
+            "--negative-prompt",
+            "blur",
+        ]
+    )
+    assert exc_info.value.code == 0
+
+
 def test_create_channel_can_trust_presented_server_certificate(monkeypatch):
     """Verify TLS credentials can be built from the server's presented certificate."""
     from dts_util.grpc import connection as grpc_connection

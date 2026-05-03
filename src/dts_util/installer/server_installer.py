@@ -64,6 +64,7 @@ Usage:
     dts-util server restart [--model-browser]
     dts-util server test|check [--port PORT]
     dts-util generate --prompt PROMPT --configuration CONFIG [...]
+    dts-util \"PROMPT\" [PROFILE] [...]   Shorthand: same as generate with --trust-server-cert --open; PROFILE optional if default.json or $DTS_UTIL_DEFAULT_CONFIGURATION is set
     dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
     dts-util configs <path|list> [...]
     dts-util tls <path|export> [...]

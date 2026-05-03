@@ -25,8 +25,6 @@ uv sync
 uv run dts-util --help
 ```
 
-Configure the PyPI project **once**: [pypi.org/manage/account/publishing/](https://pypi.org/manage/account/publishing/) → *Add a new pending publisher* → owner **funkatron**, repo **dts-utils**, workflow **Publish to PyPI** (`publish.yml`). After that, tag pushes upload automatically; if a tag upload failed before setup, open **Actions → Publish to PyPI → Run workflow**.
-
 ---
 
 ## Quickstart

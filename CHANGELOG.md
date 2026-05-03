@@ -28,9 +28,9 @@ Example:
 
 - **Manual release smoke:** [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) defines the live-server CLI checklist (`server check`, `reflect`, `generate`); linked from [CHANGELOG.md](CHANGELOG.md#documenting-grpcservercli-for-each-release) and [PROTOBUF.md](PROTOBUF.md).
 
-### Changed
+### Removed
 
-- **Publish workflow:** `workflow_dispatch` so you can re-run a PyPI upload after configuring [trusted publishing](https://docs.pypi.org/trusted-publishers/) (for example if the first tag push ran before PyPI was set up).
+- **PyPI publishing:** removed `.github/workflows/publish.yml` and README trusted-publishing instructions. The project is **not** on PyPI; install from a [git checkout](README.md#install) (or a local path / fork) until publishing is turned on deliberately.
 
 ## [0.3.1] - 2026-05-03
 
@@ -40,8 +40,7 @@ Example:
 
 ### Added
 
-- **PyPI:** GitHub Actions workflow [`.github/workflows/publish.yml`](.github/workflows/publish.yml) builds and uploads on **`v*.*.*` tags** via [trusted publishing](https://docs.pypi.org/trusted-publishers/) (`uv publish --trusted-publishing always`). Configure the **dts-util** project on PyPI to allow this repository as a publisher before the first upload.
-- **[`project.urls`](pyproject.toml)** `Repository` link for the package index page.
+- **[`project.urls`](pyproject.toml)** `Repository` link (metadata / future packaging).
 
 ### Changed
 

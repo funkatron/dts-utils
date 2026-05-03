@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 import pytest
 
-from dts_util.installer import server_installer
+from dts_util import cli_router
 from dts_util import tls_export
 
 
@@ -68,9 +68,9 @@ def test_tls_main_export_writes_file(monkeypatch, tmp_path, capsys):
 
 def test_dts_util_main_dispatches_tls(monkeypatch):
     monkeypatch.setattr("sys.argv", ["dts-util", "tls", "path", "--no-create"])
-    with patch.object(server_installer, "tls_main", return_value=0) as tls_main:
+    with patch.object(cli_router, "tls_main", return_value=0) as tls_main:
         with pytest.raises(SystemExit) as exc_info:
-            server_installer.main()
+            cli_router.main()
 
     tls_main.assert_called_once_with(["path", "--no-create"])
     assert exc_info.value.code == 0

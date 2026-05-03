@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from dts_util import configs
-from dts_util.installer import server_installer
+from dts_util import cli_router
 
 
 def test_resolve_configuration_value_prefers_existing_file(tmp_path):
@@ -64,9 +64,9 @@ def test_configs_list_prints_saved_names(tmp_path, capsys):
 def test_dts_util_main_dispatches_configs(monkeypatch):
     """Verify dts-util configs is routed before installer argument parsing."""
     monkeypatch.setattr("sys.argv", ["dts-util", "configs", "path"])
-    with patch.object(server_installer, "configs_main", return_value=0) as configs_main:
+    with patch.object(cli_router, "configs_main", return_value=0) as configs_main:
         with pytest.raises(SystemExit) as exc_info:
-            server_installer.main()
+            cli_router.main()
 
     configs_main.assert_called_once_with(["path"])
     assert exc_info.value.code == 0

@@ -46,7 +46,7 @@ omit = [
 ]
 
 [project.scripts]
-dts-util = "dts_util.installer.server_installer:main"
+dts-util = "dts_util.cli_router:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

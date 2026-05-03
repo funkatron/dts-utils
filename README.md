@@ -39,7 +39,13 @@ uv run dts-util server check
 uv run dts-util "a beautiful sunset over mountains"
 ```
 
-Example output (768×1024 PNG from a local `generate` run; appearance depends on model, prompt, and configuration):
+Example output below is the repo’s sample PNG ([`docs/assets/sample-output.png`](docs/assets/sample-output.png), 768×1024), produced with:
+
+```bash
+uv run dts-util "an incredibly detailed mech from Mechwarrior, Depth of field, extreme zoom, tilt-shift, extreme angles, dramatic perspective"
+```
+
+Your runs will vary with model, `zit.json`, and prompt.
 
 ![Sample image written by dts-util generate](docs/assets/sample-output.png)
 

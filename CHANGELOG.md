@@ -26,7 +26,7 @@ Example:
 
 ### Changed
 
-- **CI:** `actions/checkout@v6` and `astral-sh/setup-uv@v8` (Node 24–aligned action runtimes; clears GitHub’s Node 20 deprecation noise on `ubuntu-latest`).
+- **CI:** `actions/checkout@v6` and `astral-sh/setup-uv@v8.1.0` (Node 24–aligned action runtimes; clears GitHub’s Node 20 deprecation noise on `ubuntu-latest`).
 
 ### Fixed
 

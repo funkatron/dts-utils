@@ -26,6 +26,7 @@ Example:
 
 ### Changed
 
+- **[PROTOBUF.md](PROTOBUF.md):** cross-link to [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) for client/streaming notes.
 - Renamed **`API.md`** → **`DRAW-THINGS-GRPC-API.md`** so it is obvious the doc is Draw Things' gRPC surface (not the Python `dts_util` module API).
 
 ### Added

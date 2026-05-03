@@ -9,6 +9,8 @@ The Draw Things generation configuration schema is separate from protobuf:
 
 - `src/dts_util/grpc/proto/upstream/config.fbs` defines the FlatBuffer `GenerationConfiguration` table.
 
+See also [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) for client-oriented notes (RPC summary, streaming behavior, example commands).
+
 ## Upstream gRPC Service
 
 The live service is `ImageGenerationService`.

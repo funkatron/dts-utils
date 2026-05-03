@@ -25,8 +25,8 @@ def mock_home_dir():
     shutil.rmtree(temp_dir)
 
 @pytest.fixture
-def installer():
-    """Create a fresh installer instance for each test."""
+def installer(mock_home_dir):
+    """Create a fresh installer instance; HOME is a temp dir (see ``mock_home_dir``)."""
     return DTSServerInstaller()
 
 @pytest.fixture

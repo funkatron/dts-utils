@@ -3,7 +3,6 @@
 import os
 import sys
 import pytest
-import subprocess
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
@@ -30,8 +29,12 @@ def mock_subprocess():
 
 @pytest.fixture
 def mock_exit():
-    """Mock sys.exit to prevent test termination."""
-    with patch('sys.exit') as mock_exit:
+    """Make ``sys.exit`` propagate :class:`SystemExit` so ``parse_args`` does not fall through after early exits."""
+
+    def _exit(code: int | None = None) -> None:
+        raise SystemExit(code)
+
+    with patch("sys.exit", side_effect=_exit) as mock_exit:
         yield mock_exit
 
 
@@ -53,149 +56,125 @@ def mock_installer_methods():
 class TestCLICommands:
     """Test the CLI commands."""
 
+    @pytest.fixture(autouse=True)
+    def _draw_things_default_models_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+        """CI/Linux has no Draw Things container path; mirror macOS layout under a fake HOME."""
+        monkeypatch.setenv("HOME", str(tmp_path))
+        models = tmp_path / "Library/Containers/com.liuliu.draw-things/Data/Documents/Models"
+        models.mkdir(parents=True, exist_ok=True)
+
     def test_install_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the install command."""
         # Set up command line arguments
         _setup_server_argv(monkeypatch, 'install')
 
         # Create instance but patch run to prevent installation
-        with patch.object(DTSServerInstaller, 'run') as mock_run:
+        with patch.object(DTSServerInstaller, "run") as mock_run:
             installer = DTSServerInstaller()
             args = installer.parse_args()
 
-            # Verify args are correct
-            assert args.action == 'install'
-
-            # Run should not have been called yet
+            assert args.action == "install"
             mock_run.assert_not_called()
 
-            # sys.exit should not have been called
-            mock_exit.assert_not_called()
+        mock_exit.assert_not_called()
 
     def test_uninstall_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the uninstall command."""
-        # Set up command line arguments
-        _setup_server_argv(monkeypatch, 'uninstall')
+        _setup_server_argv(monkeypatch, "uninstall")
 
-        # Create instance and parse args
         installer = DTSServerInstaller()
-        installer.parse_args()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
 
-        # Verify uninstall was called
-        mock_installer_methods['uninstall'].assert_called_once()
-
-        # Verify sys.exit was called with 0
-        mock_exit.assert_called_once_with(0)
+        assert exc_info.value.code == 0
+        mock_installer_methods["uninstall"].assert_called_once()
 
     def test_restart_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the restart command."""
-        # Set up command line arguments
-        _setup_server_argv(monkeypatch, 'restart')
+        _setup_server_argv(monkeypatch, "restart")
 
-        # Create instance and parse args
         installer = DTSServerInstaller()
-        installer.parse_args()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
 
-        # Verify restart_service was called
-        mock_installer_methods['restart'].assert_called_once_with(enable_model_browser=False)
-
-        # Verify sys.exit was called with 0
-        mock_exit.assert_called_once_with(0)
+        assert exc_info.value.code == 0
+        mock_installer_methods["restart"].assert_called_once_with(enable_model_browser=False)
 
     def test_restart_command_can_enable_model_browser(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test restarting while enabling model browser."""
-        _setup_server_argv(monkeypatch, 'restart', '--model-browser')
+        _setup_server_argv(monkeypatch, "restart", "--model-browser")
 
         installer = DTSServerInstaller()
-        installer.parse_args()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
 
-        mock_installer_methods['restart'].assert_called_once_with(enable_model_browser=True)
-        mock_exit.assert_called_once_with(0)
+        assert exc_info.value.code == 0
+        mock_installer_methods["restart"].assert_called_once_with(enable_model_browser=True)
 
     def test_test_command_server_running(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the test command when server is running."""
-        # Set up command line arguments
-        _setup_server_argv(monkeypatch, 'test')
-
-        # Mock server as running
-        mock_installer_methods['is_running'].return_value = True
-
-        # Create instance and parse args
-        installer = DTSServerInstaller()
-        installer.parse_args()
-
-        # Verify is_server_running was called with default port
-        mock_installer_methods['is_running'].assert_called_once_with(port=7859)
-
-        # Verify sys.exit was called with 0 (success)
-        mock_exit.assert_called_once_with(0)
-
-    def test_test_command_server_not_running(self, mock_installer_methods, monkeypatch, mock_exit):
-        """Test the test command when server is not running."""
-        # Set up command line arguments
-        _setup_server_argv(monkeypatch, 'test')
-
-        # Mock server as not running
-        mock_installer_methods['is_running'].return_value = False
-
-        # Create instance and parse args
-        installer = DTSServerInstaller()
-        installer.parse_args()
-
-        # Verify is_server_running was called with default port
-        mock_installer_methods['is_running'].assert_called_once_with(port=7859)
-
-        # Verify sys.exit was called with 1 (failure)
-        mock_exit.assert_called_once_with(1)
-
-    def test_check_alias_invokes_listener_probe(self, mock_installer_methods, monkeypatch, mock_exit):
-        """``check`` is synonymous with ``test`` (listener probe, not pytest)."""
-        _setup_server_argv(monkeypatch, 'check')
+        _setup_server_argv(monkeypatch, "test")
 
         mock_installer_methods["is_running"].return_value = True
 
         installer = DTSServerInstaller()
-        installer.parse_args()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
 
+        assert exc_info.value.code == 0
         mock_installer_methods["is_running"].assert_called_once_with(port=7859)
-        mock_exit.assert_called_once_with(0)
+
+    def test_test_command_server_not_running(self, mock_installer_methods, monkeypatch, mock_exit):
+        """Test the test command when server is not running."""
+        _setup_server_argv(monkeypatch, "test")
+
+        mock_installer_methods["is_running"].return_value = False
+
+        installer = DTSServerInstaller()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
+
+        assert exc_info.value.code == 1
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859)
+
+    def test_check_alias_invokes_listener_probe(self, mock_installer_methods, monkeypatch, mock_exit):
+        """``check`` is synonymous with ``test`` (listener probe, not pytest)."""
+        _setup_server_argv(monkeypatch, "check")
+
+        mock_installer_methods["is_running"].return_value = True
+
+        installer = DTSServerInstaller()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
+
+        assert exc_info.value.code == 0
+        mock_installer_methods["is_running"].assert_called_once_with(port=7859)
 
     def test_no_arguments_shows_usage(self, monkeypatch, mock_exit):
         """Test that running with no arguments shows usage."""
-        # Set up command line arguments
-        monkeypatch.setattr('sys.argv', ['dts-util'])
+        monkeypatch.setattr("sys.argv", ["dts-util"])
 
-        # Patch print to capture output
-        with patch('builtins.print') as mock_print:
+        with patch("builtins.print") as mock_print:
             installer = DTSServerInstaller()
-            installer.run()
+            with pytest.raises(SystemExit) as exc_info:
+                installer.run()
 
-        # Verify print was called (to show usage)
+        assert exc_info.value.code == 0
         mock_print.assert_called()
-
-        # Verify sys.exit was called at least once
-        assert mock_exit.call_count >= 1
-        # Verify at least one call was with 0 (success)
-        mock_exit.assert_any_call(0)
 
     def test_command_with_custom_port(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test using a command with a custom port."""
-        # Set up command line arguments
-        _setup_server_argv(monkeypatch, 'test', '--port', '7860')
+        _setup_server_argv(monkeypatch, "test", "--port", "7860")
 
-        # Mock server as running
-        mock_installer_methods['is_running'].return_value = True
+        mock_installer_methods["is_running"].return_value = True
 
-        # Create instance and parse args
         installer = DTSServerInstaller()
-        installer.parse_args()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
 
-        # Verify is_server_running was called with the custom port
-        mock_installer_methods['is_running'].assert_called_once_with(port=7860)
-
-        # Verify sys.exit was called with 0 (success)
-        mock_exit.assert_called_once_with(0)
+        assert exc_info.value.code == 0
+        mock_installer_methods["is_running"].assert_called_once_with(port=7860)
 
 
-if __name__ == '__main__':
-    pytest.main(['-v', __file__])
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

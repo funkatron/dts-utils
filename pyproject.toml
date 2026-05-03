@@ -4,16 +4,16 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dts-util"
-version = "0.1.0"
+version = "0.2.0"
 description = "Utilities for installing and interacting with Draw Things gRPCServerCLI."
 readme = "README.md"
 requires-python = ">=3.12,<4"
 license = { text = "MIT" }
 dependencies = [
     "fpzip>=1.2.5",
-    "grpcio>=1.54.2",
-    "grpcio-reflection>=1.54.2",
-    "grpcio-tools>=1.54.2",
+    "grpcio>=1.80.0",
+    "grpcio-reflection>=1.80.0",
+    "grpcio-tools>=1.80.0",
     "numpy>=2.4.4",
     "pillow>=12.2.0",
     "protobuf>=4.23.1",

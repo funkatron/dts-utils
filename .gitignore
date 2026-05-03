@@ -51,6 +51,10 @@ gRPCServerCLI
 .cache/
 config_flatc.bin
 generated.png
+
+# Default generate output directory (tracked empty via output/.gitkeep)
+output/*
+!output/.gitkeep
 tmp_models/
 data/drawthings_models.sqlite
 data/drawthings_uncurated_models.csv

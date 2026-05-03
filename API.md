@@ -87,7 +87,7 @@ Use this for local development:
 uv run dts-util generate \
   --prompt "a small robot painting clouds" \
   --configuration-json tmp_models/config.json \
-  --output generated.png \
+  --output output/generated.png \
   --trust-server-cert \
   --open
 ```

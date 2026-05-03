@@ -59,7 +59,7 @@ message ImageGenerationRequest {
 }
 ```
 
-The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. `dts-util generate --configuration config.json` accepts Draw Things JSON and converts it with [`flatc`](https://github.com/google/flatbuffers) before sending the RPC.
+The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. The `dts-util generate --configuration config.json` path accepts Draw Things JSON and converts it with [`flatc`](https://github.com/google/flatbuffers) before sending the RPC. For a prompt-first invocation without writing `generate`, see [CLI.md § Generate shorthand](CLI.md#generate-shorthand-prompt-first).
 
 Responses contain progress, previews, and generated image tensors:
 
@@ -79,9 +79,9 @@ message ImageGenerationResponse {
 
 `generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-util generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
 
-## Recommended Client Command
+## Recommended client commands
 
-Use this for local development:
+Explicit `generate` (local TLS trust, JSON config on disk):
 
 ```bash
 uv run dts-util generate \
@@ -92,12 +92,20 @@ uv run dts-util generate \
   --open
 ```
 
-Requirements for this command:
+Prompt-first shorthand (after `default.json` exists or is auto-created; opens viewer):
 
-- [`flatc`](https://github.com/google/flatbuffers) on `PATH` for JSON-to-FlatBuffer conversion.
-- A running Draw Things `gRPCServerCLI` on `localhost:7859`, unless `--host` or `--port` is provided.
-- `--trust-server-cert` for local TLS when the Draw Things root certificate is not trusted by Python.
-- `--shared-secret` if the server was installed with a shared secret.
+```bash
+uv run dtsutils "a small robot painting clouds"
+```
+
+Details: [CLI.md](CLI.md) and [README.md](README.md).
+
+### Requirements
+
+- [`flatc`](https://github.com/google/flatbuffers) on `PATH` when you pass JSON configuration (conversion uses `config.fbs`).
+- A running Draw Things `gRPCServerCLI` on `localhost:7859` unless you pass `--host` / `--port`.
+- `--trust-server-cert` for local TLS when Python does not trust the Draw Things root (shorthand adds this for you).
+- `--shared-secret` when the server was installed with one.
 
 ## Server Management
 
@@ -109,7 +117,7 @@ uv run dts-util server restart --model-browser
 uv run dts-util server test
 ```
 
-For command details, see `CLI.md`. For the prompt-to-image workflow, see `README.md`.
+For command details, see [CLI.md](CLI.md). For install, shorthand, and configuration files, see [README.md](README.md).
 
 ## Security And Connection Notes
 

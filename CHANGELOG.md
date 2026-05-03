@@ -24,7 +24,9 @@ Example:
 
 ## [Unreleased]
 
-## [0.3.3] - 2026-05-03
+### Changed
+
+- **Docs:** [README.md](README.md), [CLI.md](CLI.md), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md), [PROTOBUF.md](PROTOBUF.md), and [tests/README.md](tests/README.md) — describe `dtsutils` / `dts-utils`, prompt-first shorthand, implicit `default.json`, and related environment variables; reduced duplicate TLS/config prose where [README.md](README.md) points at [CLI.md](CLI.md).
 
 ### Tested with
 

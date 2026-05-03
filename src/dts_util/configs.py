@@ -12,12 +12,12 @@ from pathlib import Path
 APP_NAME = "dts-util"
 CONFIG_SUBDIR = "configurations"
 
-# Shorthand ``dts-util "prompt"`` uses this profile name when no second positional is given.
-DEFAULT_PROFILE_NAME = "default"
+# Shorthand ``dts-util "prompt"`` uses this saved profile when no second positional is given.
+DEFAULT_PROFILE_NAME = "zit"
 # Set by :func:`ensure_default_generation_json_config` via ``os.environ.setdefault`` so subprocesses
 # and later tools see the same default (user-exported env wins).
 DEFAULT_CONFIGURATION_ENV = "DTS_UTIL_DEFAULT_CONFIGURATION"
-# Optional override for the ``model`` field when auto-creating ``default.json``.
+# Optional override for the ``model`` field when auto-creating implicit profile JSON.
 DEFAULT_MODEL_ENV = "DTS_UTIL_DEFAULT_MODEL"
 
 
@@ -77,7 +77,7 @@ def resolve_configuration_value(value: str | Path, config_dir: Path | None = Non
 
 
 def guess_default_model_basename() -> str:
-    """Pick a checkpoint file name for auto-generated ``default.json``, or return ``\"\"``."""
+    """Pick a checkpoint file name for auto-created implicit profile JSON, or return ``\"\"``."""
     explicit = os.environ.get(DEFAULT_MODEL_ENV, "").strip()
     if explicit:
         return explicit
@@ -98,7 +98,7 @@ def guess_default_model_basename() -> str:
 
 
 def default_generation_config_template_dict() -> dict:
-    """Minimal Draw Things JSON shape for ``default.json`` (camelCase; normalized by flatc pipeline)."""
+    """Minimal Draw Things JSON shape for a new implicit profile file (camelCase; normalized by flatc)."""
     model = guess_default_model_basename()
     return {
         "width": 512,
@@ -114,11 +114,10 @@ def default_generation_config_template_dict() -> dict:
 
 
 def ensure_default_generation_json_config() -> Path:
-    """Ensure ``configurations/default.json`` exists; set ``DEFAULT_CONFIGURATION_ENV`` if unset.
+    """Ensure ``configurations/zit.json`` exists; set ``DEFAULT_CONFIGURATION_ENV`` if unset.
 
-    Creates the configurations directory, writes a starter JSON when the file is missing
-    (model guessed from the Draw Things models directory when possible), and runs
-    ``os.environ.setdefault(DEFAULT_CONFIGURATION_ENV, DEFAULT_PROFILE_NAME)``.
+    Creates the configurations directory and writes a starter JSON when ``zit.json`` is missing,
+    then runs ``os.environ.setdefault(DEFAULT_CONFIGURATION_ENV, DEFAULT_PROFILE_NAME)``.
     """
     directory = configurations_dir()
     directory.mkdir(parents=True, exist_ok=True)
@@ -128,7 +127,7 @@ def ensure_default_generation_json_config() -> Path:
         path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
         if not (str(payload.get("model") or "")).strip():
             print(
-                "dts-util: created default.json with an empty model name. "
+                f"dts-util: created {path.name} with an empty model name. "
                 f"Set {DEFAULT_MODEL_ENV}, put a .ckpt in your Draw Things Models folder, or edit:\n"
                 f"  {path}",
                 file=sys.stderr,

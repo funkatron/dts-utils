@@ -41,7 +41,7 @@ What each step does:
 
 1. `server install` installs the LaunchAgent and starts `gRPCServerCLI` with default settings.
 2. `server check` probes the local port to confirm a listener. (`server test` is the same probe with a different name.)
-3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and a configuration from [Implicit default profile](#implicit-default-profile-shorthand). On first use the tool may create `default.json` under the saved-config directory and print a stderr hint if it cannot guess a checkpoint name. PNGs go under `./output` by default (`output/generated.png` with a Unix millisecond suffix before the extension so repeated runs do not overwrite earlier files).
+3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and the configuration described under [Shorthand profile (zit)](#shorthand-profile-zit). On first use the tool may create `zit.json` under the saved-config directory and print a stderr hint if it cannot guess a checkpoint name. PNGs go under `./output` by default (`output/generated.png` with a Unix millisecond suffix before the extension so repeated runs do not overwrite earlier files).
 
 To call `generate` explicitly with a saved profile (for example `portrait.json` from `dts-util configs path`):
 
@@ -77,15 +77,15 @@ uv run dts-util configs path     # print the directory (creates it)
 uv run dts-util configs list     # list saved JSON names (no `.json` suffix in the listing)
 ```
 
-### Implicit default profile (shorthand)
+### Shorthand profile (zit)
 
 When you run prompt-first shorthand (`dts-util "prompt"`, optional second argument for a profile name, optional flags after that), configuration is chosen in this order:
 
 1. Second positional argument, if present (same resolution rules as `--configuration` for a name or path).
 2. Otherwise `DTS_UTIL_DEFAULT_CONFIGURATION`, if set in the environment (profile name or path).
-3. Otherwise `default.json` in the saved-config directory. If that file is missing, the tool creates it once: starter JSON (512×512, common sampling fields), `model` set from the first `.ckpt` / `.safetensors` in your Draw Things models directory (or `DRAW_THINGS_MODEL_PATH`), or from `DTS_UTIL_DEFAULT_MODEL` if set, or left empty with a short stderr hint to edit the file.
+3. Otherwise `zit.json` in the saved-config directory (profile name `zit`). If that file is missing, the tool creates a starter JSON once: 512×512, common sampling fields, `model` from the first `.ckpt` / `.safetensors` in your Draw Things models directory (or `DRAW_THINGS_MODEL_PATH`), or from `DTS_UTIL_DEFAULT_MODEL` if set, or left empty with a short stderr hint to edit the file.
 
-After auto-creating or using the default profile, the process sets `DTS_UTIL_DEFAULT_CONFIGURATION` to `default` with `setenv` semantics only when the variable is unset, so a value you already exported in the shell still wins.
+After the profile is selected or `zit.json` is created, the process sets `DTS_UTIL_DEFAULT_CONFIGURATION` to `zit` with `setdefault` semantics only when the variable is unset, so a value you already exported in the shell still wins.
 
 Full rules and examples: [CLI.md § Generate shorthand](CLI.md#generate-shorthand-prompt-first).
 
@@ -202,9 +202,9 @@ Output paths:
 | --- | --- |
 | `server check` fails | Wrong port; or use `dts-util server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-util server restart` |
 | TLS error against `localhost` | Add `--trust-server-cert` for loopback on `generate`. See [TLS](#tls) |
-| `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Implicit default profile](#implicit-default-profile-shorthand). Wrong or missing `model` in JSON often fails at the server |
+| `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Shorthand profile (zit)](#shorthand-profile-zit). Wrong or missing `model` in JSON often fails at the server |
 | `reflect` returns `UNIMPLEMENTED` | Draw Things `gRPCServerCLI` often omits gRPC reflection; generation can still work |
-| PNG looks like noise | Usually wrong `model` in `default.json` (basename must exist in the server model directory) or a bad tensor decode—open the JSON from `dts-util configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
+| PNG looks like noise | Usually wrong `model` in `zit.json` (or your chosen profile) — basename must exist in the server model directory — or a bad tensor decode. Open the JSON from `dts-util configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
 | “Cannot resolve … config” | `dts-util configs path` and `dts-util configs list`; save the file there or pass an absolute path |
 
 ---
@@ -216,7 +216,7 @@ src/
 └── dts_util/
     ├── installer/       # LaunchAgent-backed install lifecycle (macOS)
     ├── generate.py      # Prompt → gRPC GenerateImage → PNG
-    ├── configs.py       # Saved JSON configs and default profile materialization
+    ├── configs.py       # Saved JSON configs and zit implicit profile materialization
     ├── cli_router.py    # Top-level dispatch and generate shorthand
     ├── grpc/            # Channels, reflection, stubs, protobuf copies
     └── utils/           # Shared helpers (e.g. gRPC errors)
@@ -230,6 +230,8 @@ Per-flag behavior: [CLI.md](CLI.md).
 
 | Doc | Covers |
 | --- | --- |
+| [docs/README.md](docs/README.md) | Documentation map and operator UX notes |
+| [AGENTS.md](AGENTS.md) | Conventions for coding agents and automation |
 | [CLI.md](CLI.md) | Subcommands, shorthand, environment variables, flags |
 | [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) | Draw Things gRPC service, `ImageGenerationRequest`, streaming |
 | [PROTOBUF.md](PROTOBUF.md) | Proto + FlatBuffer `GenerationConfiguration` and gRPC test notes |
@@ -256,5 +258,7 @@ MIT — see [LICENSE](LICENSE).
 ## Contributing
 
 Pull requests welcome. Pair behavioral changes with `pytest` updates in the same change when practical.
+
+Contributors and automation: see [AGENTS.md](AGENTS.md) and the [documentation map](docs/README.md).
 
 Releases: when tagging a version, follow [CHANGELOG.md § Documenting `gRPCServerCLI` for each release](CHANGELOG.md#documenting-grpcservercli-for-each-release) — record the draw-things-community `gRPCServerCLI` release tag you smoke-tested, or state that you did not run a live server.

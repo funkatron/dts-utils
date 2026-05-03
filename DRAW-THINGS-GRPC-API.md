@@ -92,7 +92,7 @@ uv run dts-util generate \
   --open
 ```
 
-Prompt-first shorthand (after `default.json` exists or is auto-created; opens viewer):
+Prompt-first shorthand (after `zit.json` exists or is auto-created; opens viewer):
 
 ```bash
 uv run dts-util "a small robot painting clouds"

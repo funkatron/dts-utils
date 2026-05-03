@@ -15,7 +15,7 @@ Some tests are **skipped** (integration / optional): see [gRPC integration tests
 
 Exercise the CLI against a **live** Draw Things **`gRPCServerCLI`** (not only `pytest`). Record the server release **tag** you used under **Tested with** in [CHANGELOG.md](../CHANGELOG.md) for that version.
 
-**Prerequisites:** A running server at your host/port (often `localhost:7859` with TLS). You need a generation configuration that matches models on the server (saved name such as `portrait`, or rely on shorthand after the tool creates `default.json`; see [README.md](../README.md#implicit-default-profile-shorthand)).
+**Prerequisites:** A running server at your host/port (often `localhost:7859` with TLS). You need a generation configuration that matches models on the server (saved name such as `portrait`, or rely on shorthand after the tool creates `zit.json`; see [README.md](../README.md#shorthand-profile-zit)).
 
 Minimal check (adjust TLS / port flags to match how you run):
 

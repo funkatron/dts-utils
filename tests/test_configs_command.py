@@ -82,7 +82,7 @@ def test_ensure_default_generation_json_creates_file_and_sets_env(monkeypatch, t
     assert path == tmp_path / f"{configs.DEFAULT_PROFILE_NAME}.json"
     assert path.is_file()
     assert os.environ[configs.DEFAULT_CONFIGURATION_ENV] == configs.DEFAULT_PROFILE_NAME
-    assert "created default.json" in capsys.readouterr().err
+    assert "created zit.json" in capsys.readouterr().err
 
 
 def test_ensure_default_generation_json_idempotent(monkeypatch, tmp_path):

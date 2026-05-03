@@ -426,7 +426,7 @@ def test_dts_util_main_generate_shorthand_default_from_env(monkeypatch):
 def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
     monkeypatch.delenv(DEFAULT_CONFIGURATION_ENV, raising=False)
     monkeypatch.setattr("dts_util.configs.configurations_dir", lambda: tmp_path)
-    (tmp_path / "default.json").write_text("{}", encoding="utf-8")
+    (tmp_path / "zit.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
@@ -474,7 +474,7 @@ def test_dts_util_main_generate_shorthand_auto_creates_default_json(monkeypatch,
     )
     assert os.environ.get(DEFAULT_CONFIGURATION_ENV) == DEFAULT_PROFILE_NAME
     err = capsys.readouterr().err
-    assert "created default.json" in err
+    assert "created zit.json" in err
 
 
 def test_dts_util_main_generate_shorthand_too_many_positionals(monkeypatch, capsys):

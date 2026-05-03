@@ -30,8 +30,9 @@ Example:
 
 ### Changed
 
+- **Implicit shorthand profile:** default saved name is **`zit`** (`zit.json`). If missing, a starter JSON is created there. **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`** replaces **`"default"`**.
 - **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior.
-- **Docs:** [README.md](README.md), [CLI.md](CLI.md), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md), [PROTOBUF.md](PROTOBUF.md), and [tests/README.md](tests/README.md) — prompt-first shorthand, implicit `default.json`, and related environment variables; reduced duplicate TLS/config prose where [README.md](README.md) points at [CLI.md](CLI.md).
+- **Docs:** [AGENTS.md](AGENTS.md) and [docs/README.md](docs/README.md) — agent conventions and operator documentation map; README shorthand section renamed to **Shorthand profile (zit)**.
 
 ### Removed
 
@@ -46,7 +47,7 @@ Example:
 ### Added
 
 - **Generate shorthand:** `dts-util "PROMPT" [PROFILE] [flags…]` runs `generate` with `--trust-server-cert` and `--open` (flags after optional profile).
-- **Default profile bootstrap:** first shorthand use without `DTS_UTIL_DEFAULT_CONFIGURATION` creates **`default.json`** in the saved-config directory (starter 512² JSON; **`model`** from first `.ckpt` / `.safetensors` in Draw Things Models, **`DTS_UTIL_DEFAULT_MODEL`**, or empty with a stderr hint). **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "default")`** documents the default for the process unless already exported.
+- **Default profile bootstrap:** first shorthand use without `DTS_UTIL_DEFAULT_CONFIGURATION` creates **`default.json`** in the saved-config directory (starter 512² JSON; **`model`** from first `.ckpt` / `.safetensors` in Draw Things Models, **`DTS_UTIL_DEFAULT_MODEL`**, or empty with a stderr hint). **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "default")`** documents the default for the process unless already exported. *(0.3.3 file name; current `main` uses **`zit.json`** / profile **`zit`** only—see [Unreleased].)*
 
 ## [0.3.2] - 2026-05-03
 

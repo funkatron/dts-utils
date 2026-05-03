@@ -184,25 +184,25 @@ Rules:
 
 1. `PROMPT` is one shell word unless you quote a multi-word prompt.
 2. Optional `PROFILE` is the second word before any flag; it uses the same resolution as `--configuration` (saved name, path to `.json`, or raw FlatBuffer path).
-3. Flags and their values must appear after `PROFILE` (if any). Example: `dtsutil "hello" portrait --negative-prompt blur`.
+3. Flags and their values must appear after `PROFILE` (if any). Example: `dts-util "hello" portrait --negative-prompt blur`.
 
 Expansion (conceptually): `generate --prompt PROMPT --configuration … --trust-server-cert --open` plus your trailing flags. `--trust-server-cert` and `--open` are always added for shorthand so local TLS and opening the PNG match the common interactive path.
 
 Configuration when `PROFILE` is omitted:
 
 1. `DTS_UTIL_DEFAULT_CONFIGURATION` if set (non-empty) in the environment.
-2. Otherwise `default.json` in the saved-config directory (`configs path`). If that file does not exist, the tool creates it once: starter Draw Things JSON (512×512, default sampling fields), `model` chosen from the first `.ckpt` / `.safetensors` in `DRAW_THINGS_MODEL_PATH` if set, else the default Draw Things app Models folder on macOS, else `DTS_UTIL_DEFAULT_MODEL` if set, else empty (stderr tells you to edit the file or set the env var).
-3. After materializing or selecting the default profile, the process runs `os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "default")` so child processes can see the profile name if you did not already export something else.
+2. Otherwise saved profile `zit` (`zit.json` under `configs path`). If `zit.json` is missing, the tool creates a starter JSON once (512×512, default sampling fields, `model` guessed like `generate`, or empty with stderr).
+3. After materializing the implicit profile, the process runs `os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")` so child processes can see the profile name if you did not already export something else.
 
 **Common tasks (shorthand)**
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Single-line local generate | `uv run dts-util "a small robot"` | Same as `generate` with trust + open + implicit `default` profile after first-run materialization |
+| Single-line local generate | `uv run dts-util "a small robot"` | Same as `generate` with trust + open + implicit `zit` profile after first-run materialization |
 | Named saved profile | `uv run dts-util "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
 | Extra TLS flags | `uv run dts-util "…" --root-cert ./pem` | Adds your flags after the injected defaults |
 
-Explicit `dts-util generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `default.json`.
+Explicit `dts-util generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `zit.json`.
 
 ---
 
@@ -268,9 +268,9 @@ Prefer `--root-cert` off localhost. Use `--force-trust-server-cert` only when yo
 
 | Variable | Used for |
 | --- | --- |
-| `DRAW_THINGS_MODEL_PATH` | Default Draw Things models directory for `server install` (CLI `--model-path` overrides). Also used when guessing `model` in auto-created `default.json`. |
-| `DTS_UTIL_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `default` (via `setdefault`) when the tool materializes the implicit default profile, unless you already exported another value. |
-| `DTS_UTIL_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `default.json` the first time; overrides guessing from the models directory. |
+| `DRAW_THINGS_MODEL_PATH` | Default Draw Things models directory for `server install` (CLI `--model-path` overrides). Also used when guessing `model` in auto-created `zit.json`. |
+| `DTS_UTIL_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `zit` (via `setdefault`) when the tool materializes the implicit profile, unless you already exported another value. |
+| `DTS_UTIL_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `zit.json` the first time; overrides guessing from the models directory. |
 
 `DRAW_THINGS_MODEL_PATH` example:
 

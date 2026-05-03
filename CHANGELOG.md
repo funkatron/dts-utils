@@ -24,6 +24,10 @@ Example:
 
 ## [Unreleased]
 
+### Changed
+
+- **CI:** `actions/checkout@v6` and `astral-sh/setup-uv@v8` (Node 24–aligned action runtimes; clears GitHub’s Node 20 deprecation noise on `ubuntu-latest`).
+
 ### Fixed
 
 - **CI (Linux):** Installer/CLI tests use a fake `HOME` with the default Draw Things `Models` container path, order `installer` fixture after `mock_home_dir`, and make mocked `sys.exit` raise `SystemExit` so `parse_args` does not fall through to interactive `get_default_model_path()` (those failures only surfaced when the macOS default path was absent).

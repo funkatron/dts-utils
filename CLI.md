@@ -1,6 +1,6 @@
 # dts-util CLI reference
 
-Reference for the `dts-util` command-line tool.
+Reference for the `dts-util` command-line tool (flags, shorthand, environment variables). For install, TLS, and troubleshooting, use [README.md](README.md).
 
 ## Command structure
 
@@ -108,6 +108,8 @@ Options:
 - `--no-tls`: Connect without TLS when the server was installed with `--no-tls`
 
 For remote or LAN servers, prefer `--root-cert`. `--trust-server-cert` is limited to `localhost` and loopback. `--force-trust-server-cert` is for diagnostics only.
+
+Draw Things often builds `gRPCServerCLI` without gRPC reflection. `reflect` may therefore return `UNIMPLEMENTED` even when `generate` works. See [README.md § Troubleshooting](README.md#troubleshooting).
 
 ### configs
 

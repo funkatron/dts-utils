@@ -4,7 +4,9 @@ A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRP
 
 This project is alpha (0.x). Expect breaking changes; pin a commit or version if you depend on it.
 
-Deeper references: [CLI.md](CLI.md) (flags and shorthand), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) (Draw Things gRPC service and streaming), [PROTOBUF.md](PROTOBUF.md) (protobuf and FlatBuffer schema). Draw Things product documentation: [drawthings.ai/docs](https://drawthings.ai/docs).
+- **Command reference:** [CLI.md](CLI.md) (every flag and shorthand rule).
+- **Wire format:** [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) (messages and streaming), [PROTOBUF.md](PROTOBUF.md) (FlatBuffer config and protos).
+- **Product docs (Draw Things):** [drawthings.ai/docs](https://drawthings.ai/docs).
 
 ---
 
@@ -41,7 +43,9 @@ What each step does:
 
 1. `server install` installs the LaunchAgent and starts `gRPCServerCLI` with default settings.
 2. `server check` probes the local port to confirm a listener. (`server test` is the same probe with a different name.)
-3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and the configuration described under [Shorthand profile (zit)](#shorthand-profile-zit). On first use the tool may create `zit.json` under the saved-config directory and print a stderr hint if it cannot guess a checkpoint name. PNGs go under `./output` by default (`output/generated.png` with a Unix millisecond suffix before the extension so repeated runs do not overwrite earlier files).
+3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and the configuration described under [Shorthand profile (zit)](#shorthand-profile-zit).
+   - First run may create `zit.json` in the saved-config directory and print a hint on stderr if it cannot guess a checkpoint name for `model`.
+   - PNGs default to `./output` (`output/generated.png`). Each run gets a millisecond suffix before the extension so files are not overwritten.
 
 To call `generate` explicitly with a saved profile (for example `portrait.json` from `dts-util configs path`):
 
@@ -79,13 +83,14 @@ uv run dts-util configs list     # list saved JSON names (no `.json` suffix in t
 
 ### Shorthand profile (zit)
 
-When you run prompt-first shorthand (`dts-util "prompt"`, optional second argument for a profile name, optional flags after that), configuration is chosen in this order:
+When you run prompt-first shorthand (`dts-util "prompt"`, optional profile as the second argument, optional flags after that), configuration is chosen in this order:
 
-1. Second positional argument, if present (same resolution rules as `--configuration` for a name or path).
-2. Otherwise `DTS_UTIL_DEFAULT_CONFIGURATION`, if set in the environment (profile name or path).
-3. Otherwise `zit.json` in the saved-config directory (profile name `zit`). If that file is missing, the tool creates a starter JSON once: 512×512, common sampling fields, `model` from the first `.ckpt` / `.safetensors` in your Draw Things models directory (or `DRAW_THINGS_MODEL_PATH`), or from `DTS_UTIL_DEFAULT_MODEL` if set, or left empty with a short stderr hint to edit the file.
+1. Second positional argument, if present (same resolution as `--configuration`: saved name, path to `.json`, or raw FlatBuffer path).
+2. `DTS_UTIL_DEFAULT_CONFIGURATION`, if set and non-empty (name or path).
+3. Otherwise the saved profile `zit` (`zit.json` next to `dts-util configs path`).
+   - If `zit.json` is missing, the tool creates it once: 512×512, typical sampling fields, and `model` chosen from (in order) the first `.ckpt` / `.safetensors` under your Draw Things models directory or `DRAW_THINGS_MODEL_PATH`, or `DTS_UTIL_DEFAULT_MODEL`, or left blank with a short stderr hint to edit the file.
 
-After the profile is selected or `zit.json` is created, the process sets `DTS_UTIL_DEFAULT_CONFIGURATION` to `zit` with `setdefault` semantics only when the variable is unset, so a value you already exported in the shell still wins.
+After that, the process calls `os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`, so an environment value you already exported keeps precedence.
 
 Full rules and examples: [CLI.md § Generate shorthand](CLI.md#generate-shorthand-prompt-first).
 
@@ -230,12 +235,12 @@ Per-flag behavior: [CLI.md](CLI.md).
 
 | Doc | Covers |
 | --- | --- |
-| [docs/README.md](docs/README.md) | Documentation map and operator UX notes |
-| [AGENTS.md](AGENTS.md) | Conventions for coding agents and automation |
 | [CLI.md](CLI.md) | Subcommands, shorthand, environment variables, flags |
-| [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) | Draw Things gRPC service, `ImageGenerationRequest`, streaming |
-| [PROTOBUF.md](PROTOBUF.md) | Proto + FlatBuffer `GenerationConfiguration` and gRPC test notes |
+| [docs/README.md](docs/README.md) | Where to read what (operator map) |
+| [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) | `ImageGenerationService`, `ImageGenerationRequest`, streaming |
+| [PROTOBUF.md](PROTOBUF.md) | Proto + FlatBuffer `GenerationConfiguration`, test notes |
 | [tests/README.md](tests/README.md) | Pytest and manual release smoke (live server) |
+| [AGENTS.md](AGENTS.md) | Conventions for contributors and automation |
 | [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo |
 
 ---

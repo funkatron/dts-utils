@@ -1,6 +1,8 @@
 # Draw Things gRPC API Notes
 
-This document describes the Draw Things gRPC API surface that this repository uses for client calls. The server process is Draw Things `gRPCServerCLI`; `dts-util` installs and manages that process but does not define the server API.
+This document describes the Draw Things gRPC RPCs and messages that `dts-util` calls. It does not replace [CLI.md](CLI.md) for command-line usage or [README.md](README.md) for install and TLS.
+
+The server binary is Draw Things `gRPCServerCLI`. This repo ships a client and installer, not the server implementation.
 
 Authoritative references in this repository:
 
@@ -26,15 +28,13 @@ service ImageGenerationService {
 
 ## Endpoint Summary
 
-
-| Endpoint           | Purpose                                                        | Notes                                                                                                   |
-| ------------------ | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `Echo`             | Check connectivity and return server metadata.                 | Useful before generation, especially when TLS or shared-secret setup is uncertain.                      |
-| `FilesExist`       | Check whether model files exist in the server model directory. | File names are passed relative to the model directory, for example `pikon_realism_v2_alt_q6p_q8p.ckpt`. |
-| `GenerateImage`    | Stream image generation progress and generated tensor bytes.   | Requires FlatBuffer `GenerationConfiguration` bytes in `configuration`.                                 |
-| `UploadFile`       | Stream file chunks to the server.                              | Not wrapped by the current prompt-to-image helper.                                                      |
-| `Pubkey` / `Hours` | Server support endpoints.                                      | Present in the upstream proto; not central to the current CLI workflow.                                 |
-
+| Endpoint | Purpose | Notes |
+| --- | --- | --- |
+| `Echo` | Connectivity and server metadata | Handy when TLS or shared-secret setup is unclear. |
+| `FilesExist` | Model files present on the server | Paths are relative to the server model directory (for example `*.ckpt`). |
+| `GenerateImage` | Stream progress and image tensors | Request `configuration` must be FlatBuffer `GenerationConfiguration` bytes. |
+| `UploadFile` | Stream file chunks | Not used by the current `dts-util generate` path. |
+| `Pubkey` / `Hours` | Other upstream RPCs | In the proto; not part of the usual CLI flow. |
 
 ## Image Generation Contract
 
@@ -79,9 +79,9 @@ message ImageGenerationResponse {
 
 `generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-util generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
 
-## Recommended client commands
+## Examples (dts-util)
 
-Explicit `generate` (local TLS trust, JSON config on disk):
+Explicit `generate` (local TLS trust, JSON on disk):
 
 ```bash
 uv run dts-util generate \
@@ -92,7 +92,7 @@ uv run dts-util generate \
   --open
 ```
 
-Prompt-first shorthand (after `zit.json` exists or is auto-created; opens viewer):
+Prompt-first shorthand (uses or creates `zit.json` by default; opens the PNG):
 
 ```bash
 uv run dts-util "a small robot painting clouds"
@@ -119,7 +119,7 @@ uv run dts-util server test
 
 For command details, see [CLI.md](CLI.md). For install, shorthand, and configuration files, see [README.md](README.md).
 
-## Security And Connection Notes
+## Security and connection notes
 
 - The server uses TLS by default.
 - Local Draw Things servers commonly present a certificate issued by `Draw Things Root CA`. Python does not automatically trust that root certificate.

@@ -230,7 +230,7 @@ Per-flag behavior lives in [CLI.md](CLI.md), not here.
 | [CLI.md](CLI.md)                               | Every subcommand and flag                    |
 | [API.md](API.md)                               | `ImageGenerationRequest`, streaming caveats  |
 | [PROTOBUF.md](PROTOBUF.md)                     | Proto + FlatBuffer `GenerationConfiguration` + gRPC test strategy |
-| [tests/README.md](tests/README.md)             | Pytest entry + link to integration-test notes |
+| [tests/README.md](tests/README.md)             | Pytest + **manual release smoke** (live server) |
 | [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo      |
 
 

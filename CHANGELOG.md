@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Documenting `gRPCServerCLI` for each release
 
-When you **cut a release** (promote items from `[Unreleased]` into `## [x.y.z] - YYYY-MM-DD`), add a **Tested with** subsection under that version. Record the Draw Things **`gRPCServerCLI`** build you used for **manual** smoke against a live server—normally the GitHub release **`tag_name`** from [draw-things-community](https://github.com/drawthingsai/draw-things-community/releases) (for example `v1.20250225.0`, the same sort of tag `dts-util server install` resolves when it prints “Found latest version”). If you ship without running a real server, say so explicitly (for example “unit tests only; not smoke-tested against gRPCServerCLI”) so downstream can gauge compatibility.
+When you **cut a release** (promote items from `[Unreleased]` into `## [x.y.z] - YYYY-MM-DD`), add a **Tested with** subsection under that version. Record the Draw Things **`gRPCServerCLI`** build you used for **manual** smoke against a live server—normally the GitHub release **`tag_name`** from [draw-things-community](https://github.com/drawthingsai/draw-things-community/releases) (for example `v1.20250225.0`, the same sort of tag `dts-util server install` resolves when it prints “Found latest version”). If you ship without running a real server, say so explicitly (for example “unit tests only; not smoke-tested against gRPCServerCLI”) so downstream can gauge compatibility. **Concrete smoke commands:** see [tests/README.md](tests/README.md#manual-release-smoke).
 
 Example:
 
@@ -23,6 +23,10 @@ Example:
 ```
 
 ## [Unreleased]
+
+### Added
+
+- **Manual release smoke:** [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) defines the live-server CLI checklist (`server check`, `reflect`, `generate`); linked from [CHANGELOG.md](CHANGELOG.md#documenting-grpcservercli-for-each-release) and [PROTOBUF.md](PROTOBUF.md).
 
 ### Changed
 

@@ -59,7 +59,7 @@ message ImageGenerationRequest {
 }
 ```
 
-The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. `dts-util generate --configuration config.json` accepts Draw Things JSON and converts it with `flatc` before sending the RPC.
+The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. `dts-util generate --configuration config.json` accepts Draw Things JSON and converts it with [`flatc`](https://github.com/google/flatbuffers) before sending the RPC.
 
 Responses contain progress, previews, and generated image tensors:
 
@@ -94,7 +94,7 @@ uv run dts-util generate \
 
 Requirements for this command:
 
-- `flatc` on `PATH` for JSON-to-FlatBuffer conversion.
+- [`flatc`](https://github.com/google/flatbuffers) on `PATH` for JSON-to-FlatBuffer conversion.
 - A running Draw Things `gRPCServerCLI` on `localhost:7859`, unless `--host` or `--port` is provided.
 - `--trust-server-cert` for local TLS when the Draw Things root certificate is not trusted by Python.
 - `--shared-secret` if the server was installed with a shared secret.

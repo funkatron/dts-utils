@@ -239,7 +239,7 @@ Common tasks:
 | Generate from a saved config | `uv run dts-util generate --prompt "..." --configuration portrait --trust-server-cert` | A decoded PNG under `./output` (`output/generated-<unix_ms>.png` by default) using `portrait.json` from the saved config directory. |
 | Generate from Draw Things JSON | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert` | A decoded PNG under `./output` after JSON-to-FlatBuffer conversion. |
 | Generate and open the result | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert --open` | Timestamp-suffixed PNG under `./output`, opened in the platform default viewer. |
-| Use prebuilt FlatBuffer bytes | `uv run dts-util generate --prompt "..." --configuration config.bin --trust-server-cert` | PNG written without invoking `flatc`. |
+| Use prebuilt FlatBuffer bytes | `uv run dts-util generate --prompt "..." --configuration config.bin --trust-server-cert` | PNG written without invoking [`flatc`](https://github.com/google/flatbuffers). |
 | Use a pinned certificate | `uv run dts-util generate --prompt "..." --configuration config.json --root-cert cert.pem` | TLS verification against a known PEM file. |
 | Force trust for remote diagnostics | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
 

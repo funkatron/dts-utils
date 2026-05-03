@@ -50,7 +50,7 @@ message ImageGenerationRequest {
 Important details:
 
 - `configuration` must contain `GenerationConfiguration` FlatBuffer bytes.
-- `--configuration` in `dts-util generate` converts Draw Things JSON to those FlatBuffer bytes using `flatc`.
+- `--configuration` in `dts-util generate` converts Draw Things JSON to those FlatBuffer bytes using [`flatc`](https://github.com/google/flatbuffers).
 - `chunked = true` allows large generated image tensors to arrive in multiple streamed messages.
 - `contents` carries content-addressed tensor payloads for image, mask, and hints when those fields are used.
 
@@ -76,7 +76,7 @@ message ImageGenerationResponse {
 
 The root FlatBuffer type is `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`.
 
-Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake_case. The helper script maps common fields before running `flatc`. Examples:
+Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake_case. The helper script maps common fields before running [`flatc`](https://github.com/google/flatbuffers). Examples:
 
 | Draw Things JSON | `config.fbs` field | Notes |
 | --- | --- | --- |

@@ -12,7 +12,7 @@ For deeper references see [CLI.md](CLI.md) (every flag), [API.md](API.md) (gRPC 
 
 - Python 3.12+ and [`uv`](https://github.com/astral-sh/uv).
 - macOS, only if you want `dts-util server …` to install or manage `gRPCServerCLI` locally. `generate` and `reflect` work anywhere Python runs as long as they can reach the server.
-- `flatc` on `PATH`, only when `--configuration` resolves to a JSON file (saved names and explicit `.json` paths). Raw FlatBuffer payloads do not need it.
+- [`flatc`](https://github.com/google/flatbuffers) (FlatBuffers compiler) on `PATH`, so you can use JSON for configuration files.
 
 ---
 
@@ -60,7 +60,7 @@ Skip steps 1 and 2 if the server already runs elsewhere — see [Remote or exist
 | You pass                                                  | What happens                                                                         |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | A name like `portrait` (no slashes, not an existing path) | Resolves to `portrait.json` inside the directory printed by `dts-util configs path`. |
-| A `.json` file path                                       | Converted to FlatBuffer bytes via `flatc` and the bundled `config.fbs`.              |
+| A `.json` file path                                       | Converted to FlatBuffer bytes via [`flatc`](https://github.com/google/flatbuffers) and the bundled `config.fbs`.              |
 | Any other existing file                                   | Read as raw FlatBuffer bytes. The extension does not have to be `.bin`.              |
 
 
@@ -223,13 +223,13 @@ Per-flag behavior lives in [CLI.md](CLI.md), not here.
 ## Related documentation
 
 
-| Doc                                            | Covers                                       |
-| ---------------------------------------------- | -------------------------------------------- |
-| [CLI.md](CLI.md)                               | Every subcommand and flag                    |
-| [API.md](API.md)                               | `ImageGenerationRequest`, streaming caveats  |
+| Doc                                            | Covers                                                            |
+| ---------------------------------------------- | ----------------------------------------------------------------- |
+| [CLI.md](CLI.md)                               | Every subcommand and flag                                         |
+| [API.md](API.md)                               | `ImageGenerationRequest`, streaming caveats                       |
 | [PROTOBUF.md](PROTOBUF.md)                     | Proto + FlatBuffer `GenerationConfiguration` + gRPC test strategy |
-| [tests/README.md](tests/README.md)             | Pytest + **manual release smoke** (live server) |
-| [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo      |
+| [tests/README.md](tests/README.md)             | Pytest + **manual release smoke** (live server)                   |
+| [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo                           |
 
 
 ---
@@ -253,4 +253,4 @@ MIT — see [LICENSE](LICENSE).
 
 Pull requests welcome. Behavioral changes should land alongside `pytest` updates in the same merge when practical.
 
-**Releases:** When tagging a version, follow [CHANGELOG.md § Documenting gRPCServerCLI for each release](CHANGELOG.md#documenting-grpcservercli-for-each-release)—record which **`gRPCServerCLI`** release tag (draw-things-community) you smoke-tested against, or note if you did not run a live server.
+**Releases:** When tagging a version, follow [CHANGELOG.md § Documenting gRPCServerCLI for each release](CHANGELOG.md#documenting-grpcservercli-for-each-release)—record which `**gRPCServerCLI`** release tag (draw-things-community) you smoke-tested against, or note if you did not run a live server.

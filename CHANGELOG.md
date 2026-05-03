@@ -24,6 +24,10 @@ Example:
 
 ## [Unreleased]
 
+### Changed
+
+- **Publish workflow:** `workflow_dispatch` so you can re-run a PyPI upload after configuring [trusted publishing](https://docs.pypi.org/trusted-publishers/) (for example if the first tag push ran before PyPI was set up).
+
 ## [0.3.1] - 2026-05-03
 
 ### Tested with

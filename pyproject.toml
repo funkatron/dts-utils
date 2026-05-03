@@ -9,6 +9,10 @@ description = "Utilities for installing and interacting with Draw Things gRPCSer
 readme = "README.md"
 requires-python = ">=3.12,<4"
 license = { text = "MIT" }
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "License :: OSI Approved :: MIT License",
+]
 dependencies = [
     "fpzip>=1.2.5",
     "grpcio>=1.80.0",

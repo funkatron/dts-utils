@@ -103,6 +103,33 @@ uv run python -m grpc_tools.protoc \
 
 The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grpc.py`. That only works if the upstream directory is on `sys.path`; this repo instead uses a **relative import** (`from . import imageService_pb2 as …`) so the package loads as part of `dts_util`. After regenerating, replace the top-level import line with that relative form (or adjust via proto `option` / tooling if you automate it).
 
+## gRPC integration tests
+
+**Audience:** contributors and automation agents touching `tests/test_grpc_server.py`, protobuf, or Draw Things server releases.
+
+### Current behavior
+
+- Integration tests use the **legacy** `image_generation.proto` stack (`tests/test_grpc_server.py`), not the upstream `imageService.proto` used by `dts-util generate` (see the top of this file). Some tests **skip** if nothing is listening on the default local port, or are marked `@pytest.mark.skip` (models / TODO).
+- A long-term improvement is to exercise the **same** generated client code as production where practical, so tests and CLI do not drift on different protos.
+
+### Intended direction (hermetic by default)
+
+When implementing or refactoring these tests:
+
+1. **No fixed port by default.** Prefer binding an in-process test server to **`127.0.0.1:0`** and passing the resolved host/port into fixtures so local developers can run the real `gRPCServerCLI` on a well-known port (for example `7859`) without colliding with pytest.
+2. **In-process fake first.** Use `grpc.server()` plus a small `ImageGenerationServiceServicer` that implements only the RPCs the tests need (for example Echo / FilesExist) with canned responses. That keeps CI fast and independent of Draw Things binaries.
+3. **Optional real server.** Support an **opt-in** path (for example an environment variable and/or explicit pytest marker) that skips starting the fake and instead targets a running server when you want to validate against the real binary.
+
+### Staying aligned when `gRPCServerCLI` changes
+
+The fake is a **mirror of a wire contract**, not the product. When Draw Things updates the server:
+
+- Refresh **`src/dts_util/grpc/proto/upstream/*.proto`**, **regenerate** Python stubs (`grpc_tools.protoc` as above), and fix any call sites (CLI, clients, tests).
+- Update the **test servicer** so its behavior and types still match the messages clients send. Otherwise tests can stay green while real usage breaks.
+- Use the **optional real-server** run occasionally or on release branches to catch drift the fake cannot see (timing, TLS, streaming quirks, etc.).
+- **Pin or note** the Draw Things / proto revision you copied from (in commit messages or this doc) so the next bump is a deliberate step, not guesswork.
+- **Shipping `dts-util`:** each versioned release should list the **`gRPCServerCLI`** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see *Documenting `gRPCServerCLI` for each release*) so users and agents know what server build the maintainers last exercised end-to-end.
+
 ## Practical Client Command
 
 ```bash

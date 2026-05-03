@@ -383,11 +383,3 @@ def test_write_html_report_includes_sortable_table(tmp_path: Path) -> None:
     html_text = report_path.read_text(encoding="utf-8")
     assert "Draw Things Uncurated Model Report" in html_text
     assert "models-table" in html_text
-
-
-def test_dt_model_index_shim_aliases_canonical_main():
-    """``dt_model_index`` remains importable for older scripts."""
-    import dt_model_index
-    from dts_util.model_index.cli import main as canonical_main
-
-    assert dt_model_index.main is canonical_main

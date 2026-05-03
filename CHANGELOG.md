@@ -5,12 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Documenting `gRPCServerCLI` for each release
+
+When you **cut a release** (promote items from `[Unreleased]` into `## [x.y.z] - YYYY-MM-DD`), add a **Tested with** subsection under that version. Record the Draw Things **`gRPCServerCLI`** build you used for **manual** smoke against a live server—normally the GitHub release **`tag_name`** from [draw-things-community](https://github.com/drawthingsai/draw-things-community/releases) (for example `v1.20250225.0`, the same sort of tag `dts-util server install` resolves when it prints “Found latest version”). If you ship without running a real server, say so explicitly (for example “unit tests only; not smoke-tested against gRPCServerCLI”) so downstream can gauge compatibility.
+
+Example:
+
+```markdown
+## [0.3.0] - 2026-06-01
+
+### Tested with
+
+- **gRPCServerCLI:** `v1.20250501.0` — smoke on macOS: `server check`, `generate` (saved config), `reflect`
+
+### Added
+- …
+```
+
 ## [Unreleased]
+
+### Removed
+
+- **`dt_model_index` package** (compatibility shim). Import `dts_util.model_index` or use `dts-util models`.
 
 ### Changed
 
+- README and `pyproject.toml` classifiers state **alpha** 0.x expectations (breaking changes OK).
 - **CLI routing:** New [`dts_util/cli_router.py`](src/dts_util/cli_router.py) owns top-level dispatch (`generate`, `configs`, `reflect`, `tls`, `models`) and `prepare_argv_for_installer_dispatch`; [`server_installer`](src/dts_util/installer/server_installer.py) stays LaunchAgent / installer only. Console script entry: `dts_util.cli_router:main`.
-- **Model index package:** Implementation lives under [`dts_util.model_index`](src/dts_util/model_index/); [`dt_model_index`](src/dt_model_index/__init__.py) is a compatibility shim re-exporting `main`.
+- **Model index package:** Implementation lives under [`dts_util.model_index`](src/dts_util/model_index/).
 
 ### Added
 - `dts-util server restart --model-browser` to enable model browsing for an existing LaunchAgent service before restart.

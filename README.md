@@ -2,6 +2,8 @@
 
 A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRPCServerCLI`. It can install the server as a LaunchAgent, generate images over gRPC, and browse community model metadata.
 
+**Status:** Alpha (0.x). Expect breaking changes; the Python surface and CLI are still settling—pin a commit or version if you depend on it.
+
 For deeper references see [CLI.md](CLI.md) (every flag), [API.md](API.md) (gRPC streaming details), and [PROTOBUF.md](PROTOBUF.md) (protobuf + FlatBuffer schema). Draw Things product docs live at [drawthings.ai/docs](https://drawthings.ai/docs).
 
 ---
@@ -227,7 +229,8 @@ Per-flag behavior lives in [CLI.md](CLI.md), not here.
 | ---------------------------------------------- | -------------------------------------------- |
 | [CLI.md](CLI.md)                               | Every subcommand and flag                    |
 | [API.md](API.md)                               | `ImageGenerationRequest`, streaming caveats  |
-| [PROTOBUF.md](PROTOBUF.md)                     | Proto + FlatBuffer `GenerationConfiguration` |
+| [PROTOBUF.md](PROTOBUF.md)                     | Proto + FlatBuffer `GenerationConfiguration` + gRPC test strategy |
+| [tests/README.md](tests/README.md)             | Pytest entry + link to integration-test notes |
 | [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo      |
 
 
@@ -240,6 +243,8 @@ uv sync --dev
 uv run pytest
 ```
 
+Integration tests may skip without a local gRPC server; keeping those tests honest when Draw Things updates the server is covered in [PROTOBUF.md § gRPC integration tests](PROTOBUF.md#grpc-integration-tests) and [tests/README.md](tests/README.md).
+
 ---
 
 ## License
@@ -249,3 +254,5 @@ MIT — see [LICENSE](LICENSE).
 ## Contributing
 
 Pull requests welcome. Behavioral changes should land alongside `pytest` updates in the same merge when practical.
+
+**Releases:** When tagging a version, follow [CHANGELOG.md § Documenting gRPCServerCLI for each release](CHANGELOG.md#documenting-grpcservercli-for-each-release)—record which **`gRPCServerCLI`** release tag (draw-things-community) you smoke-tested against, or note if you did not run a live server.

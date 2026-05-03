@@ -29,30 +29,28 @@ uv run dts-util --help
 
 ## Quickstart
 
-Three steps to a generated PNG on a fresh Mac (uses a saved config named `portrait`; put `portrait.json` under the directory from `dts-util configs path`, or use another name you already have):
+Three steps to a generated PNG on a fresh Mac: install the server, confirm it is listening, then run prompt-first shorthand (quotes keep multi-word prompts as one argument):
 
 ```bash
 uv run dts-util server install
 uv run dts-util server check
-uv run dts-util generate \
-  --prompt "a beautiful sunset over mountains" \
-  --configuration portrait \
-  --trust-server-cert
+uv run dts-util "a beautiful sunset over mountains"
 ```
 
 What each step does:
 
 1. `server install` installs the LaunchAgent and starts `gRPCServerCLI` with default settings.
 2. `server check` probes the local port to confirm a listener. (`server test` is the same probe with a different name.)
-3. `generate` streams an image using the saved config and writes a PNG under `./output` by default (`output/generated.png`). The path you pass to `--output` gets a Unix millisecond suffix before the extension (for example `output/generated.png` → `output/generated-1735123456789.png`) so repeated runs do not overwrite earlier files.
+3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and a configuration from [Implicit default profile](#implicit-default-profile-shorthand). On first use the tool may create `default.json` under the saved-config directory and print a stderr hint if it cannot guess a checkpoint name. PNGs go under `./output` by default (`output/generated.png` with a Unix millisecond suffix before the extension so repeated runs do not overwrite earlier files).
 
-If you do not have a saved profile yet, the fastest path is the prompt-first shorthand (auto-creates `default.json` on first use). From the repo root, after the server is up:
+To call `generate` explicitly with a saved profile (for example `portrait.json` from `dts-util configs path`):
 
 ```bash
-uv run dts-util "a beautiful sunset over mountains"
+uv run dts-util generate \
+  --prompt "a beautiful sunset over mountains" \
+  --configuration portrait \
+  --trust-server-cert
 ```
-
-That expands to `generate` with `--trust-server-cert`, `--open`, and a configuration resolved from [Implicit default profile](#implicit-default-profile-shorthand). Multi-word prompts need quoting.
 
 Skip `server install` / `server check` if the server already runs elsewhere; see [Remote or existing servers](#remote-or-existing-servers).
 

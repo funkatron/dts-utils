@@ -22,7 +22,7 @@ The README had drifted into a hard-to-scan state for six concrete reasons:
 - Removed every `**bold**` from the body. Kept code spans for flags, paths, command names.
 - One canonical home per topic. `--configuration` rules live only in **Configuration files**; TLS flag selection lives only in **TLS**.
 - Quickstart is now three commands followed by a numbered list of "what each step does", and a one-line pointer to the remote-server section for users whose setup is different.
-- Dropped the "Reading map" table, the duplicate "Installation" section, the "Behind the scenes" implementation paragraph (already in `API.md`), and the Python helper snippet that did not actually demonstrate anything (`pass` in a `with` block).
+- Dropped the "Reading map" table, the duplicate "Installation" section, the "Behind the scenes" implementation paragraph (already in the gRPC API notes doc), and the Python helper snippet that did not actually demonstrate anything (`pass` in a `with` block).
 - Line count went from 293 to 237.
 
 ## What was preserved verbatim (just relocated)

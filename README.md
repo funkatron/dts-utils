@@ -4,7 +4,7 @@ A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRP
 
 **Status:** Alpha (0.x). Expect breaking changes; the Python surface and CLI are still settling—pin a commit or version if you depend on it.
 
-For deeper references see [CLI.md](CLI.md) (every flag), [API.md](API.md) (gRPC streaming details), and [PROTOBUF.md](PROTOBUF.md) (protobuf + FlatBuffer schema). Draw Things product docs live at [drawthings.ai/docs](https://drawthings.ai/docs).
+For deeper references see [CLI.md](CLI.md) (every flag), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) (Draw Things gRPC service and streaming), and [PROTOBUF.md](PROTOBUF.md) (protobuf + FlatBuffer schema). Draw Things product docs live at [drawthings.ai/docs](https://drawthings.ai/docs).
 
 ---
 
@@ -226,7 +226,7 @@ Per-flag behavior lives in [CLI.md](CLI.md), not here.
 | Doc                                            | Covers                                                            |
 | ---------------------------------------------- | ----------------------------------------------------------------- |
 | [CLI.md](CLI.md)                               | Every subcommand and flag                                         |
-| [API.md](API.md)                               | `ImageGenerationRequest`, streaming caveats                       |
+| [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) | Draw Things gRPC service, `ImageGenerationRequest`, streaming      |
 | [PROTOBUF.md](PROTOBUF.md)                     | Proto + FlatBuffer `GenerationConfiguration` + gRPC test strategy |
 | [tests/README.md](tests/README.md)             | Pytest + **manual release smoke** (live server)                   |
 | [Draw Things docs](https://drawthings.ai/docs) | Product documentation outside this repo                           |

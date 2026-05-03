@@ -24,6 +24,10 @@ Example:
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed **`API.md`** → **`DRAW-THINGS-GRPC-API.md`** so it is obvious the doc is Draw Things' gRPC surface (not the Python `dts_util` module API).
+
 ### Added
 
 - **Manual release smoke:** [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) defines the live-server CLI checklist (`server check`, `reflect`, `generate`); linked from [CHANGELOG.md](CHANGELOG.md#documenting-grpcservercli-for-each-release) and [PROTOBUF.md](PROTOBUF.md).
@@ -58,18 +62,18 @@ Example:
 
 ### Removed
 
-- **`dt_model_index` package** (compatibility shim). Import `dts_util.model_index` or use `dts-util models`.
+- `**dt_model_index` package** (compatibility shim). Import `dts_util.model_index` or use `dts-util models`.
 - `scripts/generate_image.py`; use `uv run dts-util generate` instead.
 
 ### Changed
 
 - README and `pyproject.toml` classifiers state **alpha** 0.x expectations (breaking changes OK).
-- **CLI routing:** New [`dts_util/cli_router.py`](src/dts_util/cli_router.py) owns top-level dispatch (`generate`, `configs`, `reflect`, `tls`, `models`) and `prepare_argv_for_installer_dispatch`; [`server_installer`](src/dts_util/installer/server_installer.py) stays LaunchAgent / installer only. Console script entry: `dts_util.cli_router:main`.
-- **Model index package:** Implementation lives under [`dts_util.model_index`](src/dts_util/model_index/).
-- Raise **`grpcio`**, **`grpcio-reflection`**, and **`grpcio-tools`** lower bound to **1.80.0** so dependency resolution skips **1.78.1** (yanked; see [grpc#41725](https://github.com/grpc/grpc/issues/41725)).
-- `dts-util generate` default `--output` is **`output/generated.png`** (under `./output`). The `output/` directory is gitignored except **`output/.gitkeep`**.
+- **CLI routing:** New `[dts_util/cli_router.py](src/dts_util/cli_router.py)` owns top-level dispatch (`generate`, `configs`, `reflect`, `tls`, `models`) and `prepare_argv_for_installer_dispatch`; `[server_installer](src/dts_util/installer/server_installer.py)` stays LaunchAgent / installer only. Console script entry: `dts_util.cli_router:main`.
+- **Model index package:** Implementation lives under `[dts_util.model_index](src/dts_util/model_index/)`.
+- Raise `**grpcio`**, `**grpcio-reflection**`, and `**grpcio-tools**` lower bound to **1.80.0** so dependency resolution skips **1.78.1** (yanked; see [grpc#41725](https://github.com/grpc/grpc/issues/41725)).
+- `dts-util generate` default `--output` is `**output/generated.png`** (under `./output`). The `output/` directory is gitignored except `**output/.gitkeep**`.
 - `dts-util generate --output` inserts `-<unix_ms>` before the extension on every run (for example `output/generated.png` → `output/generated-1735123456789.png`) so successive invocations never clobber earlier PNGs; multiple images in one response use `-2`, `-3`, … after the timestamped stem.
-- LaunchAgent lifecycle verbs must use the **`dts-util server …`** prefix. Bare **`dts-util install`**, **`uninstall`**, **`restart`**, **`test`**, and **`check`** exit with usage on stderr (**exit code `2`**).
+- LaunchAgent lifecycle verbs must use the `**dts-util server …**` prefix. Bare `**dts-util install**`, `**uninstall**`, `**restart**`, `**test**`, and `**check**` exit with usage on stderr (**exit code `2`**).
 
 ### Added
 
@@ -82,9 +86,9 @@ Example:
 - Shared gRPC channel setup that restricts `--trust-server-cert` to localhost/loopback and directs remote or LAN usage to pinned `--root-cert` certificates.
 - `--force-trust-server-cert` for explicit remote trust-on-first-use diagnostics when users accept the MITM risk.
 - `dts-util configs path/list` and `dts-util generate --configuration` support for saved JSON config names and `.json` auto-conversion.
-- Client commands now use `--no-tls` instead of `--insecure` for plaintext connections to servers installed with **`--no-tls`**.
-- `dts-util tls path` and `dts-util tls export` to fetch the server's **presented** certificate over TLS (Python `ssl.get_server_certificate`) and save PEM for **`--root-cert`** on **`generate`** / **`reflect`**. **`server install`** can take **`--export-tls-cert`** (with optional **`--export-tls-cert-path`**, **`--export-tls-cert-force`**) after a successful TLS install on macOS. This pins what the binary serves; **`gRPCServerCLI`** keystores are not altered from **`dts-util`**.
-- `dts-util server <install|uninstall|restart|test|check>` for LaunchAgent lifecycle (bare `dts-util server` prints help). **`check`** aliases **`test`** for the localhost listener probe.
+- Client commands now use `--no-tls` instead of `--insecure` for plaintext connections to servers installed with `**--no-tls`**.
+- `dts-util tls path` and `dts-util tls export` to fetch the server's **presented** certificate over TLS (Python `ssl.get_server_certificate`) and save PEM for `**--root-cert`** on `**generate**` / `**reflect**`. `**server install**` can take `**--export-tls-cert**` (with optional `**--export-tls-cert-path**`, `**--export-tls-cert-force**`) after a successful TLS install on macOS. This pins what the binary serves; `**gRPCServerCLI**` keystores are not altered from `**dts-util**`.
+- `dts-util server <install|uninstall|restart|test|check>` for LaunchAgent lifecycle (bare `dts-util server` prints help). `**check**` aliases `**test**` for the localhost listener probe.
 - Comprehensive test suite for gRPC utilities
   - Server availability checking
   - Error handling for various gRPC scenarios
@@ -92,3 +96,4 @@ Example:
 - Improved error handling in `handle_grpc_error`
   - Simplified error code checking
   - Better handling of missing `code()` methods
+

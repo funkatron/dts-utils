@@ -14,9 +14,9 @@ uv run dts-util <command> [options]
 
 These commands manage **macOS LaunchAgent + `gRPCServerCLI`** (not pytest, not Docker).
 
-**Required spelling:** **`dts-util server <subcommand>`** for install, uninstall, restart, **`test`**, and **`check`**. Omitting **`server`** (e.g. `dts-util install`) is rejected (**stderr + exit code `2`**).
+**Required spelling:** `**dts-util server <subcommand>`** for install, uninstall, restart, `**test**`, and `**check**`. Omitting `**server**` (e.g. `dts-util install`) is rejected (**stderr + exit code `2`**).
 
-Bare **`dts-util server`** prints this summary.
+Bare `**dts-util server**` prints this summary.
 
 ## Available Commands
 
@@ -29,6 +29,7 @@ uv run dts-util server install [options]
 ```
 
 Options:
+
 - `-m, --model-path PATH`: Custom path to store models (default: Draw Things app models directory)
 - `-q, --quiet`: Minimize output and assume default answers to prompts
 - `-n, --name NAME`: Server name in local network (default: machine name)
@@ -64,11 +65,12 @@ uv run dts-util server restart [--model-browser]
 ```
 
 Options:
+
 - `--model-browser`: Enable model browser in the installed service before restarting
 
 ### test
 
-Probes localhost for a reachable gRPC listener (installer workflow; not **`pytest`**).
+Probes localhost for a reachable gRPC listener (installer workflow; not `**pytest**`).
 
 ```bash
 uv run dts-util server test [--port PORT]
@@ -79,7 +81,7 @@ Options:
 
 - `--port PORT`: Port to probe (default: 7859)
 
-**`check`** is a synonym for **`test`** (same flags). Both require the **`server`** prefix alongside **`install`**, **`uninstall`**, and **`restart`**.
+`**check**` is a synonym for `**test**` (same flags). Both require the `**server**` prefix alongside `**install**`, `**uninstall**`, and `**restart**`.
 
 ### reflect
 
@@ -92,6 +94,7 @@ uv run dts-util reflect --trust-server-cert
 ```
 
 Options:
+
 - `--host HOST`: gRPC server host (default: `localhost`)
 - `--port PORT`: gRPC server port (default: `7859`)
 - `--timeout SECONDS`: Connection timeout (default: `2`)
@@ -114,6 +117,7 @@ uv run dts-util configs path
 ```
 
 Options:
+
 - `configs path`: Print the directory for saved JSON configurations, creating it if needed.
 - `configs path --no-create`: Print the directory without creating it.
 - `configs list`: List saved JSON configuration names from the default directory.
@@ -123,7 +127,7 @@ Save files like `portrait.json` in this directory, then use `--configuration por
 
 ### tls
 
-Writes the server's **presented** TLS certificate to a PEM file for **`dts-util generate --root-cert …`** / **`reflect --root-cert …`** (trust-on-fetch; same bytes Python's `ssl.get_server_certificate` returns). **`gRPCServerCLI`** keystores are not modified.
+Writes the server's **presented** TLS certificate to a PEM file for `**dts-util generate --root-cert …`** / `**reflect --root-cert …**` (trust-on-fetch; same bytes Python's `ssl.get_server_certificate` returns). `**gRPCServerCLI**` keystores are not modified.
 
 ```bash
 uv run dts-util tls path
@@ -131,10 +135,11 @@ uv run dts-util tls export
 ```
 
 Subcommands:
-- **`tls path`**: Print default PEM destination (usually under your `dts-util` config hierarchy / `trusted/`), creating parents unless `--no-create`.
-- **`tls export`**: Connect with TLS, capture the presented PEM, `--output`/`-o` path (defaults to **`tls path`**), **`--force`** to replace, **`--host`** / **`--port`**, **`--retries`** for post-install backoff.
 
-Combined with **`server install`** (macOS LaunchAgent workflow): `uv run dts-util server install --export-tls-cert` runs **`export`** to the default PEM after **`server test`** passes (skipped when **`--no-tls`** is set).
+- `**tls path**`: Print default PEM destination (usually under your `dts-util` config hierarchy / `trusted/`), creating parents unless `--no-create`.
+- `**tls export**`: Connect with TLS, capture the presented PEM, `--output`/`-o` path (defaults to `**tls path**`), `**--force**` to replace, `**--host**` / `**--port**`, `**--retries**` for post-install backoff.
+
+Combined with `**server install**` (macOS LaunchAgent workflow): `uv run dts-util server install --export-tls-cert` runs `**export**` to the default PEM after `**server test**` passes (skipped when `**--no-tls**` is set).
 
 ### generate
 
@@ -234,14 +239,16 @@ Each successful run writes timestamped filenames derived from `--output` (defaul
 
 Common tasks:
 
-| Goal | Command | What you get |
-| --- | --- | --- |
-| Generate from a saved config | `uv run dts-util generate --prompt "..." --configuration portrait --trust-server-cert` | A decoded PNG under `./output` (`output/generated-<unix_ms>.png` by default) using `portrait.json` from the saved config directory. |
-| Generate from Draw Things JSON | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert` | A decoded PNG under `./output` after JSON-to-FlatBuffer conversion. |
-| Generate and open the result | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert --open` | Timestamp-suffixed PNG under `./output`, opened in the platform default viewer. |
-| Use prebuilt FlatBuffer bytes | `uv run dts-util generate --prompt "..." --configuration config.bin --trust-server-cert` | PNG written without invoking [`flatc`](https://github.com/google/flatbuffers). |
-| Use a pinned certificate | `uv run dts-util generate --prompt "..." --configuration config.json --root-cert cert.pem` | TLS verification against a known PEM file. |
-| Force trust for remote diagnostics | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --force-trust-server-cert` | Remote trust-on-first-use with MITM risk. |
+
+| Goal                               | Command                                                                                                          | What you get                                                                                                                        |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Generate from a saved config       | `uv run dts-util generate --prompt "..." --configuration portrait --trust-server-cert`                           | A decoded PNG under `./output` (`output/generated-<unix_ms>.png` by default) using `portrait.json` from the saved config directory. |
+| Generate from Draw Things JSON     | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert`                        | A decoded PNG under `./output` after JSON-to-FlatBuffer conversion.                                                                 |
+| Generate and open the result       | `uv run dts-util generate --prompt "..." --configuration config.json --trust-server-cert --open`                 | Timestamp-suffixed PNG under `./output`, opened in the platform default viewer.                                                     |
+| Use prebuilt FlatBuffer bytes      | `uv run dts-util generate --prompt "..." --configuration config.bin --trust-server-cert`                         | PNG written without invoking `[flatc](https://github.com/google/flatbuffers)`.                                                      |
+| Use a pinned certificate           | `uv run dts-util generate --prompt "..." --configuration config.json --root-cert cert.pem`                       | TLS verification against a known PEM file.                                                                                          |
+| Force trust for remote diagnostics | `uv run dts-util generate --host gpu.local --prompt "..." --configuration config.json --force-trust-server-cert` | Remote trust-on-first-use with MITM risk.                                                                                           |
+
 
 For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-cert` only when you cannot pin a cert and accept the risk for that connection.
 
@@ -251,7 +258,6 @@ For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-
   - You regularly use a custom model location different from the default Draw Things app location
   - You're running commands in scripts or automation where you don't want to specify the path each time
   - You're deploying on systems where the Draw Things app isn't installed
-
   Example:
   ```bash
   # Set the environment variable
@@ -260,7 +266,6 @@ For remote or LAN servers, prefer `--root-cert PATH`. Use `--force-trust-server-
   # Now you can run commands without specifying --model-path
   uv run dts-util server install
   ```
-
   Note: If you use both the environment variable and the `--model-path` option, the command line option takes precedence.
 
 ## Development Workflow with uv
@@ -281,6 +286,7 @@ uv run pytest
 
 ## See Also
 
-- [API Documentation](API.md): Notes on the upstream Draw Things gRPC API used by this repository
+- [Draw Things gRPC API](DRAW-THINGS-GRPC-API.md): notes on the upstream service this repository calls
 - [Protocol and Schema Reference](PROTOBUF.md): Practical reference for the upstream protobuf and FlatBuffer schemas
 - [README.md](README.md): General package information and usage
+

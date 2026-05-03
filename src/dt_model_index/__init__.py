@@ -1,5 +1,5 @@
-"""Draw Things community model indexing helpers."""
+"""Compatibility shim. Prefer ``from dts_util.model_index import main`` or ``dts_util.model_index``."""
 
-from .cli import main
+from dts_util.model_index.cli import main
 
 __all__ = ["main"]

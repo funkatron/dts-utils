@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from dt_model_index.cli import main as models_main
+from dts_util.model_index.cli import main as models_main
 
 from dts_util.configs import main as configs_main
 from dts_util.generate import main as generate_main

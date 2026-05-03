@@ -15,6 +15,7 @@ from dts_util.configs import (
 )
 from dts_util.generate import main as generate_main
 from dts_util.grpc.reflect import main as reflect_main
+from dts_util.web.cli import main as web_main
 from dts_util.installer.server_installer import DTSServerInstaller
 from dts_util.tls_export import main as tls_main
 
@@ -39,6 +40,7 @@ _CLIENT_HANDLER_ATTR: dict[str, str] = {
     "reflect": "reflect_main",
     "tls": "tls_main",
     "models": "models_main",
+    "web": "web_main",
 }
 
 

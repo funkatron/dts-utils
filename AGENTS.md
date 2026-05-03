@@ -18,6 +18,7 @@ Integration-style gRPC tests may skip without a live server; see [tests/README.m
 - `src/dts_util/generate*.py` — generation pipeline and public Python API (see package `__init__`).
 - `src/dts_util/installer/` — macOS LaunchAgent install lifecycle.
 - `src/dts_util/grpc/` — channels, stubs, `is_server_running` (TLS-first loopback probe, plaintext fallback; `prefer_plaintext` for `--no-tls` servers).
+- `src/dts_util/web/` — loopback Starlette UI (`dts-util web`); see [CLI.md](CLI.md#web-dts-util-web).
 
 ## Do not reintroduce `default.json` as the implicit profile
 

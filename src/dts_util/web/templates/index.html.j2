@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dts-util — generate</title>
+  <style>
+    :root {
+      --bg: #1a1b1e;
+      --fg: #e8e6e3;
+      --muted: #9b9898;
+      --accent: #4a9eff;
+      --ok: #5a9a6e;
+      --bad: #c45c5c;
+      --border: #3a3d45;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.45;
+      max-width: 52rem;
+      padding: 1.25rem 1.5rem 3rem;
+      margin-inline: auto;
+    }
+    h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 0.75rem; color: var(--muted); }
+    .strip {
+      display: grid;
+      gap: 0.6rem;
+      padding: 0.75rem 0;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+    .strip-row { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; }
+    label { color: var(--muted); font-size: 0.8rem; }
+    input[type="text"], input[type="number"], select, textarea {
+      background: #25262b;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 4px;
+      padding: 0.35rem 0.5rem;
+      font: inherit;
+    }
+    textarea { width: 100%; min-height: 6rem; resize: vertical; }
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5rem 1rem;
+      font: inherit;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .status { font-size: 0.9rem; }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+    .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
+    main { margin-top: 1rem; }
+    .results { margin-top: 1.25rem; display: grid; gap: 0.75rem; }
+    .results img { max-width: 100%; border-radius: 4px; border: 1px solid var(--border); }
+    details { margin-top: 0.75rem; font-size: 0.9rem; }
+    summary { cursor: pointer; color: var(--muted); }
+    .footer { margin-top: 2rem; font-size: 0.8rem; color: var(--muted); }
+    .footer a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <h1>dts-util web</h1>
+
+  <header class="strip" aria-label="Connection">
+    <div class="strip-row">
+      <div>
+        <label for="host">Host</label><br/>
+        <input id="host" type="text" value="localhost" size="14" autocomplete="off" />
+      </div>
+      <div>
+        <label for="port">gRPC port</label><br/>
+        <input id="port" type="number" value="7859" style="width:5.5rem" />
+      </div>
+      <div>
+        <label><input type="checkbox" id="noTls" /> no-TLS (match server install)</label>
+      </div>
+      <div>
+        <label><input type="checkbox" id="trustCert" checked /> trust loopback cert</label>
+      </div>
+      <button type="button" id="btnCheck">Check listener</button>
+    </div>
+    <div id="statusLine" class="status" role="status" aria-live="polite">Not checked yet.</div>
+    <p class="hint">Status is probe-only (listener). Generation can still fail (config, flatc, model, TLS mismatch).</p>
+  </header>
+
+  <main>
+    <div class="strip-row" style="margin-bottom:0.75rem;flex-direction:column;align-items:stretch;">
+      <div>
+        <label for="profile">Profile (saved JSON name or path)</label><br/>
+        <select id="profile"></select>
+        <input id="profileCustom" type="text" placeholder="Or custom name/path…" style="margin-top:0.35rem;width:100%" autocomplete="off" />
+      </div>
+    </div>
+
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" autofocus placeholder="Describe the image…"></textarea>
+
+    <details>
+      <summary>Negative prompt, shared secret, paths</summary>
+      <div style="margin-top:0.6rem">
+        <label for="neg">Negative prompt</label>
+        <textarea id="neg" style="min-height:3rem"></textarea>
+      </div>
+      <div class="strip-row" style="margin-top:0.5rem">
+        <div style="flex:1;min-width:12rem">
+          <label for="sharedSecret">Shared secret (if server requires)</label><br/>
+          <input id="sharedSecret" type="text" style="width:100%" autocomplete="off" />
+        </div>
+        <div style="flex:1;min-width:12rem">
+          <label for="rootCert">Root cert path (remote / LAN)</label><br/>
+          <input id="rootCert" type="text" style="width:100%" autocomplete="off" />
+        </div>
+      </div>
+      <div style="margin-top:0.5rem">
+        <label><input type="checkbox" id="forceTrust" /> force-trust server cert (MITM risk)</label>
+      </div>
+      <div style="margin-top:0.5rem">
+        <label for="configDir">Config directory override</label><br/>
+        <input id="configDir" type="text" style="width:100%" placeholder="Default: dts-util configs path" autocomplete="off" />
+      </div>
+    </details>
+
+    <p style="margin-top:1rem">
+      <button type="button" id="btnGen">Generate</button>
+      <span id="elapsed" class="hint" style="margin-left:0.75rem"></span>
+    </p>
+
+    <div id="err" class="status bad" style="display:none;margin-top:0.5rem"></div>
+    <div id="results" class="results"></div>
+  </main>
+
+  <footer class="footer">
+    <p><a href="https://github.com/funkatron/dts-utils/blob/main/CLI.md" target="_blank" rel="noopener">CLI reference</a> — Server install stays in Terminal: <code>dts-util server install</code></p>
+    <details>
+      <summary>Server not installed?</summary>
+      <pre style="white-space:pre-wrap;background:#25262b;padding:0.75rem;border-radius:4px;border:1px solid var(--border);font-size:0.8rem">uv run dts-util server install
+uv run dts-util server check</pre>
+    </details>
+  </footer>
+
+  <script>
+  window.__DTS_INIT__ = { token: {{ (api_token or none)|tojson }} };
+
+  function authHeaders(base) {
+    const h = Object.assign({}, base || {});
+    if (window.__DTS_INIT__.token)
+      h["Authorization"] = "Bearer " + window.__DTS_INIT__.token;
+    return h;
+  }
+
+  function indexOfU8(hay, needle, start) {
+    start = start | 0;
+    outer: for (let i = start; i <= hay.length - needle.length; i++) {
+      for (let j = 0; j < needle.length; j++)
+        if (hay[i + j] !== needle[j]) continue outer;
+      return i;
+    }
+    return -1;
+  }
+
+  /** Parse multipart/mixed parts; extract image/png bodies. */
+  function parseMultipartPngs(arrayBuffer, contentType) {
+    const ct = contentType || "";
+    const m = /boundary=([\w'./+:-]+)/i.exec(ct);
+    if (!m) throw new Error("No multipart boundary in Content-Type");
+    const boundary = m[1].trim().replace(/^["']|["']$/g, "");
+    const u8 = new Uint8Array(arrayBuffer);
+    const enc = new TextEncoder();
+    const dec = new TextDecoder("latin1");
+    const sep = enc.encode("\r\n--" + boundary);
+    const preamble = enc.encode("--" + boundary);
+    const parts = [];
+    let idx = indexOfU8(u8, preamble, 0);
+    while (idx !== -1) {
+      idx += 2 + boundary.length;
+      if (idx + 1 < u8.length && u8[idx] === 45 && u8[idx + 1] === 45) break;
+      if (idx + 1 < u8.length && u8[idx] === 13 && u8[idx + 1] === 10) idx += 2;
+      const hdrEnd = indexOfU8(u8, enc.encode("\r\n\r\n"), idx);
+      if (hdrEnd === -1) break;
+      const headers = dec.decode(u8.subarray(idx, hdrEnd));
+      const bodyStart = hdrEnd + 4;
+      const nextSep = indexOfU8(u8, sep, bodyStart);
+      if (nextSep === -1) break;
+      if (headers.toLowerCase().includes("content-type: image/png"))
+        parts.push(arrayBuffer.slice(bodyStart, nextSep));
+      idx = nextSep;
+    }
+    return parts;
+  }
+
+  async function refreshStatus() {
+    const host = document.getElementById("host").value.trim() || "localhost";
+    const port = document.getElementById("port").value || "7859";
+    const noTls = document.getElementById("noTls").checked;
+    const el = document.getElementById("statusLine");
+    el.textContent = "Checking…";
+    el.className = "status";
+    const q = new URLSearchParams({ host, port, no_tls: noTls ? "true" : "false" });
+    const r = await fetch("/api/server-status?" + q.toString(), { headers: authHeaders() });
+    if (r.status === 401) {
+      el.textContent = "Unauthorized (set DTS_WEB_TOKEN and reload).";
+      el.className = "status bad";
+      return;
+    }
+    const j = await r.json();
+    if (!r.ok) {
+      el.textContent = j.detail || "Error";
+      el.className = "status bad";
+      return;
+    }
+    el.textContent = j.message + " (" + j.probe + ")";
+    el.className = "status " + (j.listener_ok ? "ok" : "bad");
+  }
+
+  async function loadConfigs() {
+    const r = await fetch("/api/configs", { headers: authHeaders() });
+    const sel = document.getElementById("profile");
+    sel.innerHTML = "";
+    if (r.status === 401) return;
+    const j = await r.json();
+    if (!r.ok) return;
+    const names = [...new Set([...(j.names || []), def])].sort();
+    for (const n of names) {
+      const o = document.createElement("option");
+      o.value = n;
+      o.textContent = n;
+      if (n === def) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  function effectiveProfile() {
+    const c = document.getElementById("profileCustom").value.trim();
+    if (c) return c;
+    return document.getElementById("profile").value || "zit";
+  }
+
+  function connectionPayload() {
+    const host = document.getElementById("host").value.trim() || "localhost";
+    const port = parseInt(document.getElementById("port").value, 10) || 7859;
+    const noTls = document.getElementById("noTls").checked;
+    const trust = document.getElementById("trustCert").checked;
+    const force = document.getElementById("forceTrust").checked;
+    const rootCert = document.getElementById("rootCert").value.trim();
+    const configDir = document.getElementById("configDir").value.trim();
+    const body = { host, port, no_tls: noTls, trust_server_cert: trust, force_trust_server_cert: force };
+    if (rootCert) body.root_cert = rootCert;
+    if (configDir) body.config_dir = configDir;
+    return body;
+  }
+
+  async function runGenerate() {
+    const errEl = document.getElementById("err");
+    const results = document.getElementById("results");
+    const elapsed = document.getElementById("elapsed");
+    errEl.style.display = "none";
+    results.innerHTML = "";
+    const btn = document.getElementById("btnGen");
+    btn.disabled = true;
+    const t0 = performance.now();
+    elapsed.textContent = "";
+
+    const prompt = document.getElementById("prompt").value.trim();
+    if (!prompt) {
+      errEl.textContent = "Enter a prompt.";
+      errEl.style.display = "block";
+      btn.disabled = false;
+      return;
+    }
+
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const neg = document.getElementById("neg").value;
+    const body = Object.assign(connectionPayload(), {
+      prompt,
+      negative_prompt: neg,
+      configuration: effectiveProfile(),
+    });
+    if (shared) body.shared_secret = shared;
+
+    try {
+      const r = await fetch("/api/generate", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json", "Accept": "multipart/mixed,*/*" }),
+        body: JSON.stringify(body),
+      });
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      elapsed.textContent = r.ok ? ("Done in " + dt + "s") : "";
+
+      if (r.status === 401) {
+        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+        errEl.style.display = "block";
+        return;
+      }
+
+      const ct = r.headers.get("content-type") || "";
+      if (!r.ok) {
+        let msg = r.statusText;
+        try {
+          const j = await r.json();
+          msg = j.detail || msg;
+        } catch (_) {}
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+        return;
+      }
+
+      if (ct.includes("multipart/mixed")) {
+        const buf = await r.arrayBuffer();
+        const blobs = parseMultipartPngs(buf, ct);
+        blobs.forEach((b, i) => {
+          const url = URL.createObjectURL(new Blob([b], { type: "image/png" }));
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = "Generated " + (i + 1);
+          const wrap = document.createElement("div");
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = "generated_" + i + ".png";
+          a.textContent = "Download";
+          a.style.color = "var(--accent)";
+          wrap.appendChild(img);
+          wrap.appendChild(document.createElement("br"));
+          wrap.appendChild(a);
+          results.appendChild(wrap);
+        });
+      } else {
+        errEl.textContent = "Unexpected response " + ct;
+        errEl.style.display = "block";
+      }
+    } catch (e) {
+      errEl.textContent = String(e);
+      errEl.style.display = "block";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  document.getElementById("btnCheck").addEventListener("click", refreshStatus);
+  document.getElementById("btnGen").addEventListener("click", runGenerate);
+  loadConfigs();
+  </script>
+</body>
+</html>

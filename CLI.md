@@ -146,6 +146,23 @@ Subcommands:
 
 With `server install` (macOS): `uv run dts-util server install --export-tls-cert` runs export to the default PEM after `server test` passes (skipped when `--no-tls` is set).
 
+### web (`dts-util web`)
+
+Runs a loopback-first web UI for prompt-first image generation. The browser talks HTTP to `dts-util`; the tool forwards to Draw Things over gRPC (same stack as `generate`).
+
+```bash
+uv run dts-util web [--bind ADDR] [--port N] [--open]
+```
+
+- **Defaults:** bind `127.0.0.1`, HTTP port `8765`.
+- **`--open`:** open the default browser after the server starts (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`).
+- **Auth:** If **`DTS_WEB_TOKEN`** is set, all **`/api/*`** routes except **`GET /api/health`** require **`Authorization: Bearer <token>`**. Prefer loopback; binding more broadly without a token prints a **stderr warning**—set the token for mutating routes.
+- **Probe:** **`GET /api/server-status`** mirrors listener checks (`no_tls` query flag aligns with `server check --no-tls`). The message is **probe only**; generation can still fail (config, `flatc`, TLS mismatch).
+- **Generate:** **`POST /api/generate`** accepts JSON (`prompt`, optional `negative_prompt`, `configuration`, `host`, `port`, `no_tls`, `trust_server_cert`, `force_trust_server_cert`, `root_cert`, `shared_secret`, `config_dir`). Success responses are **`multipart/mixed`** PNG parts. Errors return JSON `{"detail": "…"}` with the same actionable messages as the CLI where applicable.
+- **Timeout:** Optional **`DTS_WEB_GENERATE_TIMEOUT`** (seconds, default `900`) caps wall-clock generation time.
+
+LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer links to the README quickstart.
+
 ### generate
 
 Sends a prompt through the upstream Draw Things streaming gRPC API and writes PNG output.
@@ -174,7 +191,7 @@ Important options:
 
 ### Generate shorthand (prompt-first)
 
-When the first argument after the program name is not a known subcommand (`generate`, `configs`, `reflect`, `tls`, `models`, `server`, …), not a lifecycle verb, and not a flag, the line is treated as shorthand for image generation.
+When the first argument after the program name is not a known subcommand (`generate`, `configs`, `reflect`, `tls`, `models`, `web`, `server`, …), not a lifecycle verb, and not a flag, the line is treated as shorthand for image generation.
 
 Syntax:
 

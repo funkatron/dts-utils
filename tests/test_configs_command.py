@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -70,3 +71,51 @@ def test_dts_util_main_dispatches_configs(monkeypatch):
 
     configs_main.assert_called_once_with(["path"])
     assert exc_info.value.code == 0
+
+
+def test_ensure_default_generation_json_creates_file_and_sets_env(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv(configs.DEFAULT_CONFIGURATION_ENV, raising=False)
+    monkeypatch.delenv(configs.DEFAULT_MODEL_ENV, raising=False)
+    monkeypatch.setattr(configs, "configurations_dir", lambda: tmp_path)
+    monkeypatch.setattr(configs, "guess_default_model_basename", lambda: "")
+    path = configs.ensure_default_generation_json_config()
+    assert path == tmp_path / f"{configs.DEFAULT_PROFILE_NAME}.json"
+    assert path.is_file()
+    assert os.environ[configs.DEFAULT_CONFIGURATION_ENV] == configs.DEFAULT_PROFILE_NAME
+    assert "created default.json" in capsys.readouterr().err
+
+
+def test_ensure_default_generation_json_idempotent(monkeypatch, tmp_path):
+    monkeypatch.delenv(configs.DEFAULT_CONFIGURATION_ENV, raising=False)
+    monkeypatch.setattr(configs, "configurations_dir", lambda: tmp_path)
+    monkeypatch.setattr(configs, "guess_default_model_basename", lambda: "x.ckpt")
+    configs.ensure_default_generation_json_config()
+    first = (tmp_path / f"{configs.DEFAULT_PROFILE_NAME}.json").read_text()
+    configs.ensure_default_generation_json_config()
+    second = (tmp_path / f"{configs.DEFAULT_PROFILE_NAME}.json").read_text()
+    assert first == second
+    assert '"model": "x.ckpt"' in first
+
+
+def test_ensure_default_does_not_override_existing_configuration_env(monkeypatch, tmp_path):
+    monkeypatch.setenv(configs.DEFAULT_CONFIGURATION_ENV, "custom")
+    monkeypatch.setattr(configs, "configurations_dir", lambda: tmp_path)
+    monkeypatch.setattr(configs, "guess_default_model_basename", lambda: "")
+    configs.ensure_default_generation_json_config()
+    assert os.environ[configs.DEFAULT_CONFIGURATION_ENV] == "custom"
+
+
+def test_guess_default_model_prefers_dts_util_env(monkeypatch):
+    monkeypatch.setenv(configs.DEFAULT_MODEL_ENV, "my.ckpt")
+    assert configs.guess_default_model_basename() == "my.ckpt"
+
+
+def test_guess_default_model_first_ckpt_in_draw_things_models_dir(monkeypatch, tmp_path):
+    monkeypatch.delenv(configs.DEFAULT_MODEL_ENV, raising=False)
+    monkeypatch.delenv("DRAW_THINGS_MODEL_PATH", raising=False)
+    models = tmp_path / "models"
+    models.mkdir()
+    (models / "b.ckpt").write_bytes(b"")
+    (models / "a.ckpt").write_bytes(b"")
+    monkeypatch.setattr("dts_util.model_index.local.default_models_dir", lambda: models)
+    assert configs.guess_default_model_basename() == "a.ckpt"

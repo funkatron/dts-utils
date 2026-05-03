@@ -7,18 +7,18 @@ import sys
 
 from dts_util.model_index.cli import main as models_main
 
-from dts_util.configs import configurations_dir, main as configs_main
+from dts_util.configs import (
+    DEFAULT_CONFIGURATION_ENV,
+    DEFAULT_PROFILE_NAME,
+    ensure_default_generation_json_config,
+    main as configs_main,
+)
 from dts_util.generate import main as generate_main
 from dts_util.grpc.reflect import main as reflect_main
 from dts_util.installer.server_installer import DTSServerInstaller
 from dts_util.tls_export import main as tls_main
 
 SERVER_LIFECYCLE_SUBCOMMANDS = frozenset({"install", "uninstall", "restart", "test", "check"})
-
-# When using ``dts-util "prompt" [profile]`` shorthand (no ``generate`` keyword), pick configuration from:
-# optional second positional, then this env var, then ``default.json`` in the saved-config directory.
-DEFAULT_CONFIGURATION_ENV = "DTS_UTIL_DEFAULT_CONFIGURATION"
-FALLBACK_SAVED_CONFIG_NAME = "default"
 
 SERVER_SUBCOMMAND_HELP = """
 Draw Things gRPC server (macOS LaunchAgent for gRPCServerCLI)
@@ -49,15 +49,8 @@ def _configuration_for_shorthand(profile_from_argv: str | None) -> tuple[str | N
     env = os.environ.get(DEFAULT_CONFIGURATION_ENV, "").strip()
     if env:
         return env, None
-    default_path = configurations_dir() / f"{FALLBACK_SAVED_CONFIG_NAME}.json"
-    if default_path.is_file():
-        return FALLBACK_SAVED_CONFIG_NAME, None
-    return None, (
-        "dts-util: generation needs a saved configuration. Either:\n"
-        "  • Pass a profile: dts-util \"your prompt\" PROFILE_NAME\n"
-        "  • Save default.json in the configs directory (see `dts-util configs path`)\n"
-        f"  • Set {DEFAULT_CONFIGURATION_ENV} to a profile name or JSON path"
-    )
+    ensure_default_generation_json_config()
+    return DEFAULT_PROFILE_NAME, None
 
 
 def _split_shorthand_argv(argv: list[str]) -> tuple[list[str], str | None]:

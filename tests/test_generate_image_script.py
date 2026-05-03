@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 from importlib import import_module, reload
 from pathlib import Path
 import struct
@@ -12,6 +14,7 @@ import numpy as np
 import pytest
 
 from dts_util import cli_router
+from dts_util.configs import DEFAULT_CONFIGURATION_ENV, DEFAULT_PROFILE_NAME
 
 _FIXED_MS = 1_735_123_456_789
 _FIXED_NS = _FIXED_MS * 1_000_000
@@ -408,7 +411,7 @@ def test_dts_util_main_generate_shorthand_prompt_and_profile(monkeypatch):
 
 
 def test_dts_util_main_generate_shorthand_default_from_env(monkeypatch):
-    monkeypatch.setenv(cli_router.DEFAULT_CONFIGURATION_ENV, "landscape")
+    monkeypatch.setenv(DEFAULT_CONFIGURATION_ENV, "landscape")
     monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
@@ -421,8 +424,8 @@ def test_dts_util_main_generate_shorthand_default_from_env(monkeypatch):
 
 
 def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
-    monkeypatch.delenv(cli_router.DEFAULT_CONFIGURATION_ENV, raising=False)
-    monkeypatch.setattr(cli_router, "configurations_dir", lambda: tmp_path)
+    monkeypatch.delenv(DEFAULT_CONFIGURATION_ENV, raising=False)
+    monkeypatch.setattr("dts_util.configs.configurations_dir", lambda: tmp_path)
     (tmp_path / "default.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
@@ -434,7 +437,7 @@ def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
             "--prompt",
             "hello",
             "--configuration",
-            cli_router.FALLBACK_SAVED_CONFIG_NAME,
+            DEFAULT_PROFILE_NAME,
             "--trust-server-cert",
             "--open",
         ]
@@ -442,19 +445,36 @@ def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
     assert exc_info.value.code == 0
 
 
-def test_dts_util_main_generate_shorthand_no_configuration_exits_2(monkeypatch, capsys, tmp_path):
-    monkeypatch.delenv(cli_router.DEFAULT_CONFIGURATION_ENV, raising=False)
-    monkeypatch.setattr(cli_router, "configurations_dir", lambda: tmp_path)
+def test_dts_util_main_generate_shorthand_auto_creates_default_json(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv(DEFAULT_CONFIGURATION_ENV, raising=False)
+    monkeypatch.delenv("DTS_UTIL_DEFAULT_MODEL", raising=False)
+    monkeypatch.delenv("DRAW_THINGS_MODEL_PATH", raising=False)
+    monkeypatch.setattr("dts_util.configs.configurations_dir", lambda: tmp_path)
+    monkeypatch.setattr("dts_util.configs.guess_default_model_basename", lambda: "")
     monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
-    with patch.object(cli_router, "generate_main") as generate_main:
+    with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
 
-    generate_main.assert_not_called()
-    assert exc_info.value.code == 2
+    assert exc_info.value.code == 0
+    default_path = tmp_path / f"{DEFAULT_PROFILE_NAME}.json"
+    assert default_path.is_file()
+    data = json.loads(default_path.read_text())
+    assert data["width"] == 512
+    assert "model" in data
+    generate_main.assert_called_once_with(
+        [
+            "--prompt",
+            "hello",
+            "--configuration",
+            DEFAULT_PROFILE_NAME,
+            "--trust-server-cert",
+            "--open",
+        ]
+    )
+    assert os.environ.get(DEFAULT_CONFIGURATION_ENV) == DEFAULT_PROFILE_NAME
     err = capsys.readouterr().err
-    assert "dts-util: generation needs a saved configuration" in err
-    assert cli_router.DEFAULT_CONFIGURATION_ENV in err
+    assert "created default.json" in err
 
 
 def test_dts_util_main_generate_shorthand_too_many_positionals(monkeypatch, capsys):

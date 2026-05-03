@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dts_util.installer.server_installer import SERVER_SUBCOMMAND_HELP, prepare_argv_for_installer_dispatch
+from dts_util.cli_router import SERVER_SUBCOMMAND_HELP, prepare_argv_for_installer_dispatch
 
 
 def test_prepare_server_help_only():

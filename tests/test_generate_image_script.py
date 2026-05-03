@@ -11,7 +11,7 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from dts_util.installer import server_installer
+from dts_util import cli_router
 
 _FIXED_MS = 1_735_123_456_789
 _FIXED_NS = _FIXED_MS * 1_000_000
@@ -386,9 +386,9 @@ def test_generate_image_script_reports_missing_named_configuration(capsys):
 def test_dts_util_main_dispatches_generate(monkeypatch):
     """Verify dts-util generate is routed before installer argument parsing."""
     monkeypatch.setattr("sys.argv", ["dts-util", "generate", "--prompt", "test", "--configuration", "portrait"])
-    with patch.object(server_installer, "generate_main", return_value=0) as generate_main:
+    with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
-            server_installer.main()
+            cli_router.main()
 
     generate_main.assert_called_once_with(["--prompt", "test", "--configuration", "portrait"])
     assert exc_info.value.code == 0

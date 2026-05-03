@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **CLI routing:** New [`dts_util/cli_router.py`](src/dts_util/cli_router.py) owns top-level dispatch (`generate`, `configs`, `reflect`, `tls`, `models`) and `prepare_argv_for_installer_dispatch`; [`server_installer`](src/dts_util/installer/server_installer.py) stays LaunchAgent / installer only. Console script entry: `dts_util.cli_router:main`.
+
 ### Added
 - `dts-util server restart --model-browser` to enable model browsing for an existing LaunchAgent service before restart.
 - `dts-util generate` for sending a prompt to the upstream Draw Things gRPC streaming API and writing returned images to PNG, including JSON-to-FlatBuffer configuration, local certificate trust options, and `--open` viewer launch support.

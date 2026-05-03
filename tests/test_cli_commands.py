@@ -11,7 +11,8 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(project_root, "src"))
 
-from dts_util.installer.server_installer import DTSServerInstaller, prepare_argv_for_installer_dispatch
+from dts_util.cli_router import prepare_argv_for_installer_dispatch
+from dts_util.installer.server_installer import DTSServerInstaller
 
 
 def _setup_server_argv(monkeypatch: pytest.MonkeyPatch, *tokens: str) -> None:

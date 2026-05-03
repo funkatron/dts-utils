@@ -26,7 +26,13 @@ Example:
 
 ### Changed
 
-- **Docs:** [README.md](README.md), [CLI.md](CLI.md), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md), [PROTOBUF.md](PROTOBUF.md), and [tests/README.md](tests/README.md) — describe `dtsutils` / `dts-utils`, prompt-first shorthand, implicit `default.json`, and related environment variables; reduced duplicate TLS/config prose where [README.md](README.md) points at [CLI.md](CLI.md).
+- **Docs:** [README.md](README.md), [CLI.md](CLI.md), [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md), [PROTOBUF.md](PROTOBUF.md), and [tests/README.md](tests/README.md) — prompt-first shorthand, implicit `default.json`, and related environment variables; reduced duplicate TLS/config prose where [README.md](README.md) points at [CLI.md](CLI.md).
+
+### Removed
+
+- **Console scripts:** `dtsutils` and `dts-utils` removed from `[project.scripts](pyproject.toml)`; use `dts-util` only (shorthand behavior unchanged).
+
+## [0.3.3] - 2026-05-03
 
 ### Tested with
 
@@ -34,7 +40,7 @@ Example:
 
 ### Added
 
-- **Generate shorthand:** `dts-util "PROMPT" [PROFILE] [flags…]` runs `generate` with `--trust-server-cert` and `--open` (flags after optional profile). Console scripts **`dtsutils`** and **`dts-utils`** share the same entry point.
+- **Generate shorthand:** `dts-util "PROMPT" [PROFILE] [flags…]` runs `generate` with `--trust-server-cert` and `--open` (flags after optional profile).
 - **Default profile bootstrap:** first shorthand use without `DTS_UTIL_DEFAULT_CONFIGURATION` creates **`default.json`** in the saved-config directory (starter 512² JSON; **`model`** from first `.ckpt` / `.safetensors` in Draw Things Models, **`DTS_UTIL_DEFAULT_MODEL`**, or empty with a stderr hint). **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "default")`** documents the default for the process unless already exported.
 
 ## [0.3.2] - 2026-05-03

@@ -95,7 +95,7 @@ uv run dts-util generate \
 Prompt-first shorthand (after `default.json` exists or is auto-created; opens viewer):
 
 ```bash
-uv run dtsutils "a small robot painting clouds"
+uv run dts-util "a small robot painting clouds"
 ```
 
 Details: [CLI.md](CLI.md) and [README.md](README.md).

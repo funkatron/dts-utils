@@ -1,18 +1,6 @@
 # dts-util CLI reference
 
-Reference for the `dts-util` command-line tool and its aliases.
-
-## Entry points
-
-These console scripts all call the same code (after `uv sync` or install):
-
-| Name | Example |
-| --- | --- |
-| `dts-util` | `uv run dts-util server check` |
-| `dtsutils` | `uv run dtsutils "a red barn"` |
-| `dts-utils` | `uv run dts-utils server check` |
-
-Use `uv run …` from a git checkout; activate the environment first if you installed the package into a venv.
+Reference for the `dts-util` command-line tool.
 
 ## Command structure
 
@@ -189,8 +177,6 @@ Syntax:
 dts-util PROMPT [PROFILE] [flags…]
 ```
 
-`dtsutils` / `dts-utils` — same behavior as `dts-util` for shorthand (`uv run dtsutils "…"`).
-
 Rules:
 
 1. `PROMPT` is one shell word unless you quote a multi-word prompt.
@@ -209,9 +195,9 @@ Configuration when `PROFILE` is omitted:
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Single-line local generate | `uv run dtsutils "a small robot"` | Same as `generate` with trust + open + implicit `default` profile after first-run materialization |
-| Named saved profile | `uv run dtsutil "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
-| OverrideTLS-only flag | `uv run dtsutils "…" --root-cert ./pem` | Adds your flags after the injected defaults |
+| Single-line local generate | `uv run dts-util "a small robot"` | Same as `generate` with trust + open + implicit `default` profile after first-run materialization |
+| Named saved profile | `uv run dts-util "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
+| Extra TLS flags | `uv run dts-util "…" --root-cert ./pem` | Adds your flags after the injected defaults |
 
 Explicit `dts-util generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `default.json`.
 

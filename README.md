@@ -49,7 +49,7 @@ What each step does:
 If you do not have a saved profile yet, the fastest path is the prompt-first shorthand (auto-creates `default.json` on first use). From the repo root, after the server is up:
 
 ```bash
-uv run dtsutils "a beautiful sunset over mountains"
+uv run dts-util "a beautiful sunset over mountains"
 ```
 
 That expands to `generate` with `--trust-server-cert`, `--open`, and a configuration resolved from [Implicit default profile](#implicit-default-profile-shorthand). Multi-word prompts need quoting.
@@ -155,7 +155,7 @@ uv run dts-util reflect --host gpu.local --root-cert ./gpu.pem --json
 
 | Goal | Command pattern |
 | --- | --- |
-| Prompt-first with defaults (local TLS trust, open viewer) | `uv run dtsutils "PROMPT"` or `uv run dts-utils "PROMPT"` (optional profile and flags; see [CLI.md](CLI.md#generate-shorthand-prompt-first)) |
+| Prompt-first with defaults (local TLS trust, open viewer) | `uv run dts-util "PROMPT"` (optional profile and flags; see [CLI.md](CLI.md#generate-shorthand-prompt-first)) |
 | Saved config | `--configuration NAME --trust-server-cert` (add `--open` to open the PNG) |
 | Inline JSON path | `--configuration path/to/config.json --trust-server-cert` |
 | Pinned PEM | `--root-cert cert.pem` (often with `--host`) |

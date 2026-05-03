@@ -33,7 +33,7 @@ uv run dts-util generate \
 Optional: after `portrait` (or another saved profile) exists, you can smoke the prompt-first path on a trusted localhost install:
 
 ```bash
-uv run dtsutils "smoke test" --output output/smoke-shorthand.png
+uv run dts-util "smoke test" --output output/smoke-shorthand.png
 ```
 
 (Shorthand always adds `--trust-server-cert` and `--open`; omit `--open` by using explicit `dts-util generate …` if you need that.)

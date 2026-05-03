@@ -147,4 +147,4 @@ uv run dts-util generate \
 
 Use `uv run python` for project code so imports and dependencies come from the uv-managed environment. Use `python3` only for system-level one-off snippets that do not need the project environment.
 
-Prompt-first CLI shorthand (`dtsutils "…"`) is documented in [CLI.md](CLI.md) and [README.md](README.md); it still sends the same `ImageGenerationRequest` shape over the wire.
+Prompt-first CLI shorthand (`dts-util "…"` with no `generate` subcommand) is documented in [CLI.md](CLI.md) and [README.md](README.md); it still sends the same `ImageGenerationRequest` shape over the wire.

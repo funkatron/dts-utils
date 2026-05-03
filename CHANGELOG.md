@@ -24,6 +24,12 @@ Example:
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-05-03
+
+### Tested with
+
+- **gRPCServerCLI:** not smoke-tested for this tag. **pytest:** 113 passed, 6 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+
 ### Changed
 
 - **[PROTOBUF.md](PROTOBUF.md):** cross-link to [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) for client/streaming notes.
@@ -36,6 +42,10 @@ Example:
 ### Removed
 
 - **PyPI publishing:** removed `.github/workflows/publish.yml` and README trusted-publishing instructions. The project is **not** on PyPI; install from a [git checkout](README.md#install) (or a local path / fork) until publishing is turned on deliberately.
+
+### Fixed
+
+- **Docs:** restore proper Markdown for [`flatc`](https://github.com/google/flatbuffers) links and for nested `` `**…**` `` emphasis in [CLI.md](CLI.md), [PROTOBUF.md](PROTOBUF.md), and [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md).
 
 ## [0.3.1] - 2026-05-03
 

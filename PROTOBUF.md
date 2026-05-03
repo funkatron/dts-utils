@@ -80,14 +80,16 @@ The root FlatBuffer type is `GenerationConfiguration` in `src/dts_util/grpc/prot
 
 Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake_case. The helper script maps common fields before running [`flatc`](https://github.com/google/flatbuffers). Examples:
 
-| Draw Things JSON | `config.fbs` field | Notes |
-| --- | --- | --- |
-| `width` | `start_width` | Converted from pixels to 64-pixel units. |
-| `height` | `start_height` | Converted from pixels to 64-pixel units. |
-| `batchCount` | `batch_count` | Must be at least `1` for practical generation. |
-| `guidanceScale` | `guidance_scale` | Float. |
-| `hiresFix` | `hires_fix` | Boolean. |
-| `zeroNegativePrompt` | `zero_negative_prompt` | Boolean. |
+
+| Draw Things JSON     | `config.fbs` field     | Notes                                          |
+| -------------------- | ---------------------- | ---------------------------------------------- |
+| `width`              | `start_width`          | Converted from pixels to 64-pixel units.       |
+| `height`             | `start_height`         | Converted from pixels to 64-pixel units.       |
+| `batchCount`         | `batch_count`          | Must be at least `1` for practical generation. |
+| `guidanceScale`      | `guidance_scale`       | Float.                                         |
+| `hiresFix`           | `hires_fix`            | Boolean.                                       |
+| `zeroNegativePrompt` | `zero_negative_prompt` | Boolean.                                       |
+
 
 The script also drops empty `controls`, empty `loras`, and empty string values before conversion. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere.
 
@@ -118,7 +120,7 @@ The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grp
 
 When implementing or refactoring these tests:
 
-1. **No fixed port by default.** Prefer binding an in-process test server to **`127.0.0.1:0`** and passing the resolved host/port into fixtures so local developers can run the real `gRPCServerCLI` on a well-known port (for example `7859`) without colliding with pytest.
+1. **No fixed port by default.** Prefer binding an in-process test server to **127.0.0.1:0** and passing the resolved host/port into fixtures so local developers can run the real `gRPCServerCLI` on a well-known port (for example `7859`) without colliding with pytest.
 2. **In-process fake first.** Use `grpc.server()` plus a small `ImageGenerationServiceServicer` that implements only the RPCs the tests need (for example Echo / FilesExist) with canned responses. That keeps CI fast and independent of Draw Things binaries.
 3. **Optional real server.** Support an **opt-in** path (for example an environment variable and/or explicit pytest marker) that skips starting the fake and instead targets a running server when you want to validate against the real binary.
 
@@ -130,7 +132,7 @@ The fake is a **mirror of a wire contract**, not the product. When Draw Things u
 - Update the **test servicer** so its behavior and types still match the messages clients send. Otherwise tests can stay green while real usage breaks.
 - Use the **optional real-server** run occasionally or on release branches to catch drift the fake cannot see (timing, TLS, streaming quirks, etc.).
 - **Pin or note** the Draw Things / proto revision you copied from (in commit messages or this doc) so the next bump is a deliberate step, not guesswork.
-- **Shipping `dts-util`:** each versioned release should list the **`gRPCServerCLI`** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see *Documenting `gRPCServerCLI` for each release*). A concrete **manual smoke** command list lives in [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
+- **Shipping `dts-util`:** each versioned release should list the **gRPCServerCLI** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see *Documenting `gRPCServerCLI` for each release*). A concrete **manual smoke** command list lives in [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
 
 ## Practical Client Command
 

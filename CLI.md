@@ -14,9 +14,9 @@ uv run dts-util <command> [options]
 
 These commands manage **macOS LaunchAgent + `gRPCServerCLI`** (not pytest, not Docker).
 
-**Required spelling:** `**dts-util server <subcommand>`** for install, uninstall, restart, `**test**`, and `**check**`. Omitting `**server**` (e.g. `dts-util install`) is rejected (**stderr + exit code `2`**).
+**Required spelling:** `dts-util server <subcommand>` for install, uninstall, restart, `test`, and `check`. Omitting `server` (e.g. `dts-util install`) is rejected (**stderr**, exit code **2**).
 
-Bare `**dts-util server**` prints this summary.
+Bare `dts-util server` prints this summary.
 
 ## Available Commands
 
@@ -127,7 +127,7 @@ Save files like `portrait.json` in this directory, then use `--configuration por
 
 ### tls
 
-Writes the server's **presented** TLS certificate to a PEM file for `**dts-util generate --root-cert …`** / `**reflect --root-cert …**` (trust-on-fetch; same bytes Python's `ssl.get_server_certificate` returns). `**gRPCServerCLI**` keystores are not modified.
+Writes the server's **presented** TLS certificate to a PEM file for `dts-util generate --root-cert …` / `dts-util reflect --root-cert …` (trust-on-fetch; same bytes Python's `ssl.get_server_certificate` returns). **gRPCServerCLI** keystores are not modified.
 
 ```bash
 uv run dts-util tls path

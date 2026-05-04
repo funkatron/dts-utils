@@ -238,11 +238,13 @@ Output paths:
 src/
 └── dts_util/
     ├── installer/       # LaunchAgent-backed install lifecycle (macOS)
-    ├── generate.py      # Prompt → gRPC GenerateImage → PNG
+    ├── cli_router.py    # Top-level dispatch and prompt-first shorthand
     ├── configs.py       # Saved JSON configs and zit implicit profile materialization
-    ├── cli_router.py    # Top-level dispatch and generate shorthand
-    ├── grpc/            # Channels, reflection, stubs, protobuf copies
-    └── utils/           # Shared helpers (e.g. gRPC errors)
+    ├── generate.py      # Prompt → gRPC GenerateImage → PNG
+    ├── tls_export.py    # Pin/export server PEM (`dts-util tls`)
+    ├── grpc/            # Channels, reflection, stubs, protobuf copies (`grpc/utils.py`, …)
+    ├── model_index/     # Community metadata index (`dts-util models`)
+    └── web/             # Loopback Starlette UI (`dts-util web`)
 ```
 
 Per-flag behavior: [CLI.md](CLI.md).

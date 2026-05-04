@@ -11,6 +11,31 @@ uv run pytest
 
 Integration-style gRPC tests may skip without a live server; see [tests/README.md](tests/README.md) and [PROTOBUF.md](PROTOBUF.md).
 
+### Pytest markers
+
+[`pyproject.toml`](pyproject.toml) registers:
+
+| Marker | Meaning |
+| --- | --- |
+| `integration` | Tests that may assume a reachable gRPC server or local model assets; often skip when prerequisites are missing. |
+
+CI (`.github/workflows/ci.yml`) runs **`uv run pytest`** with **no `-m` filter**, so default runs include marked tests; those tests should **skip** cleanly on Ubuntu when a server is absent rather than fail.
+
+## CLI dispatch (`dts-util`)
+
+Console entrypoint: [`dts_util.cli_router:main`](src/dts_util/cli_router.py). Named subcommands (after `dts-util`) route roughly as follows:
+
+| Subcommand | Implementation |
+| --- | --- |
+| `server …` | [`installer/server_installer.py`](src/dts_util/installer/server_installer.py) (`install`, `uninstall`, `restart`, `test`, `check`) |
+| `generate` | [`generate.py`](src/dts_util/generate.py) |
+| Prompt-first shorthand (`dts-util "…"`) | Same as `generate` after argv rewrite in `cli_router` |
+| `configs` | [`configs.py`](src/dts_util/configs.py) |
+| `reflect` | [`grpc/reflect.py`](src/dts_util/grpc/reflect.py) |
+| `tls` | [`tls_export.py`](src/dts_util/tls_export.py) |
+| `models` | [`model_index/cli.py`](src/dts_util/model_index/cli.py) |
+| `web` | [`web/cli.py`](src/dts_util/web/cli.py) |
+
 ## Layout
 
 - `src/dts_util/cli_router.py` — top-level dispatch and prompt-first shorthand.
@@ -18,6 +43,8 @@ Integration-style gRPC tests may skip without a live server; see [tests/README.m
 - `src/dts_util/generate*.py` — generation pipeline and public Python API (see package `__init__`).
 - `src/dts_util/installer/` — macOS LaunchAgent install lifecycle.
 - `src/dts_util/grpc/` — channels, stubs, `is_server_running` (TLS-first loopback probe, plaintext fallback; `prefer_plaintext` for `--no-tls` servers).
+- `src/dts_util/model_index/` — community metadata index (`dts-util models`).
+- `src/dts_util/tls_export.py` — PEM path/export (`dts-util tls`).
 - `src/dts_util/web/` — loopback Starlette UI (`dts-util web`); see [CLI.md](CLI.md#web-dts-util-web).
 
 ## Do not reintroduce `default.json` as the implicit profile

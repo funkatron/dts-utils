@@ -145,40 +145,76 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
             </Row>
           ) : null}
 
-          <Row
-            gap={10}
-            align="end"
-            wrap
+          <Stack
+            gap={6}
             style={{
               padding: "10px 12px",
               borderTop: `1px solid ${theme.stroke.tertiary}`,
               background: theme.fill.primary,
             }}
           >
-            <Stack gap={4} style={{ flex: 1, minWidth: 140 }}>
-              <Row gap={8} justify="space-between" align="center" wrap>
-                <Text tone="tertiary" size="small">
-                  Prompt
-                </Text>
-                <Text tone="quaternary" size="small">
-                  Cmd+Enter / Ctrl+Enter
-                </Text>
-              </Row>
-              <TextArea value="Describe the image…" disabled rows={2} style={{ width: "100%", opacity: 0.85 }} />
-            </Stack>
-            <Stack gap={6} style={{ width: 72 }}>
+            <Row gap={8} justify="space-between" align="center" wrap>
+              <Text tone="tertiary" size="small">
+                Prompt
+              </Text>
               <Text tone="quaternary" size="small">
-                Runs
+                Cmd+Enter / Ctrl+Enter
               </Text>
-              <TextInput value="1" disabled type="number" style={{ width: "100%", textAlign: "center" }} />
-              <Button variant="primary" disabled={demo === "generating"}>
-                Generate
-              </Button>
-              <Text tone="quaternary" size="small" style={{ textAlign: "center", minHeight: 14 }}>
-                {demo === "generating" ? "12.4s" : demo === "done" ? "Done in 3.2s" : "#elapsed"}
-              </Text>
-            </Stack>
-          </Row>
+            </Row>
+            <Row gap={10} align="stretch" wrap style={{ alignItems: "stretch" }}>
+              <TextArea
+                value="Describe the image…"
+                disabled
+                rows={2}
+                style={{ flex: "1 1 140px", minWidth: 140, opacity: 0.85 }}
+              />
+              <Stack gap={4} style={{ flex: "0 0 auto", alignSelf: "stretch", justifyContent: "space-between" }}>
+                <Row
+                  align="stretch"
+                  style={{
+                    border: `1px solid ${theme.stroke.secondary}`,
+                    borderRadius: 6,
+                    overflow: "hidden",
+                    alignSelf: "flex-start",
+                    background: theme.fill.secondary,
+                  }}
+                >
+                  <Select
+                    value="1"
+                    disabled
+                    options={Array.from({ length: 25 }, (_, i) => ({
+                      value: String(i + 1),
+                      label: String(i + 1),
+                    }))}
+                    style={{
+                      width: 52,
+                      borderWidth: 0,
+                      borderRadius: 0,
+                      background: "transparent",
+                    }}
+                  />
+                  <Button
+                    variant="primary"
+                    disabled={demo === "generating"}
+                    style={{
+                      margin: 0,
+                      borderRadius: 0,
+                      borderLeft: `1px solid ${theme.stroke.secondary}`,
+                      minWidth: 44,
+                      padding: "0 10px",
+                      fontSize: 14,
+                      lineHeight: 1,
+                    }}
+                  >
+                    ▶
+                  </Button>
+                </Row>
+                <Text tone="quaternary" size="small" style={{ textAlign: "right", minHeight: 14 }}>
+                  {demo === "generating" ? "12.4s" : demo === "done" ? "Done in 3.2s" : "#elapsed"}
+                </Text>
+              </Stack>
+            </Row>
+          </Stack>
         </div>
       </Stack>
 
@@ -287,7 +323,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
       </Card>
 
       <Text tone="quaternary" size="small">
-        Implementation note: POST /api/generate sends optional generations (1–32); wildcards expand
+        Implementation note: POST /api/generate sends optional generations (1–25); wildcards expand
         fresh each run. See CLI.md and docs/web-ui-layout.md.
       </Text>
     </Stack>

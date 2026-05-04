@@ -19,7 +19,7 @@ from dts_util.image_output import unique_ms_timestamp_output_path, write_images
 from dts_util.tensor_png import decode_dt_tensor_to_png
 
 # Independent RPC runs per UI/API/CLI request (each run re-expands `{…}` wildcards).
-MAX_BATCH_GENERATIONS = 32
+MAX_BATCH_GENERATIONS = 25
 
 
 def validate_batch_generations(n: int) -> int:

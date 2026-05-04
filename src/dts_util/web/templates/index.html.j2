@@ -160,82 +160,132 @@
       background: rgba(196, 92, 92, 0.12);
       border-top: 1px solid var(--border);
     }
-    /* Bottom composer: prompt + generate only */
+    /* Bottom composer: prompt row + split Runs | Generate */
     .composer {
       flex: 0 0 auto;
-      display: flex;
-      align-items: flex-end;
-      gap: 0.5rem;
-      padding: 0.5rem 0.65rem 0.65rem;
+      padding: 0.45rem 0.65rem 0.5rem;
       border-top: 1px solid var(--border);
       background: var(--bg);
     }
-    .composer-prompt {
-      flex: 1 1 auto;
-      min-width: 0;
+    .composer-prompt-block {
       display: flex;
       flex-direction: column;
-      gap: 0.2rem;
+      gap: 0.25rem;
+      min-width: 0;
     }
-    .composer-prompt label {
+    .composer-prompt-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .composer-prompt-head label {
       font-size: 0.7rem;
       color: var(--muted);
       margin: 0;
     }
+    .composer-input-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0.45rem;
+      min-width: 0;
+    }
     textarea#prompt {
+      flex: 1 1 auto;
+      min-width: 0;
       width: 100%;
-      min-height: 2.75rem;
+      min-height: 2.85rem;
       max-height: min(40vh, 12rem);
       resize: vertical;
-      font-size: 1rem;
+      font-size: 0.95rem;
       line-height: 1.35;
       background: #25262b;
       border: 1px solid var(--border);
       color: var(--fg);
-      border-radius: 4px;
-      padding: 0.45rem 0.55rem;
+      border-radius: 6px;
+      padding: 0.5rem 0.6rem;
       font: inherit;
+      box-sizing: border-box;
     }
-    .composer-actions {
+    /* Split control: Runs picker | icon Generate */
+    .split-run-gen {
+      display: inline-flex;
       flex: 0 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.25rem;
-    }
-    #btnGen {
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.55rem 1rem;
-      font: inherit;
-      font-weight: 600;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-    #btnGen:disabled { opacity: 0.45; cursor: not-allowed; }
-    #elapsed {
-      font-size: 0.7rem;
-      color: var(--muted);
-      text-align: center;
-      min-height: 1em;
-    }
-    .composer-runs label {
-      font-size: 0.65rem;
-      color: var(--muted);
-      display: block;
-      margin-bottom: 0.15rem;
-    }
-    #generations {
-      width: 3.35rem;
-      padding: 0.38rem 0.35rem;
-      border-radius: 4px;
+      align-self: stretch;
       border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
       background: #25262b;
+    }
+    .split-run-gen select#generations {
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
       color: var(--fg);
       font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0 1.5rem 0 0.55rem;
+      min-width: 3rem;
+      max-width: 4rem;
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9898' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.35rem center;
       text-align: center;
+      text-align-last: center;
+    }
+    .split-run-gen select#generations:focus {
+      outline: none;
+    }
+    .split-run-gen:focus-within {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    #btnGen {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 3rem;
+      padding: 0 0.65rem;
+      margin: 0;
+      border: none;
+      border-left: 1px solid var(--border);
+      border-radius: 0;
+      background: var(--accent);
+      color: #fff;
+      cursor: pointer;
+    }
+    #btnGen:hover {
+      filter: brightness(1.06);
+    }
+    #btnGen:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: none;
+    }
+    #btnGen:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: -2px;
+      position: relative;
+      z-index: 1;
+    }
+    textarea#prompt:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .composer-elapsed-row {
+      display: flex;
+      justify-content: flex-end;
+      min-height: 0.85rem;
+    }
+    #elapsed {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
     }
     /* Setup dialog */
     dialog.tools-dialog {
@@ -434,20 +484,28 @@
   <div id="err" class="status bad" role="alert"></div>
 
   <footer class="composer">
-    <div class="composer-prompt">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
+    <div class="composer-prompt-block">
+      <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
         <span class="hint" style="font-size:0.65rem;margin:0">⌘↵ · Ctrl+Enter generate</span>
       </div>
-      <textarea id="prompt" autofocus placeholder="Describe the image…" autocomplete="off" rows="2"></textarea>
-    </div>
-    <div class="composer-actions">
-      <div class="composer-runs">
-        <label for="generations">Runs</label>
-        <input type="number" id="generations" min="1" max="32" value="1" inputmode="numeric" autocomplete="off" title="Separate generations (wildcards re-roll each run)" aria-label="Number of generations" />
+      <div class="composer-input-row">
+        <textarea id="prompt" autofocus placeholder="Describe the image…" autocomplete="off" rows="1"></textarea>
+        <div class="split-run-gen" role="group" aria-label="Runs and generate">
+          <select id="generations" autocomplete="off" aria-label="Runs" title="Separate generations (wildcards re-roll each run)">
+            {% for n in range(1, 26) %}
+            <option value="{{ n }}"{% if n == 1 %} selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" id="btnGen" aria-label="Generate">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M8 5v14l11-7L8 5z"/>
+            </svg>
+            <span class="sr-only">Generate</span>
+          </button>
+        </div>
       </div>
-      <button type="button" id="btnGen">Generate</button>
-      <span id="elapsed" class="hint"></span>
+      <div class="composer-elapsed-row"><span id="elapsed" class="hint"></span></div>
     </div>
   </footer>
 
@@ -842,7 +900,7 @@ uv run dts-util server check</pre>
     var runsEl = document.getElementById("generations");
     var generations = parseInt(runsEl.value, 10);
     if (!Number.isFinite(generations) || generations < 1) generations = 1;
-    if (generations > 32) generations = 32;
+    if (generations > 25) generations = 25;
     const body = Object.assign(connectionPayload(), {
       prompt,
       negative_prompt: neg,

@@ -251,7 +251,7 @@
       outline: 2px solid var(--accent);
       outline-offset: 1px;
     }
-    #btnGen {
+    .split-run-gen > button.split-action {
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -262,27 +262,39 @@
       border: none;
       border-left: 1px solid var(--border);
       border-radius: 0;
-      background: var(--accent);
       color: #fff;
       cursor: pointer;
     }
-    #btnGen:hover {
+    .split-run-gen > button.split-action:hover:not(:disabled) {
       filter: brightness(1.06);
     }
-    #btnGen:disabled {
+    .split-run-gen > button.split-action:disabled {
       opacity: 0.45;
       cursor: not-allowed;
       filter: none;
     }
-    #btnGen:focus-visible {
+    .split-run-gen > button.split-action:focus-visible {
       outline: 2px solid #fff;
       outline-offset: -2px;
       position: relative;
       z-index: 1;
     }
-    #btnGen svg {
+    .split-run-gen > button.split-action svg {
       display: block;
       flex-shrink: 0;
+    }
+    #btnGen {
+      background: var(--accent);
+    }
+    #btnStop {
+      display: none;
+      background: var(--bad);
+    }
+    .split-run-gen.is-busy #btnGen {
+      display: none;
+    }
+    .split-run-gen.is-busy #btnStop {
+      display: inline-flex;
     }
     textarea#prompt:focus-visible {
       outline: 2px solid var(--accent);
@@ -503,19 +515,25 @@
       </div>
       <div class="composer-input-row">
         <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
-        <div class="split-run-gen" role="group" aria-label="Runs and generate">
+        <div class="split-run-gen" role="group" aria-label="Runs, generate, or stop">
           <select id="generations" autocomplete="off" aria-label="Runs" title="Separate generations (wildcards re-roll each run)">
             {% for n in range(1, 26) %}
             <option value="{{ n }}"{% if n == 1 %} selected{% endif %}>{{ n }}</option>
             {% endfor %}
           </select>
-          <button type="button" id="btnGen" aria-label="Generate">
+          <button type="button" class="split-action" id="btnGen" aria-label="Generate">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
               <path d="m18 15 4-4"/>
               <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/>
             </svg>
             <span class="sr-only">Generate</span>
+          </button>
+          <button type="button" class="split-action" id="btnStop" aria-label="Stop generation">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="10" rx="1.5"/>
+            </svg>
+            <span class="sr-only">Stop</span>
           </button>
         </div>
       </div>
@@ -884,17 +902,22 @@ uv run dts-util server check</pre>
     }
   }
 
+  var generateAbortController = null;
+  var generationInFlight = false;
+
   async function runGenerate() {
+    if (generationInFlight) return;
     const errEl = document.getElementById("err");
     const results = document.getElementById("results");
     const placeholder = document.getElementById("resultPlaceholder");
     const elapsed = document.getElementById("elapsed");
+    const splitEl = document.querySelector(".split-run-gen");
+    const btnGen = document.getElementById("btnGen");
     const timerRef = { id: null };
     errEl.style.display = "none";
     revokeResultBlobUrls();
     results.innerHTML = "";
-    const btn = document.getElementById("btnGen");
-    btn.disabled = true;
+    btnGen.disabled = true;
     const t0 = performance.now();
     elapsed.textContent = "";
 
@@ -903,15 +926,21 @@ uv run dts-util server check</pre>
       errEl.textContent = "Enter a prompt.";
       errEl.style.display = "block";
       placeholder.hidden = false;
-      btn.disabled = false;
+      btnGen.disabled = false;
       return;
     }
+
+    generationInFlight = true;
+    const ac = new AbortController();
+    generateAbortController = ac;
+    splitEl.classList.add("is-busy");
+    var runsEl = document.getElementById("generations");
+    runsEl.disabled = true;
 
     setGeneratingUi(true, t0, timerRef);
 
     const shared = document.getElementById("sharedSecret").value.trim();
     const neg = document.getElementById("neg").value;
-    var runsEl = document.getElementById("generations");
     var generations = parseInt(runsEl.value, 10);
     if (!Number.isFinite(generations) || generations < 1) generations = 1;
     if (generations > 25) generations = 25;
@@ -928,6 +957,7 @@ uv run dts-util server check</pre>
         method: "POST",
         headers: authHeaders({ "Content-Type": "application/json", "Accept": "multipart/mixed,*/*" }),
         body: JSON.stringify(body),
+        signal: ac.signal,
       });
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       elapsed.textContent = r.ok ? ("Done in " + dt + "s") : "";
@@ -981,12 +1011,22 @@ uv run dts-util server check</pre>
         placeholder.hidden = false;
       }
     } catch (e) {
-      errEl.textContent = String(e);
-      errEl.style.display = "block";
-      placeholder.hidden = false;
+      if (e.name === "AbortError") {
+        errEl.style.display = "none";
+        elapsed.textContent = "Stopped";
+        placeholder.hidden = false;
+      } else {
+        errEl.textContent = String(e);
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+      }
     } finally {
+      splitEl.classList.remove("is-busy");
+      runsEl.disabled = false;
+      generateAbortController = null;
+      generationInFlight = false;
       setGeneratingUi(false, t0, timerRef);
-      btn.disabled = false;
+      btnGen.disabled = false;
     }
   }
 
@@ -1045,6 +1085,9 @@ uv run dts-util server check</pre>
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
   document.getElementById("btnGen").addEventListener("click", runGenerate);
+  document.getElementById("btnStop").addEventListener("click", function () {
+    if (generateAbortController) generateAbortController.abort();
+  });
   loadConfigs().then(function () { refreshStatus(); });
   </script>
 </body>

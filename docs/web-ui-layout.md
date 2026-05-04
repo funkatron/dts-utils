@@ -21,7 +21,7 @@ This document is the **human-readable layout contract** for the loopback web UI.
 │  (optional error strip #err)                             │
 ├─────────────────────────────────────────────────────────┤
 │  Prompt row + shortcut hint                                │
-│  [ textarea…………………………… ] [Runs▾|hammer]  ← same row height      │
+│  [ textarea…………………………… ] [Runs▾| hammer / stop]            │
 │                                      #elapsed               │
 └─────────────────────────────────────────────────────────┘
 
@@ -36,7 +36,7 @@ History → modal dialog #historyDialog (#historyList, Clear all / Close):
 
 ## Interactive mock (Cursor Canvas)
 
-The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is the **interactive mock** (Cursor Canvas): same structure as the shipped template ([`index.html.j2`](../src/dts_util/web/templates/index.html.j2)) — stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: `#generations` 1–25 and hammer `#btnGen`, stretched to match `#prompt` height; **`#elapsed`** on the row below, right-aligned). Collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
+The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is the **interactive mock** (Cursor Canvas): same structure as the shipped template ([`index.html.j2`](../src/dts_util/web/templates/index.html.j2)) — stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: `#generations` 1–25, hammer `#btnGen` / stop `#btnStop` when busy, stretched to match `#prompt` height; **`#elapsed`** on the row below, right-aligned). Collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
 
 Cursor can render it beside the chat:
 
@@ -58,7 +58,7 @@ Cursor can render it beside the chat:
 | Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` (building icon) |
 | History | `#btnOpenHistory` — stacked below setup FAB, opens `#historyDialog` |
 | Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
-| Composer | `#prompt` + `.split-run-gen` (`#generations`, `#btnGen`) on one row — **split stretches to textarea height**; `#elapsed` below (`.composer-elapsed-row`). Shortcut hint above |
+| Composer | `#prompt` + `.split-run-gen` (`#generations`, `#btnGen`, **`#btnStop`** replaces Generate while busy) — split stretches to textarea height; `#elapsed` below. Shortcut hint above |
 | Errors | `#err` (`role="alert"`), thin strip above composer |
 | Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
 | History dialog | `#historyDialog` — `#historyList`, `#btnClearHistory`, `#btnCloseHistory` |

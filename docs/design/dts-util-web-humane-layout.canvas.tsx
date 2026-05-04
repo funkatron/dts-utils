@@ -4,7 +4,7 @@
  *
  * DOM map: .sr-only product name, #btnOpenSetup / #btnOpenHistory FABs, #stage →
  * #resultPane (#resultPlaceholder | #resultBusy | #results), #err, footer .composer
- * (#prompt + .split-run-gen row; #elapsed below), dialog#toolsDialog, dialog#historyDialog.
+ * (#prompt + .split-run-gen: #generations, #btnGen, #btnStop when busy), dialog#toolsDialog, dialog#historyDialog.
  * Icons: Setup FAB = building; History FAB = clock; Generate = hammer (no play / sparkle motif).
  *
  * Repo copy for review. Cursor Open Canvas loads:

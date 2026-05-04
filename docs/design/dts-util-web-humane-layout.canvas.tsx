@@ -4,7 +4,7 @@
  *
  * DOM map: .sr-only product name, #btnOpenSetup / #btnOpenHistory FABs, #stage →
  * #resultPane (#resultPlaceholder | #resultBusy | #results), #err, footer .composer
- * (#prompt, .composer-actions → #generations, #btnGen, #elapsed), dialog#toolsDialog, dialog#historyDialog.
+ * (#prompt + .split-run-gen row; #elapsed below), dialog#toolsDialog, dialog#historyDialog.
  * Icons: Setup FAB = building; History FAB = clock; Generate = hammer (no play / sparkle motif).
  *
  * Repo copy for review. Cursor Open Canvas loads:
@@ -238,65 +238,70 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
                 Cmd+Enter / Ctrl+Enter
               </Text>
             </Row>
-            <Grid columns="minmax(0, 1fr) auto" gap={10} align="start">
-              <div style={{ minWidth: 0, width: "100%" }}>
-                <TextArea
-                  value="Describe what to build — subject, style, lighting…"
-                  disabled
-                  rows={2}
-                  style={{
-                    boxSizing: "border-box",
-                    width: "100%",
-                    minWidth: 0,
-                    opacity: 0.85,
-                  }}
-                />
-              </div>
-              <Stack gap={4}>
-                <Row
-                  align="stretch"
-                  style={{
-                    border: `1px solid ${theme.stroke.secondary}`,
-                    borderRadius: 6,
-                    overflow: "hidden",
-                    background: theme.fill.secondary,
-                  }}
-                >
-                  <Select
-                    value="1"
+            <Stack gap={4} style={{ minWidth: 0 }}>
+              <Grid columns="minmax(0, 1fr) auto" gap={10} align="stretch">
+                <div style={{ minWidth: 0, width: "100%", display: "flex", alignItems: "stretch" }}>
+                  <TextArea
+                    value="Describe what to build — subject, style, lighting…"
                     disabled
-                    options={Array.from({ length: 25 }, (_, i) => ({
-                      value: String(i + 1),
-                      label: String(i + 1),
-                    }))}
+                    rows={2}
                     style={{
-                      width: 52,
-                      borderWidth: 0,
-                      borderRadius: 0,
-                      background: "transparent",
+                      boxSizing: "border-box",
+                      width: "100%",
+                      minWidth: 0,
+                      opacity: 0.85,
                     }}
                   />
-                  <Button
-                    variant="primary"
-                    disabled={demo === "generating"}
+                </div>
+                <div style={{ display: "flex", alignItems: "stretch", minHeight: "100%" }}>
+                  <Row
+                    align="stretch"
                     style={{
-                      margin: 0,
-                      borderRadius: 0,
-                      borderLeft: `1px solid ${theme.stroke.secondary}`,
-                      minWidth: 44,
-                      padding: "0 10px",
-                      fontSize: 14,
-                      lineHeight: 1,
+                      flex: 1,
+                      border: `1px solid ${theme.stroke.secondary}`,
+                      borderRadius: 6,
+                      overflow: "hidden",
+                      background: theme.fill.secondary,
                     }}
                   >
-                    <FabHammerIcon />
-                  </Button>
-                </Row>
-                <Text tone="quaternary" size="small" style={{ textAlign: "right", minHeight: 14 }}>
-                  {demo === "generating" ? "12.4s" : demo === "done" ? "Done in 3.2s" : "#elapsed"}
-                </Text>
-              </Stack>
-            </Grid>
+                    <Select
+                      value="1"
+                      disabled
+                      options={Array.from({ length: 25 }, (_, i) => ({
+                        value: String(i + 1),
+                        label: String(i + 1),
+                      }))}
+                      style={{
+                        width: 52,
+                        borderWidth: 0,
+                        borderRadius: 0,
+                        background: "transparent",
+                        alignSelf: "stretch",
+                      }}
+                    />
+                    <Button
+                      variant="primary"
+                      disabled={demo === "generating"}
+                      style={{
+                        margin: 0,
+                        borderRadius: 0,
+                        borderLeft: `1px solid ${theme.stroke.secondary}`,
+                        minWidth: 44,
+                        padding: "0 10px",
+                        fontSize: 14,
+                        lineHeight: 1,
+                        alignSelf: "stretch",
+                      }}
+                    >
+                      <FabHammerIcon />
+                    </Button>
+                  </Row>
+                </div>
+              </Grid>
+              <Text tone="quaternary" size="small" style={{ textAlign: "right", minHeight: 14 }}>
+                {demo === "generating" ? "12.4s" : demo === "done" ? "Done in 3.2s" : "#elapsed"}
+              </Text>
+            </Stack>
           </Stack>
         </div>
       </Stack>

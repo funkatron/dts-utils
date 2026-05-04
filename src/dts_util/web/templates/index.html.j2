@@ -103,10 +103,43 @@
     }
     .result-busy {
       display: flex;
-      align-items: center;
+      flex-direction: column;
+      align-items: stretch;
       gap: 0.65rem;
       font-size: 0.9rem;
       color: var(--muted);
+      width: 100%;
+      max-width: min(100%, 42rem);
+      margin: 0 auto;
+      padding: 0 0.5rem;
+      box-sizing: border-box;
+    }
+    .result-busy-head {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+    .busy-payload summary {
+      cursor: pointer;
+      color: var(--fg);
+      font-weight: 600;
+      font-size: 0.78rem;
+      list-style-position: outside;
+    }
+    .busy-request-json {
+      margin: 0.35rem 0 0;
+      padding: 0.45rem 0.5rem;
+      background: #25262b;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: auto;
+      max-height: min(38vh, 14rem);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.65rem;
+      line-height: 1.35;
+      color: var(--fg);
     }
     .result-busy[hidden] { display: none !important; }
     .spinner {
@@ -497,9 +530,15 @@
         Built render lands here. Enter a prompt below and run Generate.
       </p>
       <div id="resultBusy" class="result-busy" hidden>
-        <span class="spinner" aria-hidden="true"></span>
-        <span class="sr-only">Generating</span>
-        <span id="busyElapsed" class="hint"></span>
+        <div class="result-busy-head">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="sr-only">Generating</span>
+          <span id="busyElapsed" class="hint"></span>
+        </div>
+        <details class="busy-payload" open>
+          <summary>Exact request JSON (<code>POST /api/generate</code>)</summary>
+          <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON"></pre>
+        </details>
       </div>
       <div id="results" class="results"></div>
     </div>
@@ -768,6 +807,30 @@ uv run dts-util server check</pre>
     return body;
   }
 
+  /** Full JSON body as sent to POST /api/generate (same strings as UI; server expands {…} wildcards per RPC). */
+  function buildGenerateRequestBody(prompt, generations) {
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const neg = document.getElementById("neg").value;
+    const body = Object.assign(connectionPayload(), {
+      prompt,
+      negative_prompt: neg,
+      configuration: effectiveProfile(),
+      generations,
+    });
+    if (shared) body.shared_secret = shared;
+    return body;
+  }
+
+  /** Pretty JSON for UI; never echo raw shared_secret. */
+  function formatGenerateBodyForDisplay(body) {
+    var copy = {};
+    Object.keys(body).forEach(function (k) {
+      copy[k] = body[k];
+    });
+    if (copy.shared_secret) copy.shared_secret = "***";
+    return JSON.stringify(copy, null, 2);
+  }
+
   var HISTORY_KEY = "dts_web_gen_history_v1";
   var HISTORY_MAX_ITEMS = 30;
   var HISTORY_SOFT_CHARS = 4 * 1024 * 1024;
@@ -886,15 +949,17 @@ uv run dts-util server check</pre>
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
-  function setGeneratingUi(active, t0, timerRef) {
+  function setGeneratingUi(active, t0, timerRef, requestJsonText) {
     const placeholder = document.getElementById("resultPlaceholder");
     const busy = document.getElementById("resultBusy");
     const busyElapsed = document.getElementById("busyElapsed");
+    const busyJson = document.getElementById("busyRequestJson");
     const pane = document.getElementById("resultPane");
     if (active) {
       placeholder.hidden = true;
       busy.hidden = false;
       busyElapsed.textContent = prefersReducedMotion() ? "Generating…" : "0.0s";
+      if (busyJson) busyJson.textContent = typeof requestJsonText === "string" ? requestJsonText : "";
       pane.setAttribute("aria-busy", "true");
       if (timerRef.id) clearInterval(timerRef.id);
       timerRef.id = setInterval(function () {
@@ -907,6 +972,7 @@ uv run dts-util server check</pre>
         timerRef.id = null;
       }
       busy.hidden = true;
+      if (busyJson) busyJson.textContent = "";
       pane.removeAttribute("aria-busy");
     }
   }
@@ -946,20 +1012,13 @@ uv run dts-util server check</pre>
     var runsEl = document.getElementById("generations");
     runsEl.disabled = true;
 
-    setGeneratingUi(true, t0, timerRef);
-
-    const shared = document.getElementById("sharedSecret").value.trim();
-    const neg = document.getElementById("neg").value;
     var generations = parseInt(runsEl.value, 10);
     if (!Number.isFinite(generations) || generations < 1) generations = 1;
     if (generations > 25) generations = 25;
-    const body = Object.assign(connectionPayload(), {
-      prompt,
-      negative_prompt: neg,
-      configuration: effectiveProfile(),
-      generations,
-    });
-    if (shared) body.shared_secret = shared;
+    const body = buildGenerateRequestBody(prompt, generations);
+    const payloadPreview = formatGenerateBodyForDisplay(body);
+
+    setGeneratingUi(true, t0, timerRef, payloadPreview);
 
     try {
       const r = await fetch("/api/generate", {

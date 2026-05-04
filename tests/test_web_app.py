@@ -28,6 +28,7 @@ def test_index_loads(client: TestClient) -> None:
     assert 'id="historyDialog"' in r.text
     assert "Ctrl+Enter" in r.text
     assert 'id="btnStop"' in r.text
+    assert 'id="busyRequestJson"' in r.text
 
 
 def test_server_status_without_token(client: TestClient) -> None:

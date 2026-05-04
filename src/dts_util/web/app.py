@@ -23,6 +23,7 @@ from dts_util.configs import (
 from dts_util.exceptions import (
     ChannelSetupError,
     ConfigurationError,
+    GenerationCancelledError,
     GenerationEmptyError,
     GenerationRpcError,
 )
@@ -39,6 +40,7 @@ _templates_dir = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(_templates_dir))
 
 _execute_lock = threading.Lock()
+_generation_cancel_event = threading.Event()
 
 _DEFAULT_GENERATE_TIMEOUT = 900.0
 _ENV_GENERATE_TIMEOUT = "DTS_WEB_GENERATE_TIMEOUT"
@@ -102,6 +104,8 @@ def _map_exc(exc: Exception) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=502)
     if isinstance(exc, GenerationEmptyError):
         return JSONResponse({"detail": str(exc)}, status_code=502)
+    if isinstance(exc, GenerationCancelledError):
+        return JSONResponse({"detail": str(exc)}, status_code=499)
     return JSONResponse({"detail": str(exc)}, status_code=500)
 
 
@@ -237,7 +241,16 @@ def _build_generation_options(data: dict[str, object]) -> tuple[ImageGenerationR
 
 def _run_generate(client: GrpcClientOptions, gen: ImageGenerationRequestOptions, generations: int = 1) -> list[bytes]:
     with _execute_lock:
-        return generate_png_bytes(client, gen, generations=generations)
+        _generation_cancel_event.clear()
+        return generate_png_bytes(client, gen, generations=generations, cancel_event=_generation_cancel_event)
+
+
+async def api_generate_cancel(request: Request) -> JSONResponse:
+    """Signal cooperative cancel for the generation worker (between batch iterations)."""
+    if err := _require_bearer(request):
+        return err
+    _generation_cancel_event.set()
+    return JSONResponse({"ok": True, "cancel_requested": True})
 
 
 async def api_generate(request: Request) -> Response:
@@ -281,6 +294,8 @@ async def api_generate(request: Request) -> Response:
         return _map_exc(e)
     except GenerationRpcError as e:
         return _map_exc(e)
+    except GenerationCancelledError as e:
+        return _map_exc(e)
     except GenerationEmptyError as e:
         return _map_exc(e)
     except Exception as e:
@@ -295,6 +310,7 @@ def create_app() -> Starlette:
         Route("/api/health", health, methods=["GET"]),
         Route("/api/server-status", server_status, methods=["GET"]),
         Route("/api/configs", api_configs, methods=["GET"]),
+        Route("/api/generate/cancel", api_generate_cancel, methods=["POST"]),
         Route("/api/generate", api_generate, methods=["POST"]),
     ]
     return Starlette(routes=routes)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 from starlette.testclient import TestClient
 
+from dts_util.exceptions import GenerationCancelledError
 from dts_util.web.app import create_app
 
 
@@ -89,7 +90,7 @@ def test_generate_remote_host_without_pin(client: TestClient) -> None:
 def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
     """PNG bytes are irrelevant to multipart framing; generation is mocked."""
 
-    def fake_generate(_c: object, _g: object, *, generations: int = 1) -> list[bytes]:
+    def fake_generate(_c: object, _g: object, *, generations: int = 1, cancel_event=None) -> list[bytes]:
         return [b"\x89PNG\r\n\x1a\nplaceholder", b"\x89PNG\r\n\x1a\nother"]
 
     monkeypatch.setattr("dts_util.web.app.generate_png_bytes", fake_generate)
@@ -112,7 +113,7 @@ def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: 
 
 
 def test_generate_multipart_respects_generations(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
-    def fake_generate(_c: object, _g: object, *, generations: int = 1) -> list[bytes]:
+    def fake_generate(_c: object, _g: object, *, generations: int = 1, cancel_event=None) -> list[bytes]:
         assert generations == 2
         return [b"\x89PNG\r\n\x1a\nx", b"\x89PNG\r\n\x1a\ny"]
 
@@ -180,7 +181,43 @@ def test_generate_unauthorized_when_token_set(monkeypatch: pytest.MonkeyPatch) -
     assert r.status_code == 401
 
 
-def test_cli_router_dispatches_web(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_generate_cancel_endpoint(client: TestClient) -> None:
+    r = client.post("/api/generate/cancel", json={})
+    assert r.status_code == 200
+    body = r.json()
+    assert body.get("ok") is True
+    assert body.get("cancel_requested") is True
+
+
+def test_generate_cancel_requires_bearer_when_token_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
+    client = TestClient(create_app())
+    assert client.post("/api/generate/cancel", json={}).status_code == 401
+    r = client.post(
+        "/api/generate/cancel",
+        json={},
+        headers={"Authorization": "Bearer sekrit"},
+    )
+    assert r.status_code == 200
+
+
+def test_generate_returns_499_when_generation_cancelled(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    def boom(*_a: object, **_k: object) -> list[bytes]:
+        raise GenerationCancelledError("Generation cancelled.")
+
+    monkeypatch.setattr("dts_util.web.app.generate_png_bytes", boom)
+    r = client.post(
+        "/api/generate",
+        json={
+            "prompt": "x",
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 499
+    assert "cancelled" in r.json()["detail"].lower()
     import dts_util.cli_router as cr
 
     monkeypatch.setattr("sys.argv", ["dts-util", "web", "--port", "19999"])

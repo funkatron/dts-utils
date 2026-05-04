@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock
@@ -15,6 +16,7 @@ from dts_util.exceptions import (
     ChannelSetupError,
     ConfigurationError,
     DTSUtilError,
+    GenerationCancelledError,
     GenerationEmptyError,
     GenerationRpcError,
     PromptWildcardError,
@@ -231,6 +233,53 @@ def test_generate_png_bytes_invalid_generations(tmp_path: Path) -> None:
             ImageGenerationRequestOptions(prompt="p", configuration=cfg),
             generations=0,
         )
+
+
+def test_generate_png_bytes_cancel_between_batch_iterations(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    cancel = threading.Event()
+
+    def fake_collect(_client: object, request: object) -> list[bytes]:
+        cancel.set()
+        return [b"tensor"]
+
+    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+
+    with pytest.raises(GenerationCancelledError, match="cancelled"):
+        generate_png_bytes(
+            GrpcClientOptions(no_tls=True),
+            ImageGenerationRequestOptions(prompt="p", configuration=cfg),
+            generations=3,
+            cancel_event=cancel,
+        )
+
+
+def test_generate_png_bytes_cancel_before_first_rpc(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    cancel = threading.Event()
+    cancel.set()
+    calls: list[int] = []
+
+    def fake_collect(_client: object, request: object) -> list[bytes]:
+        calls.append(1)
+        return [b"tensor"]
+
+    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+
+    with pytest.raises(GenerationCancelledError, match="cancelled"):
+        generate_png_bytes(
+            GrpcClientOptions(no_tls=True),
+            ImageGenerationRequestOptions(prompt="p", configuration=cfg),
+            generations=2,
+            cancel_event=cancel,
+        )
+    assert calls == []
 
 
 def test_generate_png_bytes_three_generations_rerolls_wildcards(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:

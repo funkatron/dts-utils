@@ -48,3 +48,7 @@ class GenerationRpcError(DTSUtilError):
 
 class GenerationEmptyError(DTSUtilError):
     """The server completed without returning image tensors."""
+
+
+class GenerationCancelledError(DTSUtilError):
+    """Generation stopped cooperatively (e.g. web UI cancel between batch runs)."""

@@ -5,11 +5,18 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass
 from pathlib import Path
+import threading
 
 import grpc
 
 from dts_util.configuration_build import read_configuration_bytes
-from dts_util.exceptions import ChannelSetupError, ConfigurationError, GenerationEmptyError, GenerationRpcError
+from dts_util.exceptions import (
+    ChannelSetupError,
+    ConfigurationError,
+    GenerationCancelledError,
+    GenerationEmptyError,
+    GenerationRpcError,
+)
 from dts_util.prompt_wildcards import expand_prompt_wildcards
 from dts_util.generation_stream import collect_generated_images
 from dts_util.grpc.connection import create_channel
@@ -125,10 +132,13 @@ def generate_png_bytes(
     gen: ImageGenerationRequestOptions,
     *,
     generations: int = 1,
+    cancel_event: threading.Event | None = None,
 ) -> list[bytes]:
     n = validate_batch_generations(generations)
     pngs: list[bytes] = []
     for _ in range(n):
+        if cancel_event is not None and cancel_event.is_set():
+            raise GenerationCancelledError("Generation cancelled.")
         request = build_image_generation_request(gen)
         tensors = collect_raw_generation_tensors(client, request)
         if not tensors:

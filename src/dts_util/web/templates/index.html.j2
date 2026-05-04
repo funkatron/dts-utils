@@ -634,6 +634,15 @@ uv run dts-util server check</pre>
     return h;
   }
 
+  /** Ask the server to set cooperative cancel (checked between batch RPCs). Fire-and-forget. */
+  function requestGenerationCancel() {
+    fetch("/api/generate/cancel", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: "{}",
+    }).catch(function () {});
+  }
+
   function indexOfU8(hay, needle, start) {
     start = start | 0;
     outer: for (let i = start; i <= hay.length - needle.length; i++) {
@@ -1012,6 +1021,7 @@ uv run dts-util server check</pre>
       }
     } catch (e) {
       if (e.name === "AbortError") {
+        requestGenerationCancel();
         errEl.style.display = "none";
         elapsed.textContent = "Stopped";
         placeholder.hidden = false;
@@ -1086,6 +1096,7 @@ uv run dts-util server check</pre>
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
   document.getElementById("btnGen").addEventListener("click", runGenerate);
   document.getElementById("btnStop").addEventListener("click", function () {
+    requestGenerationCancel();
     if (generateAbortController) generateAbortController.abort();
   });
   loadConfigs().then(function () { refreshStatus(); });

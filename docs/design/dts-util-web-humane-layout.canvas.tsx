@@ -4,7 +4,7 @@
  *
  * DOM map: .sr-only product name, #btnOpenSetup / #btnOpenHistory FABs, #stage →
  * #resultPane (#resultPlaceholder | #resultBusy | #results), #err, footer .composer
- * (#prompt, #generations, #btnGen, #elapsed), dialog#toolsDialog, dialog#historyDialog.
+ * (#prompt, .composer-actions → #generations, #btnGen, #elapsed), dialog#toolsDialog, dialog#historyDialog.
  * Icons: Setup FAB = building; Generate = hammer (no play / sparkle motif).
  *
  * Repo copy for review. Cursor Open Canvas loads:
@@ -101,8 +101,9 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
   return (
     <Stack gap={14} style={{ padding: 12, maxWidth: 720 }}>
       <Text tone="quaternary" size="small">
-        dts-util web — mirrors index.html.j2 (stage-first, Setup [building] + History FABs, composer strip,
-        modals).
+        Interactive mock — open in Cursor via Command Palette → Open Canvas → dts-util-web-humane-layout.
+        Shipped UI is <code style={{ fontSize: "0.9em" }}>src/dts_util/web/templates/index.html.j2</code>; keep
+        this canvas aligned when the template changes (stage-first, Setup + History FABs, composer).
       </Text>
 
       <Row gap={8} wrap style={{ alignItems: "center" }}>
@@ -212,14 +213,14 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
                 Cmd+Enter / Ctrl+Enter
               </Text>
             </Row>
-            <Row gap={10} align="stretch" wrap style={{ alignItems: "stretch" }}>
+            <Row gap={10} align="start" wrap style={{ alignItems: "flex-start" }}>
               <TextArea
                 value="Describe what to build — subject, style, lighting…"
                 disabled
                 rows={2}
                 style={{ flex: "1 1 140px", minWidth: 140, opacity: 0.85 }}
               />
-              <Stack gap={4} style={{ flex: "0 0 auto", alignSelf: "stretch", justifyContent: "space-between" }}>
+              <Stack gap={4} style={{ flex: "0 0 auto" }}>
                 <Row
                   align="stretch"
                   style={{

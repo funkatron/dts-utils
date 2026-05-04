@@ -28,30 +28,29 @@
       min-height: 100dvh;
       overflow: hidden;
     }
-    /* Minimal top bar: identity + setup */
-    .shell-top {
-      flex: 0 0 auto;
-      display: flex;
+    /* Floating setup control — fixed over stage */
+    .fab-setup {
+      position: fixed;
+      top: max(0.6rem, env(safe-area-inset-top, 0px));
+      right: max(0.6rem, env(safe-area-inset-right, 0px));
+      z-index: 20;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      display: inline-flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 0.75rem;
-      padding: 0.35rem 0.65rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.75rem;
-      color: var(--muted);
-    }
-    .app-mark { font-weight: 600; letter-spacing: 0.02em; }
-    button.btn-setup {
-      background: transparent;
-      color: var(--accent);
+      justify-content: center;
+      border-radius: 50%;
       border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 0.35rem 0.65rem;
-      font: inherit;
-      font-size: 0.8rem;
+      background: var(--panel);
+      color: var(--accent);
       cursor: pointer;
     }
-    button.btn-setup:hover { border-color: var(--muted); }
+    .fab-setup:hover { border-color: var(--muted); color: var(--fg); }
+    .fab-setup:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     /* Image dominates remaining space */
     #stage {
       flex: 1 1 auto;
@@ -122,7 +121,7 @@
     .results img {
       display: block;
       max-width: 100%;
-      max-height: min(85vh, calc(100dvh - 9rem));
+      max-height: min(88vh, calc(100dvh - 8rem));
       width: auto;
       height: auto;
       object-fit: contain;
@@ -296,12 +295,16 @@
   </style>
 </head>
 <body>
-  <header class="shell-top">
-    <span class="app-mark">dts-util web</span>
-    <button type="button" class="btn-setup" id="btnOpenSetup" aria-haspopup="dialog" aria-controls="toolsDialog" aria-expanded="false">
-      Setup
-    </button>
-  </header>
+  <span class="sr-only">dts-util web</span>
+
+  <button type="button" class="fab-setup" id="btnOpenSetup" aria-label="Setup: connection and profile" aria-haspopup="dialog" aria-controls="toolsDialog" aria-expanded="false">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+      <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+      <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+      <line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>
+    </svg>
+  </button>
 
   <div id="stage" role="region" aria-label="Generated image">
     <div id="resultPane" aria-live="polite">

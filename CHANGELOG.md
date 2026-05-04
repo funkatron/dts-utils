@@ -37,7 +37,7 @@ Example:
 
 ### Changed
 
-- **`dts-util web`:** image-first layout — full-viewport **stage** for output, bottom **composer** (prompt + Generate only); connection/profile/advanced/docs in **Setup** modal (`<dialog>`).
+- **`dts-util web`:** floating **Setup** FAB (top-right, sliders icon) opens connection/profile dialog; product label `dts-util web` is `.sr-only` on the main screen.
 - **Implicit shorthand profile:** default saved name is **`zit`** (`zit.json`). If missing, a starter JSON is created there. **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`** replaces **`"default"`**.
 - **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior. [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) includes optional **`dts-util web`** steps next to `generate` / shorthand.
 - **Docs:** [AGENTS.md](AGENTS.md) and [docs/README.md](docs/README.md) — agent conventions and operator documentation map; README shorthand section renamed to **Shorthand profile (zit)**.

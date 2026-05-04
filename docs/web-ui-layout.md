@@ -2,7 +2,7 @@
 
 This document is the **human-readable layout contract** for the loopback web UI. The shipped page is [`src/dts_util/web/templates/index.html.j2`](../src/dts_util/web/templates/index.html.j2).
 
-**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else (gRPC host/port/TLS, listener check, profile, advanced fields, docs links) lives behind **Setup**, which opens a modal `<dialog>`.
+**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else lives behind a **floating Setup control** (fixed top-right, sliders icon) that opens a modal `<dialog>`. The string `dts-util web` remains in a screen-reader-only span for tests and assistive tech.
 
 ---
 
@@ -10,9 +10,7 @@ This document is the **human-readable layout contract** for the loopback web UI.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  dts-util web                           [ Setup ]        │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
+│                                          ⚙ fab-setup    │
 │                                                         │
 │              IMAGE STAGE (#stage / #resultPane)          │
 │         (placeholder | spinner | large img + DL)         │
@@ -51,7 +49,8 @@ Cursor can still render the canvas for experimentation:
 
 | Region | Element IDs / notes |
 |--------|---------------------|
-| Top bar | `.app-mark`, `btnOpenSetup` (opens dialog) |
+| Top bar | _(none)_ — product name in `.sr-only` for tests / AT |
+| Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` |
 | Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
 | Composer | `#prompt`, `#btnGen`, `#elapsed` |
 | Errors | `#err` (`role="alert"`), thin strip above composer |

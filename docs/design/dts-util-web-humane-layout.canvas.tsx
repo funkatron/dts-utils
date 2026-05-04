@@ -93,6 +93,8 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
     display: "flex",
     flexDirection: "column" as const,
     minHeight: 360,
+    minWidth: 0,
+    width: "100%",
     background: theme.fill.primary,
   };
 
@@ -133,6 +135,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
             style={{
               flex: 1,
               minHeight: 160,
+              minWidth: 0,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -203,6 +206,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
               padding: "10px 12px",
               borderTop: `1px solid ${theme.stroke.tertiary}`,
               background: theme.fill.primary,
+              minWidth: 0,
             }}
           >
             <Row gap={8} justify="space-between" align="center" wrap>
@@ -213,14 +217,28 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
                 Cmd+Enter / Ctrl+Enter
               </Text>
             </Row>
-            <Row gap={10} align="start" wrap style={{ alignItems: "flex-start" }}>
+            <Row
+              gap={10}
+              align="start"
+              style={{
+                alignItems: "flex-start",
+                flexWrap: "nowrap",
+                width: "100%",
+                minWidth: 0,
+              }}
+            >
               <TextArea
                 value="Describe what to build — subject, style, lighting…"
                 disabled
                 rows={2}
-                style={{ flex: "1 1 140px", minWidth: 140, opacity: 0.85 }}
+                style={{
+                  boxSizing: "border-box",
+                  flex: "1 1 0%",
+                  minWidth: 0,
+                  opacity: 0.85,
+                }}
               />
-              <Stack gap={4} style={{ flex: "0 0 auto" }}>
+              <Stack gap={4} style={{ flex: "0 0 auto", flexShrink: 0 }}>
                 <Row
                   align="stretch"
                   style={{

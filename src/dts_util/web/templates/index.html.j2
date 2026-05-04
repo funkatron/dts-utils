@@ -25,16 +25,32 @@
       padding: 1.25rem 1.5rem 3rem;
       margin-inline: auto;
     }
-    h1 { font-size: 1.15rem; font-weight: 600; margin: 0 0 0.75rem; color: var(--muted); }
-    .strip {
-      display: grid;
-      gap: 0.6rem;
-      padding: 0.75rem 0;
-      margin-bottom: 1rem;
-      border-bottom: 1px solid var(--border);
-      font-size: 0.9rem;
+    .app-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem;
+      color: var(--muted);
+      letter-spacing: 0.02em;
     }
-    .strip-row { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; }
+    /* Peripheral connection chrome — lighter than primary column */
+    .chrome {
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 0.5rem 0 0.65rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .chrome-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: center;
+    }
+    .chrome label { font-size: 0.75rem; }
+    .chrome input[type="text"], .chrome input[type="number"] {
+      font-size: 0.8rem;
+      padding: 0.25rem 0.4rem;
+    }
     label { color: var(--muted); font-size: 0.8rem; }
     input[type="text"], input[type="number"], select, textarea {
       background: #25262b;
@@ -44,7 +60,24 @@
       padding: 0.35rem 0.5rem;
       font: inherit;
     }
-    textarea { width: 100%; min-height: 6rem; resize: vertical; }
+    .section-title {
+      display: block;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--fg);
+      margin: 0 0 0.35rem;
+    }
+    .profile-section label:first-child { margin-top: 0; }
+    .profile-section {
+      margin-top: 1rem;
+    }
+    textarea#prompt {
+      width: 100%;
+      min-height: 7.5rem;
+      resize: vertical;
+      font-size: 1rem;
+      line-height: 1.4;
+    }
     button {
       background: var(--accent);
       color: #fff;
@@ -54,64 +87,125 @@
       font: inherit;
       cursor: pointer;
     }
+    button.btn-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+    }
     button:disabled { opacity: 0.45; cursor: not-allowed; }
-    .status { font-size: 0.9rem; }
+    .status { font-size: 0.85rem; }
     .status.ok { color: var(--ok); }
     .status.bad { color: var(--bad); }
     .hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.25rem; }
-    main { margin-top: 1rem; }
-    .results { margin-top: 1.25rem; display: grid; gap: 0.75rem; }
+    main { margin-top: 0; }
+    .generate-row {
+      margin-top: 1rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    #resultPane {
+      margin-top: 1.25rem;
+      min-height: 4rem;
+    }
+    .result-placeholder {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .result-busy {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+    .result-busy[hidden] { display: none !important; }
+    .spinner {
+      width: 1.1rem;
+      height: 1.1rem;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: dts-spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes dts-spin {
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner {
+        animation: none;
+        border-top-color: var(--border);
+      }
+    }
+    .results { display: grid; gap: 0.75rem; }
     .results img { max-width: 100%; border-radius: 4px; border: 1px solid var(--border); }
-    details { margin-top: 0.75rem; font-size: 0.9rem; }
-    summary { cursor: pointer; color: var(--muted); }
+    details.advanced { margin-top: 0.75rem; font-size: 0.9rem; }
+    details.advanced summary { cursor: pointer; color: var(--muted); }
     .footer { margin-top: 2rem; font-size: 0.8rem; color: var(--muted); }
     .footer a { color: var(--accent); }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
   </style>
 </head>
 <body>
-  <h1>dts-util web</h1>
+  <p class="app-title">dts-util web</p>
 
-  <header class="strip" aria-label="Connection">
-    <div class="strip-row">
+  <header class="chrome" aria-label="Connection">
+    <div class="chrome-toolbar">
       <div>
         <label for="host">Host</label><br/>
-        <input id="host" type="text" value="localhost" size="14" autocomplete="off" />
+        <input id="host" type="text" value="localhost" size="12" autocomplete="off" />
       </div>
       <div>
         <label for="port">gRPC port</label><br/>
-        <input id="port" type="number" value="7859" style="width:5.5rem" />
+        <input id="port" type="number" value="7859" style="width:4.5rem" />
       </div>
       <div>
-        <label><input type="checkbox" id="noTls" /> no-TLS (match server install)</label>
+        <label><input type="checkbox" id="noTls" /> no-TLS</label>
       </div>
       <div>
         <label><input type="checkbox" id="trustCert" checked /> trust loopback cert</label>
       </div>
-      <button type="button" id="btnCheck">Check listener</button>
+      <button type="button" class="btn-secondary" id="btnCheck">Check listener</button>
     </div>
     <div id="statusLine" class="status" role="status" aria-live="polite">Not checked yet.</div>
-    <p class="hint">Status is probe-only (listener). Generation can still fail (config, flatc, model, TLS mismatch).</p>
+    <p class="hint">Probe only (listener). Generation can still fail (config, flatc, model, TLS mismatch).</p>
   </header>
 
   <main>
-    <div class="strip-row" style="margin-bottom:0.75rem;flex-direction:column;align-items:stretch;">
-      <div>
-        <label for="profile">Profile (saved JSON name or path)</label><br/>
-        <select id="profile"></select>
-        <input id="profileCustom" type="text" placeholder="Or custom name/path…" style="margin-top:0.35rem;width:100%" autocomplete="off" />
-      </div>
-    </div>
+    <section class="prompt-section" aria-labelledby="prompt-label">
+      <label id="prompt-label" class="section-title" for="prompt">Prompt</label>
+      <textarea id="prompt" autofocus placeholder="Describe the image…" autocomplete="off"></textarea>
+    </section>
 
-    <label for="prompt">Prompt</label>
-    <textarea id="prompt" autofocus placeholder="Describe the image…"></textarea>
+    <section class="profile-section" aria-labelledby="profile-heading">
+      <span id="profile-heading" class="section-title" style="font-size:0.9rem;color:var(--muted)">Profile</span>
+      <label for="profile" class="hint" style="display:block;margin-top:0.35rem">Saved JSON name or path</label>
+      <select id="profile" aria-describedby="profile-heading"></select>
+      <input id="profileCustom" type="text" placeholder="Or custom name/path…" style="margin-top:0.35rem;width:100%" autocomplete="off" />
+    </section>
 
-    <details>
+    <details class="advanced">
       <summary>Negative prompt, shared secret, paths</summary>
       <div style="margin-top:0.6rem">
         <label for="neg">Negative prompt</label>
-        <textarea id="neg" style="min-height:3rem"></textarea>
+        <textarea id="neg" style="min-height:3rem;width:100%"></textarea>
       </div>
-      <div class="strip-row" style="margin-top:0.5rem">
+      <div class="chrome-toolbar" style="margin-top:0.5rem">
         <div style="flex:1;min-width:12rem">
           <label for="sharedSecret">Shared secret (if server requires)</label><br/>
           <input id="sharedSecret" type="text" style="width:100%" autocomplete="off" />
@@ -130,13 +224,22 @@
       </div>
     </details>
 
-    <p style="margin-top:1rem">
+    <div class="generate-row">
       <button type="button" id="btnGen">Generate</button>
-      <span id="elapsed" class="hint" style="margin-left:0.75rem"></span>
-    </p>
+      <span id="elapsed" class="hint"></span>
+    </div>
 
-    <div id="err" class="status bad" style="display:none;margin-top:0.5rem"></div>
-    <div id="results" class="results"></div>
+    <div id="err" class="status bad" role="alert" style="display:none;margin-top:0.5rem"></div>
+
+    <div id="resultPane" aria-live="polite">
+      <p id="resultPlaceholder" class="result-placeholder">Generated images appear here after you run Generate.</p>
+      <div id="resultBusy" class="result-busy" hidden>
+        <span class="spinner" aria-hidden="true"></span>
+        <span class="sr-only">Generating</span>
+        <span id="busyElapsed" class="hint"></span>
+      </div>
+      <div id="results" class="results"></div>
+    </div>
   </main>
 
   <footer class="footer">
@@ -198,6 +301,13 @@ uv run dts-util server check</pre>
     return parts;
   }
 
+  function formatListenerLine(j) {
+    const probe = j.probe ? " (" + j.probe + ")" : "";
+    if (j.listener_ok)
+      return { text: "Listener OK — " + (j.message || "") + probe, ok: true };
+    return { text: "Unreachable — " + (j.message || "") + probe, ok: false };
+  }
+
   async function refreshStatus() {
     const host = document.getElementById("host").value.trim() || "localhost";
     const port = document.getElementById("port").value || "7859";
@@ -208,7 +318,7 @@ uv run dts-util server check</pre>
     const q = new URLSearchParams({ host, port, no_tls: noTls ? "true" : "false" });
     const r = await fetch("/api/server-status?" + q.toString(), { headers: authHeaders() });
     if (r.status === 401) {
-      el.textContent = "Unauthorized (set DTS_WEB_TOKEN and reload).";
+      el.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
       el.className = "status bad";
       return;
     }
@@ -218,8 +328,9 @@ uv run dts-util server check</pre>
       el.className = "status bad";
       return;
     }
-    el.textContent = j.message + " (" + j.probe + ")";
-    el.className = "status " + (j.listener_ok ? "ok" : "bad");
+    const fmt = formatListenerLine(j);
+    el.textContent = fmt.text;
+    el.className = "status " + (fmt.ok ? "ok" : "bad");
   }
 
   async function loadConfigs() {
@@ -276,10 +387,41 @@ uv run dts-util server check</pre>
     return body;
   }
 
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function setGeneratingUi(active, t0, timerRef) {
+    const placeholder = document.getElementById("resultPlaceholder");
+    const busy = document.getElementById("resultBusy");
+    const busyElapsed = document.getElementById("busyElapsed");
+    const pane = document.getElementById("resultPane");
+    if (active) {
+      placeholder.hidden = true;
+      busy.hidden = false;
+      busyElapsed.textContent = prefersReducedMotion() ? "Generating…" : "0.0s";
+      pane.setAttribute("aria-busy", "true");
+      if (timerRef.id) clearInterval(timerRef.id);
+      timerRef.id = setInterval(function () {
+        if (prefersReducedMotion()) return;
+        busyElapsed.textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+      }, 100);
+    } else {
+      if (timerRef.id) {
+        clearInterval(timerRef.id);
+        timerRef.id = null;
+      }
+      busy.hidden = true;
+      pane.removeAttribute("aria-busy");
+    }
+  }
+
   async function runGenerate() {
     const errEl = document.getElementById("err");
     const results = document.getElementById("results");
+    const placeholder = document.getElementById("resultPlaceholder");
     const elapsed = document.getElementById("elapsed");
+    const timerRef = { id: null };
     errEl.style.display = "none";
     results.innerHTML = "";
     const btn = document.getElementById("btnGen");
@@ -291,9 +433,12 @@ uv run dts-util server check</pre>
     if (!prompt) {
       errEl.textContent = "Enter a prompt.";
       errEl.style.display = "block";
+      placeholder.hidden = false;
       btn.disabled = false;
       return;
     }
+
+    setGeneratingUi(true, t0, timerRef);
 
     const shared = document.getElementById("sharedSecret").value.trim();
     const neg = document.getElementById("neg").value;
@@ -316,6 +461,7 @@ uv run dts-util server check</pre>
       if (r.status === 401) {
         errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
         errEl.style.display = "block";
+        placeholder.hidden = false;
         return;
       }
 
@@ -328,12 +474,14 @@ uv run dts-util server check</pre>
         } catch (_) {}
         errEl.textContent = msg;
         errEl.style.display = "block";
+        placeholder.hidden = false;
         return;
       }
 
       if (ct.includes("multipart/mixed")) {
         const buf = await r.arrayBuffer();
         const blobs = parseMultipartPngs(buf, ct);
+        placeholder.hidden = true;
         blobs.forEach((b, i) => {
           const url = URL.createObjectURL(new Blob([b], { type: "image/png" }));
           const img = document.createElement("img");
@@ -353,18 +501,21 @@ uv run dts-util server check</pre>
       } else {
         errEl.textContent = "Unexpected response " + ct;
         errEl.style.display = "block";
+        placeholder.hidden = false;
       }
     } catch (e) {
       errEl.textContent = String(e);
       errEl.style.display = "block";
+      placeholder.hidden = false;
     } finally {
+      setGeneratingUi(false, t0, timerRef);
       btn.disabled = false;
     }
   }
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
   document.getElementById("btnGen").addEventListener("click", runGenerate);
-  loadConfigs();
+  loadConfigs().then(function () { refreshStatus(); });
   </script>
 </body>
 </html>

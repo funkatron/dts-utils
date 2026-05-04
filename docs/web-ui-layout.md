@@ -1,6 +1,8 @@
 # `dts-util web` UI layout (humane / Raskin)
 
-This document is the **human-readable design contract** for the loopback web UI. The shipped page is [`src/dts_util/web/templates/index.html.j2`](../src/dts_util/web/templates/index.html.j2). Colors and fonts differ from the Cursor Canvas mockup; **order, grouping, and visual weight** match.
+This document is the **human-readable layout contract** for the loopback web UI. The shipped page is [`src/dts_util/web/templates/index.html.j2`](../src/dts_util/web/templates/index.html.j2).
+
+**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else (gRPC host/port/TLS, listener check, profile, advanced fields, docs links) lives behind **Setup**, which opens a modal `<dialog>`.
 
 ---
 
@@ -8,47 +10,40 @@ This document is the **human-readable design contract** for the loopback web UI.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  dts-util web                              (small title) │
+│  dts-util web                           [ Setup ]        │
 ├─────────────────────────────────────────────────────────┤
-│  CONNECTION (muted, smaller type)                         │
-│  [ Host ] [ Port ] ☐ no-TLS  ☑ trust …  [ Check listener ] │
-│  Listener OK — … (probe only hint below)                  │
+│                                                         │
+│                                                         │
+│              IMAGE STAGE (#stage / #resultPane)          │
+│         (placeholder | spinner | large img + DL)         │
+│                  flex-grow, max img height ~viewport       │
+│                                                         │
 ├─────────────────────────────────────────────────────────┤
-│  PROMPT  ← dominant heading + large textarea              │
-│  ┌─────────────────────────────────────────────────────┐  │
-│  │                                                       │  │
-│  └─────────────────────────────────────────────────────┘  │
-│                                                           │
-│  Profile                                                  │
-│  [ zit           ▼ ]                                      │
-│  [ Or custom name/path…                              ]    │
-│                                                           │
-│  ▸ Negative prompt, shared secret, paths  (collapsed)     │
-│                                                           │
-│  [ Generate ]     Done in …s (after success)              │
-│                                                           │
-│  RESULT PANE (#resultPane)                                │
-│  · idle: “Generated images appear here…”                  │
-│  · busy: spinner + elapsed                                 │
-│  · done: images + Download links                           │
+│  (optional error strip #err)                             │
+├─────────────────────────────────────────────────────────┤
+│  Prompt [ textarea……………………………………… ]  [ Generate ]        │
+│                                       elapsed            │
 └─────────────────────────────────────────────────────────┘
+
+Setup → modal dialog #toolsDialog:
+  Connection row, status line, profile, advanced <details>, CLI footer
 ```
 
 ---
 
 ## Interactive mock (Cursor Canvas)
 
-Cursor can render a **live** layout preview with toggles for **idle / generating / done / error**:
+The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) shows an **older stacked layout** (connection above prompt). The **shipped** UI is **stage + composer + Setup dialog** as in the wireframe above.
+
+Cursor can still render the canvas for experimentation:
 
 1. **Command Palette** (`Cmd+Shift+P` / `Ctrl+Shift+P`) → run **Open Canvas** → pick **`dts-util-web-humane-layout`** if listed.
 
-2. Or open the source the IDE expects (workspace canvases directory):
+2. Or open the IDE canvases path:
 
    `~/.cursor/projects/Users-coj-alt-sync-src-dts-utils/canvases/dts-util-web-humane-layout.canvas.tsx`
 
-3. **Same file in-repo** (for diff/review without hunting that path): [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx)
-
-   Note: live Canvas preview is tied to Cursor’s `canvases/` folder; the repo copy is for **visibility and version control**. To refresh the interactive canvas after editing the repo copy, copy the file back into the path above or ask the agent to sync.
+3. **Same file in-repo** (for diff/review): [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx)
 
 ---
 
@@ -56,14 +51,11 @@ Cursor can render a **live** layout preview with toggles for **idle / generating
 
 | Region | Element IDs / notes |
 |--------|---------------------|
-| Connection toolbar | `host`, `port`, `noTls`, `trustCert`, `btnCheck` |
-| Status line | `statusLine` (`aria-live="polite"`) |
-| Prompt | `prompt` |
-| Profile | `profile`, `profileCustom` |
-| Advanced | inside `<details>`: `neg`, `sharedSecret`, `rootCert`, `forceTrust`, `configDir` |
-| Generate | `btnGen`, `elapsed` |
-| Errors | `err` (`role="alert"`) |
-| Result pane | `resultPane`, `resultPlaceholder`, `resultBusy`, `busyElapsed`, `results` |
+| Top bar | `.app-mark`, `btnOpenSetup` (opens dialog) |
+| Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
+| Composer | `#prompt`, `#btnGen`, `#elapsed` |
+| Errors | `#err` (`role="alert"`), thin strip above composer |
+| Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
 
 ---
 

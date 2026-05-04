@@ -109,6 +109,22 @@ def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: 
     assert b"\x89PNG" in r.content
 
 
+def test_generate_wildcard_error_returns_400(client: TestClient) -> None:
+    """Invalid `{…}` expansion raises before gRPC (ConfigurationError → HTTP 400)."""
+    r = client.post(
+        "/api/generate",
+        json={
+            "prompt": "{||}",
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 400
+    assert "Unresolved" in r.json()["detail"]
+
+
 def test_generate_unauthorized_when_token_set(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
     client = TestClient(create_app())

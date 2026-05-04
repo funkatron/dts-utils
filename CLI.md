@@ -189,6 +189,7 @@ Important options:
 - `--no-tls`: Plaintext gRPC when the server was installed with `--no-tls`.
 - `--max-message-mb N`: gRPC send/receive limits in MiB.
 - `--open`: Open written images with the platform default viewer.
+- **Prompt wildcards:** `{a|b}` picks one branch at random; `{a, b}` does the same when the block has no `|`. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP 400 from **`dts-util web`**).
 
 ### Generate shorthand (prompt-first)
 

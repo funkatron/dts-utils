@@ -17,6 +17,7 @@ from dts_util.exceptions import (
     DTSUtilError,
     GenerationEmptyError,
     GenerationRpcError,
+    PromptWildcardError,
 )
 from dts_util.generate_api import (
     GrpcClientOptions,
@@ -82,7 +83,30 @@ def test_build_image_generation_request(monkeypatch, tmp_path):
     assert req.chunked is True
 
 
-def test_collect_raw_generation_tensors_rpc_error(monkeypatch):
+def test_build_image_generation_request_invalid_wildcard_prompt(monkeypatch, tmp_path):
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    monkeypatch.setattr(
+        "dts_util.generate_api.read_configuration_bytes",
+        lambda **kwargs: b"resolved",
+    )
+    with pytest.raises(PromptWildcardError, match="Unresolved"):
+        build_image_generation_request(
+            ImageGenerationRequestOptions(prompt="{||}", configuration=cfg),
+        )
+
+
+def test_build_image_generation_request_invalid_wildcard_negative(monkeypatch, tmp_path):
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    monkeypatch.setattr(
+        "dts_util.generate_api.read_configuration_bytes",
+        lambda **kwargs: b"resolved",
+    )
+    with pytest.raises(PromptWildcardError, match="Unresolved"):
+        build_image_generation_request(
+            ImageGenerationRequestOptions(prompt="ok", negative_prompt="{||}", configuration=cfg),
+        )
     from tests.test_generate_image_script import FakeChannel
 
     class FakeRpc(grpc.RpcError):

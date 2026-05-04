@@ -9,6 +9,7 @@ import grpc
 
 from dts_util.configuration_build import read_configuration_bytes
 from dts_util.exceptions import ChannelSetupError, GenerationEmptyError, GenerationRpcError
+from dts_util.prompt_wildcards import expand_prompt_wildcards
 from dts_util.generation_stream import collect_generated_images
 from dts_util.grpc.connection import create_channel
 from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
@@ -45,9 +46,12 @@ def build_image_generation_request(gen: ImageGenerationRequestOptions) -> up_pb2
         configuration_json=gen.configuration_json,
         config_dir=gen.config_dir,
     )
+    prompt_expanded = expand_prompt_wildcards(gen.prompt)
+    neg_raw = gen.negative_prompt or ""
+    negative_expanded = expand_prompt_wildcards(neg_raw) if neg_raw.strip() else ""
     request = up_pb2.ImageGenerationRequest(
-        prompt=gen.prompt,
-        negativePrompt=gen.negative_prompt,
+        prompt=prompt_expanded,
+        negativePrompt=negative_expanded,
         scaleFactor=1,
         configuration=configuration,
         chunked=True,

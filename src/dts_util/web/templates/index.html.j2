@@ -653,6 +653,18 @@ uv run dts-util server check</pre>
   var HISTORY_MAX_ITEMS = 30;
   var HISTORY_SOFT_CHARS = 4 * 1024 * 1024;
 
+  /** Blob URLs from the current result pane; must revoke before dropping DOM or each leaks until tab exit. */
+  var __dtsResultBlobUrls = [];
+
+  function revokeResultBlobUrls() {
+    __dtsResultBlobUrls.forEach(function (u) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch (e) {}
+    });
+    __dtsResultBlobUrls.length = 0;
+  }
+
   function arrayBufferToBase64(buf) {
     var bin = "";
     var bytes = new Uint8Array(buf);
@@ -787,6 +799,7 @@ uv run dts-util server check</pre>
     const elapsed = document.getElementById("elapsed");
     const timerRef = { id: null };
     errEl.style.display = "none";
+    revokeResultBlobUrls();
     results.innerHTML = "";
     const btn = document.getElementById("btnGen");
     btn.disabled = true;
@@ -850,6 +863,7 @@ uv run dts-util server check</pre>
         placeholder.hidden = true;
         blobs.forEach((b, i) => {
           const url = URL.createObjectURL(new Blob([b], { type: "image/png" }));
+          __dtsResultBlobUrls.push(url);
           const img = document.createElement("img");
           img.src = url;
           img.alt = "Generated " + (i + 1);
@@ -927,6 +941,10 @@ uv run dts-util server check</pre>
       openBtn.focus();
     });
   })();
+
+  window.addEventListener("pagehide", function (e) {
+    if (!e.persisted) revokeResultBlobUrls();
+  });
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
   document.getElementById("btnGen").addEventListener("click", runGenerate);

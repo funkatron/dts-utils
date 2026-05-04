@@ -2,7 +2,7 @@
 
 This document is the **human-readable layout contract** for the loopback web UI. The shipped page is [`src/dts_util/web/templates/index.html.j2`](../src/dts_util/web/templates/index.html.j2).
 
-**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else lives behind a **floating Setup control** (fixed top-right, sliders icon) that opens a modal `<dialog>`. The string `dts-util web` remains in a screen-reader-only span for tests and assistive tech.
+**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else lives behind a **floating Setup control** (fixed top-right, building icon) that opens a modal `<dialog>`. The string `dts-util web` remains in a screen-reader-only span for tests and assistive tech.
 
 ---
 
@@ -10,8 +10,8 @@ This document is the **human-readable layout contract** for the loopback web UI.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                                     🕐 fab-history      │
-│                                          ⚙ fab-setup    │
+│                          clock · fab-history              │
+│                                          building · fab-setup │
 │                                                         │
 │              IMAGE STAGE (#stage / #resultPane)          │
 │         (placeholder | spinner | large img + DL)         │
@@ -21,7 +21,7 @@ This document is the **human-readable layout contract** for the loopback web UI.
 │  (optional error strip #err)                             │
 ├─────────────────────────────────────────────────────────┤
 │  Prompt row + shortcut hint                                │
-│  [ textarea…………………………… ] [Runs▾| ▶ ]   ← split-run-gen      │
+│  [ textarea…………………………… ] [Runs▾| hammer]   ← split-run-gen │
 │                                      #elapsed               │
 └─────────────────────────────────────────────────────────┘
 
@@ -36,7 +36,7 @@ History → modal dialog #historyDialog (#historyList, Clear all / Close):
 
 ## Interactive mock (Cursor Canvas)
 
-The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is kept **in sync with the shipped template** ([`index.html.j2`](../src/dts_util/web/templates/index.html.j2)): stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: **Runs** dropdown `#generations` 1–25, icon **Generate** `#btnGen`; **elapsed** under the split), and collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
+The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is kept **in sync with the shipped template** ([`index.html.j2`](../src/dts_util/web/templates/index.html.j2)): stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: **Runs** dropdown `#generations` 1–25, hammer **Generate** `#btnGen`; **elapsed** under the split), and collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
 
 Cursor can render it beside the chat:
 
@@ -55,10 +55,10 @@ Cursor can render it beside the chat:
 | Region | Element IDs / notes |
 |--------|---------------------|
 | Top bar | _(none)_ — product name in `.sr-only` for tests / AT |
-| Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` |
+| Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` (building icon) |
 | History | `#btnOpenHistory` — stacked below setup FAB, opens `#historyDialog` |
 | Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
-| Composer | One row: `#prompt` textarea + `.split-run-gen` (`#generations` select 1–25, `#btnGen` play icon). Shortcut hint above; `#elapsed` below right |
+| Composer | One row: `#prompt` textarea + `.split-run-gen` (`#generations` select 1–25, `#btnGen` hammer icon). Shortcut hint above; `#elapsed` below right |
 | Errors | `#err` (`role="alert"`), thin strip above composer |
 | Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
 | History dialog | `#historyDialog` — `#historyList`, `#btnClearHistory`, `#btnCloseHistory` |

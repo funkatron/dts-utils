@@ -5,6 +5,7 @@
  * DOM map: .sr-only product name, #btnOpenSetup / #btnOpenHistory FABs, #stage →
  * #resultPane (#resultPlaceholder | #resultBusy | #results), #err, footer .composer
  * (#prompt, #generations, #btnGen, #elapsed), dialog#toolsDialog, dialog#historyDialog.
+ * Icons: Setup FAB = building; Generate = hammer (no play / sparkle motif).
  *
  * Repo copy for review. Cursor Open Canvas loads:
  *   ~/.cursor/projects/Users-coj-alt-sync-src-dts-utils/canvases/dts-util-web-humane-layout.canvas.tsx
@@ -31,6 +32,56 @@ import {
 
 type DemoState = "idle" | "generating" | "done" | "error";
 
+function FabBuildingIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={14}
+      height={14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect width="16" height="20" x="4" y="2" rx="2" ry="2" />
+      <path d="M9 22v-4h6v4" />
+      <path d="M8 6h.01" />
+      <path d="M16 6h.01" />
+      <path d="M12 6h.01" />
+      <path d="M12 10h.01" />
+      <path d="M12 14h.01" />
+      <path d="M16 10h.01" />
+      <path d="M16 14h.01" />
+      <path d="M8 10h.01" />
+      <path d="M8 14h.01" />
+    </svg>
+  );
+}
+
+function FabHammerIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={16}
+      height={16}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9" />
+      <path d="m18 15 4-4" />
+      <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5" />
+    </svg>
+  );
+}
+
 export default function DtsUtilWebHumaneLayoutCanvas() {
   const theme = useHostTheme();
   const [demo, setDemo] = useCanvasState<DemoState>("ui_demo_state", "idle");
@@ -50,7 +101,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
   return (
     <Stack gap={14} style={{ padding: 12, maxWidth: 720 }}>
       <Text tone="quaternary" size="small">
-        dts-util web — mirrors index.html.j2 (stage-first, Setup + History FABs, composer strip,
+        dts-util web — mirrors index.html.j2 (stage-first, Setup [building] + History FABs, composer strip,
         modals).
       </Text>
 
@@ -70,7 +121,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
         <div style={viewportFrame}>
           <Row gap={8} justify="end" style={{ padding: "8px 10px 0" }}>
             <IconButton variant="circle" size="sm" title="#btnOpenSetup" onClick={noop} disabled>
-              S
+              <FabBuildingIcon />
             </IconButton>
             <IconButton variant="circle" size="sm" title="#btnOpenHistory" onClick={noop} disabled>
               H
@@ -89,7 +140,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
           >
             {demo === "idle" ? (
               <Text tone="tertiary" size="small" style={{ textAlign: "center", maxWidth: 280 }}>
-                Generated image fills this space. Write a prompt below and press Generate.
+                Built render lands here. Enter a prompt below and run Generate.
                 (#stage / #resultPlaceholder)
               </Text>
             ) : null}
@@ -163,7 +214,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
             </Row>
             <Row gap={10} align="stretch" wrap style={{ alignItems: "stretch" }}>
               <TextArea
-                value="Describe the image…"
+                value="Describe what to build — subject, style, lighting…"
                 disabled
                 rows={2}
                 style={{ flex: "1 1 140px", minWidth: 140, opacity: 0.85 }}
@@ -206,7 +257,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
                       lineHeight: 1,
                     }}
                   >
-                    ▶
+                    <FabHammerIcon />
                   </Button>
                 </Row>
                 <Text tone="quaternary" size="small" style={{ textAlign: "right", minHeight: 14 }}>

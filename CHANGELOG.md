@@ -31,6 +31,7 @@ Example:
 
 ### Fixed
 
+- **`dts-util web`:** profile dropdown failed to populate (JavaScript referenced an undefined `def`); `loadConfigs` now uses `default_profile` from `/api/configs` and falls back safely on errors or `401`.
 - **`server check` / `server test`:** probe loopback with **TLS** using the server-presented certificate (same idea as `--trust-server-cert`), then fall back to plaintext, so the check matches default Draw Things `gRPCServerCLI`. Use `server test --no-tls` when the server runs without TLS.
 - **Tests:** [test_grpc_server.py](tests/test_grpc_server.py) closes gRPC channels via context managers so teardown does not race connectivity polling (`PytestUnhandledThreadExceptionWarning` / “Channel closed” in background threads).
 

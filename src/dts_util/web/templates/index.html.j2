@@ -223,18 +223,35 @@ uv run dts-util server check</pre>
   }
 
   async function loadConfigs() {
-    const r = await fetch("/api/configs", { headers: authHeaders() });
     const sel = document.getElementById("profile");
     sel.innerHTML = "";
-    if (r.status === 401) return;
-    const j = await r.json();
-    if (!r.ok) return;
-    const names = [...new Set([...(j.names || []), def])].sort();
-    for (const n of names) {
+    try {
+      const r = await fetch("/api/configs", { headers: authHeaders() });
+      if (r.status === 401) {
+        const o = document.createElement("option");
+        o.value = "zit";
+        o.textContent = "zit (set DTS_WEB_TOKEN to list profiles)";
+        o.selected = true;
+        sel.appendChild(o);
+        return;
+      }
+      const j = await r.json();
+      if (!r.ok) return;
+      const defaultProfile = j.default_profile || "zit";
+      const names = [...new Set([...(j.names || []), defaultProfile])].sort();
+      for (const n of names) {
+        const o = document.createElement("option");
+        o.value = n;
+        o.textContent = n;
+        if (n === defaultProfile) o.selected = true;
+        sel.appendChild(o);
+      }
+    } catch (e) {
+      console.error("loadConfigs:", e);
       const o = document.createElement("option");
-      o.value = n;
-      o.textContent = n;
-      if (n === def) o.selected = true;
+      o.value = "zit";
+      o.textContent = "zit";
+      o.selected = true;
       sel.appendChild(o);
     }
   }

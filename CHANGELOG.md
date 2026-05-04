@@ -32,11 +32,12 @@ Example:
 ### Fixed
 
 - **`server check` / `server test`:** probe loopback with **TLS** using the server-presented certificate (same idea as `--trust-server-cert`), then fall back to plaintext, so the check matches default Draw Things `gRPCServerCLI`. Use `server test --no-tls` when the server runs without TLS.
+- **Tests:** [test_grpc_server.py](tests/test_grpc_server.py) closes gRPC channels via context managers so teardown does not race connectivity polling (`PytestUnhandledThreadExceptionWarning` / “Channel closed” in background threads).
 
 ### Changed
 
 - **Implicit shorthand profile:** default saved name is **`zit`** (`zit.json`). If missing, a starter JSON is created there. **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`** replaces **`"default"`**.
-- **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior.
+- **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior. [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) includes optional **`dts-util web`** steps next to `generate` / shorthand.
 - **Docs:** [AGENTS.md](AGENTS.md) and [docs/README.md](docs/README.md) — agent conventions and operator documentation map; README shorthand section renamed to **Shorthand profile (zit)**.
 
 ### Removed

@@ -2,7 +2,6 @@ import pytest
 import grpc
 import os
 import sys
-import time
 from contextlib import contextmanager
 
 # Add the src directory to the Python path
@@ -41,8 +40,9 @@ def server_check():
 
 @pytest.fixture
 def grpc_channel(server_check):
-    """Create a gRPC channel for testing."""
-    return grpc.insecure_channel('localhost:7859')
+    """Create a gRPC channel for testing; close cleanly to avoid background poll thread noise."""
+    with grpc.insecure_channel("localhost:7859") as channel:
+        yield channel
 
 @pytest.fixture
 def grpc_stub(grpc_channel):
@@ -143,7 +143,7 @@ def test_upload_file(grpc_stub):
 def test_connection_error():
     """Test connection to wrong port."""
     with pytest.raises(grpc.RpcError):
-        channel = grpc.insecure_channel('localhost:12345')
-        stub = ImageGenerationServiceStub(channel)
-        request = EchoRequest()
-        stub.Echo(request)
+        with grpc.insecure_channel("localhost:12345") as channel:
+            stub = ImageGenerationServiceStub(channel)
+            request = EchoRequest()
+            stub.Echo(request)

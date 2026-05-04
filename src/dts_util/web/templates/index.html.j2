@@ -51,6 +51,28 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+    .fab-history {
+      position: fixed;
+      top: calc(max(0.6rem, env(safe-area-inset-top, 0px)) + 2.75rem + 0.45rem);
+      right: max(0.6rem, env(safe-area-inset-right, 0px));
+      z-index: 20;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .fab-history:hover { border-color: var(--muted); color: var(--fg); }
+    .fab-history:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
     /* Image dominates remaining space */
     #stage {
       flex: 1 1 auto;
@@ -281,6 +303,73 @@
       font: inherit;
       cursor: pointer;
     }
+    .history-dialog-inner {
+      padding: 1rem;
+      overflow-y: auto;
+      max-height: min(70vh, 520px);
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .history-row {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.65rem;
+      background: var(--bg);
+    }
+    .history-row-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .history-row-prompt {
+      font-size: 0.85rem;
+      margin: 0 0 0.5rem;
+      word-break: break-word;
+    }
+    .history-thumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+    .history-thumbs img {
+      max-height: 72px;
+      max-width: 120px;
+      object-fit: contain;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .history-dl {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.65rem;
+      margin-top: 0.45rem;
+      font-size: 0.8rem;
+    }
+    .history-dl a { color: var(--accent); }
+    .dialog-actions-split {
+      padding: 0.65rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      background: var(--bg);
+    }
+    button.btn-danger-ghost {
+      background: transparent;
+      color: var(--bad);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.4rem 0.75rem;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
     .sr-only {
       position: absolute;
       width: 1px;
@@ -306,6 +395,12 @@
     </svg>
   </button>
 
+  <button type="button" class="fab-history" id="btnOpenHistory" aria-label="Generation history" aria-haspopup="dialog" aria-controls="historyDialog" aria-expanded="false">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  </button>
+
   <div id="stage" role="region" aria-label="Generated image">
     <div id="resultPane" aria-live="polite">
       <p id="resultPlaceholder" class="result-placeholder">
@@ -324,7 +419,10 @@
 
   <footer class="composer">
     <div class="composer-prompt">
-      <label for="prompt">Prompt</label>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:0.5rem;flex-wrap:wrap">
+        <label for="prompt">Prompt</label>
+        <span class="hint" style="font-size:0.65rem;margin:0">⌘↵ · Ctrl+Enter generate</span>
+      </div>
       <textarea id="prompt" autofocus placeholder="Describe the image…" autocomplete="off" rows="2"></textarea>
     </div>
     <div class="composer-actions">
@@ -401,6 +499,18 @@ uv run dts-util server check</pre>
     </div>
     <div class="dialog-close-row">
       <button type="button" id="btnCloseSetup">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title">
+    <div class="history-dialog-inner">
+      <h2 id="history-dialog-title">Generation history</h2>
+      <p class="hint" style="margin-top:0">Saved in this browser only (localStorage). Not synced.</p>
+      <div id="historyList" class="history-list"></div>
+    </div>
+    <div class="dialog-actions-split">
+      <button type="button" class="btn-danger-ghost" id="btnClearHistory">Clear all</button>
+      <button type="button" id="btnCloseHistory">Close</button>
     </div>
   </dialog>
 
@@ -539,6 +649,108 @@ uv run dts-util server check</pre>
     return body;
   }
 
+  var HISTORY_KEY = "dts_web_gen_history_v1";
+  var HISTORY_MAX_ITEMS = 30;
+  var HISTORY_SOFT_CHARS = 4 * 1024 * 1024;
+
+  function arrayBufferToBase64(buf) {
+    var bin = "";
+    var bytes = new Uint8Array(buf);
+    var len = bytes.byteLength;
+    for (var i = 0; i < len; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  function loadHistoryState() {
+    try {
+      var s = localStorage.getItem(HISTORY_KEY);
+      if (!s) return { version: 1, items: [] };
+      var o = JSON.parse(s);
+      if (!o || !Array.isArray(o.items)) return { version: 1, items: [] };
+      return o;
+    } catch (e) {
+      return { version: 1, items: [] };
+    }
+  }
+
+  function saveHistoryState(state) {
+    var str = JSON.stringify(state);
+    while (str.length > HISTORY_SOFT_CHARS && state.items.length > 1) {
+      state.items.pop();
+      str = JSON.stringify(state);
+    }
+    try {
+      localStorage.setItem(HISTORY_KEY, str);
+    } catch (e) {
+      state.items = state.items.slice(0, Math.max(1, Math.floor(state.items.length / 2)));
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(state));
+      } catch (e2) {}
+    }
+  }
+
+  function historyAppend(promptText, pngArrayBuffers) {
+    if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
+    var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
+    var state = loadHistoryState();
+    state.items.unshift({
+      id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9),
+      ts: Date.now(),
+      prompt: promptText.slice(0, 4000),
+      images: images,
+    });
+    while (state.items.length > HISTORY_MAX_ITEMS) state.items.pop();
+    saveHistoryState(state);
+    renderHistoryList();
+  }
+
+  function renderHistoryList() {
+    var root = document.getElementById("historyList");
+    if (!root) return;
+    root.innerHTML = "";
+    var state = loadHistoryState();
+    if (state.items.length === 0) {
+      var empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "No generations yet.";
+      root.appendChild(empty);
+      return;
+    }
+    state.items.forEach(function (entry) {
+      var row = document.createElement("article");
+      row.className = "history-row";
+      var meta = document.createElement("div");
+      meta.className = "history-row-meta";
+      var d = new Date(entry.ts);
+      meta.textContent = d.toLocaleString() + " · " + entry.images.length + " image(s)";
+      row.appendChild(meta);
+      var pr = document.createElement("p");
+      pr.className = "history-row-prompt";
+      pr.textContent = entry.prompt || "(no prompt)";
+      row.appendChild(pr);
+      var thumbs = document.createElement("div");
+      thumbs.className = "history-thumbs";
+      entry.images.forEach(function (b64, i) {
+        var img = document.createElement("img");
+        img.src = "data:image/png;base64," + b64;
+        img.alt = "Thumbnail " + (i + 1);
+        thumbs.appendChild(img);
+      });
+      row.appendChild(thumbs);
+      var dl = document.createElement("div");
+      dl.className = "history-dl";
+      entry.images.forEach(function (b64, i) {
+        var a = document.createElement("a");
+        a.href = "data:image/png;base64," + b64;
+        a.download = "dts-gen-" + entry.id + "-" + i + ".png";
+        a.textContent = "Download " + (i + 1);
+        dl.appendChild(a);
+      });
+      row.appendChild(dl);
+      root.appendChild(row);
+    });
+  }
+
   function prefersReducedMotion() {
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
@@ -633,6 +845,8 @@ uv run dts-util server check</pre>
       if (ct.includes("multipart/mixed")) {
         const buf = await r.arrayBuffer();
         const blobs = parseMultipartPngs(buf, ct);
+        const forHistory = blobs.map(function (b) { return b.slice(0); });
+        historyAppend(prompt, forHistory);
         placeholder.hidden = true;
         blobs.forEach((b, i) => {
           const url = URL.createObjectURL(new Blob([b], { type: "image/png" }));
@@ -664,6 +878,37 @@ uv run dts-util server check</pre>
       btn.disabled = false;
     }
   }
+
+  (function setupHistoryDialog() {
+    var dlg = document.getElementById("historyDialog");
+    var openBtn = document.getElementById("btnOpenHistory");
+    var closeBtn = document.getElementById("btnCloseHistory");
+    var clearBtn = document.getElementById("btnClearHistory");
+    openBtn.addEventListener("click", function () {
+      renderHistoryList();
+      if (typeof dlg.showModal === "function") dlg.showModal();
+      openBtn.setAttribute("aria-expanded", "true");
+    });
+    closeBtn.addEventListener("click", function () { dlg.close(); });
+    clearBtn.addEventListener("click", function () {
+      if (!window.confirm("Remove all saved generations from this browser?")) return;
+      try {
+        localStorage.removeItem(HISTORY_KEY);
+      } catch (e) {}
+      renderHistoryList();
+    });
+    dlg.addEventListener("close", function () {
+      openBtn.setAttribute("aria-expanded", "false");
+      openBtn.focus();
+    });
+  })();
+
+  document.getElementById("prompt").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    runGenerate();
+  });
 
   (function setupDialog() {
     const dlg = document.getElementById("toolsDialog");

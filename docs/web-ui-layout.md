@@ -10,6 +10,7 @@ This document is the **human-readable layout contract** for the loopback web UI.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
+│                                     🕐 fab-history      │
 │                                          ⚙ fab-setup    │
 │                                                         │
 │              IMAGE STAGE (#stage / #resultPane)          │
@@ -20,11 +21,14 @@ This document is the **human-readable layout contract** for the loopback web UI.
 │  (optional error strip #err)                             │
 ├─────────────────────────────────────────────────────────┤
 │  Prompt [ textarea……………………………………… ]  [ Generate ]        │
-│                                       elapsed            │
+│                      ⌘↵ / Ctrl+Enter hint    elapsed     │
 └─────────────────────────────────────────────────────────┘
 
 Setup → modal dialog #toolsDialog:
   Connection row, status line, profile, advanced <details>, CLI footer
+
+History → modal dialog #historyDialog (#historyList, Clear all / Close):
+  Recent PNG generations (browser localStorage only); per-image download links
 ```
 
 ---
@@ -51,10 +55,12 @@ Cursor can still render the canvas for experimentation:
 |--------|---------------------|
 | Top bar | _(none)_ — product name in `.sr-only` for tests / AT |
 | Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` |
+| History | `#btnOpenHistory` — stacked below setup FAB, opens `#historyDialog` |
 | Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
 | Composer | `#prompt`, `#btnGen`, `#elapsed` |
 | Errors | `#err` (`role="alert"`), thin strip above composer |
 | Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
+| History dialog | `#historyDialog` — `#historyList`, `#btnClearHistory`, `#btnCloseHistory` |
 
 ---
 

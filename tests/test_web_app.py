@@ -24,6 +24,8 @@ def test_index_loads(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
     assert "dts-util web" in r.text
+    assert 'id="historyDialog"' in r.text
+    assert "Ctrl+Enter" in r.text
 
 
 def test_server_status_without_token(client: TestClient) -> None:

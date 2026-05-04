@@ -27,7 +27,7 @@ Example:
 ### Added
 
 - **`dts-util web`:** loopback web UI (prompt-first generation via HTTP → gRPC). Dependencies: Starlette, Jinja2, uvicorn. Optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`); optional `DTS_WEB_GENERATE_TIMEOUT`. See [CLI.md](CLI.md#web-dts-util-web).
-- **Docs:** sample PNG in [README.md](README.md) quickstart ([`docs/assets/sample-output.png`](docs/assets/sample-output.png)).
+- **Docs:** [docs/web-ui-layout.md](docs/web-ui-layout.md) — `dts-util web` humane layout wireframe, DOM map, how to open the Cursor Canvas mockup; canvas source under [docs/design/](docs/design/dts-util-web-humane-layout.canvas.tsx).
 
 ### Fixed
 

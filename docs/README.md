@@ -15,6 +15,7 @@
 | Pytest and release smoke | [tests/README.md](../tests/README.md) |
 | Release history | [CHANGELOG.md](../CHANGELOG.md) |
 | Contributing or agent automation | [AGENTS.md](../AGENTS.md) |
+| **`dts-util web` layout (wireframe, Canvas)** | [web-ui-layout.md](web-ui-layout.md) |
 
 ---
 

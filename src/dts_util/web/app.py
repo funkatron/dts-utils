@@ -26,7 +26,12 @@ from dts_util.exceptions import (
     GenerationEmptyError,
     GenerationRpcError,
 )
-from dts_util.generate_api import GrpcClientOptions, ImageGenerationRequestOptions, generate_png_bytes
+from dts_util.generate_api import (
+    GrpcClientOptions,
+    ImageGenerationRequestOptions,
+    coerce_generations_json,
+    generate_png_bytes,
+)
 from dts_util.grpc.connection import is_loopback_host
 from dts_util.grpc.utils import is_server_running
 
@@ -65,7 +70,7 @@ def _require_bearer(request: Request) -> JSONResponse | None:
     return None
 
 
-def _multipart_png_response(images: list[bytes]) -> Response:
+def _multipart_png_response(images: list[bytes], *, generation_runs: int = 1) -> Response:
     boundary = f"dtsweb{secrets.token_hex(12)}"
     chunks: list[bytes] = []
     for i, png in enumerate(images):
@@ -81,7 +86,10 @@ def _multipart_png_response(images: list[bytes]) -> Response:
     return Response(
         body,
         media_type=f"multipart/mixed; boundary={boundary}",
-        headers={"X-Generated-Count": str(len(images))},
+        headers={
+            "X-Generated-Count": str(len(images)),
+            "X-Generation-Runs": str(generation_runs),
+        },
     )
 
 
@@ -227,9 +235,9 @@ def _build_generation_options(data: dict[str, object]) -> tuple[ImageGenerationR
     return gen, None
 
 
-def _run_generate(client: GrpcClientOptions, gen: ImageGenerationRequestOptions) -> list[bytes]:
+def _run_generate(client: GrpcClientOptions, gen: ImageGenerationRequestOptions, generations: int = 1) -> list[bytes]:
     with _execute_lock:
-        return generate_png_bytes(client, gen)
+        return generate_png_bytes(client, gen, generations=generations)
 
 
 async def api_generate(request: Request) -> Response:
@@ -252,11 +260,19 @@ async def api_generate(request: Request) -> Response:
     if err:
         return err
 
+    try:
+        generation_runs = coerce_generations_json(data.get("generations"))
+    except ConfigurationError as e:
+        return JSONResponse({"detail": str(e)}, status_code=400)
+
     import asyncio
 
     timeout = _generate_timeout_seconds()
     try:
-        images = await asyncio.wait_for(asyncio.to_thread(_run_generate, client, gen), timeout=timeout)
+        images = await asyncio.wait_for(
+            asyncio.to_thread(_run_generate, client, gen, generation_runs),
+            timeout=timeout,
+        )
     except TimeoutError:
         return JSONResponse({"detail": "Generation timed out."}, status_code=504)
     except ConfigurationError as e:
@@ -270,7 +286,7 @@ async def api_generate(request: Request) -> Response:
     except Exception as e:
         return _map_exc(e)
 
-    return _multipart_png_response(images)
+    return _multipart_png_response(images, generation_runs=generation_runs)
 
 
 def create_app() -> Starlette:

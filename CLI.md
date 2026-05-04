@@ -158,7 +158,7 @@ uv run dts-util web [--bind ADDR] [--port N] [--open]
 - **`--open`:** open the default browser after the server starts (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`).
 - **Auth:** If **`DTS_WEB_TOKEN`** is set, all **`/api/*`** routes except **`GET /api/health`** require **`Authorization: Bearer <token>`**. Prefer loopback; binding more broadly without a token prints a **stderr warning**—set the token for mutating routes.
 - **Probe:** **`GET /api/server-status`** mirrors listener checks (`no_tls` query flag aligns with `server check --no-tls`). The message is **probe only**; generation can still fail (config, `flatc`, TLS mismatch).
-- **Generate:** **`POST /api/generate`** accepts JSON (`prompt`, optional `negative_prompt`, `configuration`, `host`, `port`, `no_tls`, `trust_server_cert`, `force_trust_server_cert`, `root_cert`, `shared_secret`, `config_dir`). Success responses are **`multipart/mixed`** PNG parts. Errors return JSON `{"detail": "…"}` with the same actionable messages as the CLI where applicable.
+- **Generate:** **`POST /api/generate`** accepts JSON (`prompt`, optional `negative_prompt`, optional **`generations`** integer 1–32 default 1 for independent runs with fresh wildcard expansion each time, `configuration`, `host`, `port`, `no_tls`, `trust_server_cert`, `force_trust_server_cert`, `root_cert`, `shared_secret`, `config_dir`). Success responses are **`multipart/mixed`** PNG parts (all images concatenated). Response headers **`X-Generated-Count`** (PNG parts) and **`X-Generation-Runs`** (batch size). Errors return JSON `{"detail": "…"}` with the same actionable messages as the CLI where applicable.
 - **Timeout:** Optional **`DTS_WEB_GENERATE_TIMEOUT`** (seconds, default `900`) caps wall-clock generation time.
 - **Browser UI:** **⌘↵** (macOS) or **Ctrl+Enter** runs **Generate** from the prompt field. **History** (clock FAB under Setup) lists recent successful generations stored only in **localStorage** (this browser); each row has **Download** links for PNGs. **Clear all** removes that storage.
 
@@ -189,7 +189,7 @@ Important options:
 - `--no-tls`: Plaintext gRPC when the server was installed with `--no-tls`.
 - `--max-message-mb N`: gRPC send/receive limits in MiB.
 - `--open`: Open written images with the platform default viewer.
-- **Prompt wildcards:** `{a|b}` picks one branch at random; `{a, b}` does the same when the block has no `|`. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP 400 from **`dts-util web`**).
+- **Prompt wildcards:** `{a|b}` picks one branch at random; `{a, b}` does the same when the block has no `|`. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP 400 from **`dts-util web`**). **`--generations N`** (CLI) or **`generations`** (web JSON) runs **N** separate RPCs; the template prompt is wildcard-expanded again on every run.
 
 ### Generate shorthand (prompt-first)
 

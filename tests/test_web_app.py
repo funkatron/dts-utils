@@ -88,7 +88,7 @@ def test_generate_remote_host_without_pin(client: TestClient) -> None:
 def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
     """PNG bytes are irrelevant to multipart framing; generation is mocked."""
 
-    def fake_generate(_c: object, _g: object) -> list[bytes]:
+    def fake_generate(_c: object, _g: object, *, generations: int = 1) -> list[bytes]:
         return [b"\x89PNG\r\n\x1a\nplaceholder", b"\x89PNG\r\n\x1a\nother"]
 
     monkeypatch.setattr("dts_util.web.app.generate_png_bytes", fake_generate)
@@ -106,7 +106,54 @@ def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: 
     ct = r.headers.get("content-type", "")
     assert "multipart/mixed" in ct
     assert r.headers.get("x-generated-count") == "2"
+    assert r.headers.get("x-generation-runs") == "1"
     assert b"\x89PNG" in r.content
+
+
+def test_generate_multipart_respects_generations(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    def fake_generate(_c: object, _g: object, *, generations: int = 1) -> list[bytes]:
+        assert generations == 2
+        return [b"\x89PNG\r\n\x1a\nx", b"\x89PNG\r\n\x1a\ny"]
+
+    monkeypatch.setattr("dts_util.web.app.generate_png_bytes", fake_generate)
+    r = client.post(
+        "/api/generate",
+        json={
+            "prompt": "a sunset",
+            "generations": 2,
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 200
+    assert r.headers.get("x-generated-count") == "2"
+    assert r.headers.get("x-generation-runs") == "2"
+
+
+def test_generate_invalid_generations_returns_400(client: TestClient) -> None:
+    r = client.post(
+        "/api/generate",
+        json={
+            "prompt": "x",
+            "generations": 0,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 400
+
+
+def test_generate_generations_above_cap_returns_400(client: TestClient) -> None:
+    r = client.post(
+        "/api/generate",
+        json={
+            "prompt": "x",
+            "generations": 99,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 400
 
 
 def test_generate_wildcard_error_returns_400(client: TestClient) -> None:

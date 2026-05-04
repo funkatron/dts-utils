@@ -221,6 +221,22 @@
       text-align: center;
       min-height: 1em;
     }
+    .composer-runs label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      display: block;
+      margin-bottom: 0.15rem;
+    }
+    #generations {
+      width: 3.35rem;
+      padding: 0.38rem 0.35rem;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: #25262b;
+      color: var(--fg);
+      font: inherit;
+      text-align: center;
+    }
     /* Setup dialog */
     dialog.tools-dialog {
       border: 1px solid var(--border);
@@ -426,6 +442,10 @@
       <textarea id="prompt" autofocus placeholder="Describe the image…" autocomplete="off" rows="2"></textarea>
     </div>
     <div class="composer-actions">
+      <div class="composer-runs">
+        <label for="generations">Runs</label>
+        <input type="number" id="generations" min="1" max="32" value="1" inputmode="numeric" autocomplete="off" title="Separate generations (wildcards re-roll each run)" aria-label="Number of generations" />
+      </div>
       <button type="button" id="btnGen">Generate</button>
       <span id="elapsed" class="hint"></span>
     </div>
@@ -819,10 +839,15 @@ uv run dts-util server check</pre>
 
     const shared = document.getElementById("sharedSecret").value.trim();
     const neg = document.getElementById("neg").value;
+    var runsEl = document.getElementById("generations");
+    var generations = parseInt(runsEl.value, 10);
+    if (!Number.isFinite(generations) || generations < 1) generations = 1;
+    if (generations > 32) generations = 32;
     const body = Object.assign(connectionPayload(), {
       prompt,
       negative_prompt: neg,
       configuration: effectiveProfile(),
+      generations,
     });
     if (shared) body.shared_secret = shared;
 

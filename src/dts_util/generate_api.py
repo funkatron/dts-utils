@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 import grpc
 
 from dts_util.configuration_build import read_configuration_bytes
-from dts_util.exceptions import ChannelSetupError, GenerationEmptyError, GenerationRpcError
+from dts_util.exceptions import ChannelSetupError, ConfigurationError, GenerationEmptyError, GenerationRpcError
 from dts_util.prompt_wildcards import expand_prompt_wildcards
 from dts_util.generation_stream import collect_generated_images
 from dts_util.grpc.connection import create_channel
@@ -16,6 +17,30 @@ from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 from dts_util.image_output import unique_ms_timestamp_output_path, write_images
 from dts_util.tensor_png import decode_dt_tensor_to_png
+
+# Independent RPC runs per UI/API/CLI request (each run re-expands `{…}` wildcards).
+MAX_BATCH_GENERATIONS = 32
+
+
+def validate_batch_generations(n: int) -> int:
+    if not isinstance(n, int) or isinstance(n, bool):
+        raise ConfigurationError("generations must be an integer.")
+    if n < 1:
+        raise ConfigurationError("generations must be at least 1.")
+    if n > MAX_BATCH_GENERATIONS:
+        raise ConfigurationError(f"generations must be at most {MAX_BATCH_GENERATIONS}.")
+    return n
+
+
+def coerce_generations_json(value: object) -> int:
+    """JSON body helper: missing or null → 1; otherwise validate integer."""
+    if value is None:
+        return 1
+    if isinstance(value, bool):
+        raise ConfigurationError("generations must be an integer.")
+    if isinstance(value, int):
+        return validate_batch_generations(value)
+    raise ConfigurationError("generations must be an integer.")
 
 
 @dataclass(frozen=True)
@@ -95,21 +120,44 @@ def collect_raw_generation_tensors(
             close()
 
 
-def generate_png_bytes(client: GrpcClientOptions, gen: ImageGenerationRequestOptions) -> list[bytes]:
-    request = build_image_generation_request(gen)
-    tensors = collect_raw_generation_tensors(client, request)
-    if not tensors:
-        raise GenerationEmptyError("No generated images returned by the server.")
-    return [decode_dt_tensor_to_png(tensor) for tensor in tensors]
+def generate_png_bytes(
+    client: GrpcClientOptions,
+    gen: ImageGenerationRequestOptions,
+    *,
+    generations: int = 1,
+) -> list[bytes]:
+    n = validate_batch_generations(generations)
+    pngs: list[bytes] = []
+    for _ in range(n):
+        request = build_image_generation_request(gen)
+        tensors = collect_raw_generation_tensors(client, request)
+        if not tensors:
+            raise GenerationEmptyError("No generated images returned by the server.")
+        pngs.extend(decode_dt_tensor_to_png(tensor) for tensor in tensors)
+    return pngs
 
 
 def generate_to_paths(
     client: GrpcClientOptions,
     gen: ImageGenerationRequestOptions,
     output_base: Path,
+    *,
+    generations: int = 1,
 ) -> list[Path]:
-    request = build_image_generation_request(gen)
-    tensors = collect_raw_generation_tensors(client, request)
-    if not tensors:
-        raise GenerationEmptyError("No generated images returned by the server.")
-    return write_images(tensors, unique_ms_timestamp_output_path(output_base))
+    n = validate_batch_generations(generations)
+    if n == 1:
+        request = build_image_generation_request(gen)
+        tensors = collect_raw_generation_tensors(client, request)
+        if not tensors:
+            raise GenerationEmptyError("No generated images returned by the server.")
+        return write_images(tensors, unique_ms_timestamp_output_path(output_base))
+    stamp = time.time_ns()
+    paths_out: list[Path] = []
+    for i in range(n):
+        batch_base = output_base.with_name(f"{output_base.stem}-{stamp}-{i}{output_base.suffix}")
+        request = build_image_generation_request(gen)
+        tensors = collect_raw_generation_tensors(client, request)
+        if not tensors:
+            raise GenerationEmptyError("No generated images returned by the server.")
+        paths_out.extend(write_images(tensors, unique_ms_timestamp_output_path(batch_base)))
+    return paths_out

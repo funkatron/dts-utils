@@ -5,7 +5,7 @@
  * DOM map: .sr-only product name, #btnOpenSetup / #btnOpenHistory FABs, #stage →
  * #resultPane (#resultPlaceholder | #resultBusy | #results), #err, footer .composer
  * (#prompt, .composer-actions → #generations, #btnGen, #elapsed), dialog#toolsDialog, dialog#historyDialog.
- * Icons: Setup FAB = building; Generate = hammer (no play / sparkle motif).
+ * Icons: Setup FAB = building; History FAB = clock; Generate = hammer (no play / sparkle motif).
  *
  * Repo copy for review. Cursor Open Canvas loads:
  *   ~/.cursor/projects/Users-coj-alt-sync-src-dts-utils/canvases/dts-util-web-humane-layout.canvas.tsx
@@ -18,6 +18,7 @@ import {
   CardHeader,
   Checkbox,
   Divider,
+  Grid,
   IconButton,
   Pill,
   Row,
@@ -82,6 +83,26 @@ function FabHammerIcon() {
   );
 }
 
+function FabClockIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width={14}
+      height={14}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 export default function DtsUtilWebHumaneLayoutCanvas() {
   const theme = useHostTheme();
   const [demo, setDemo] = useCanvasState<DemoState>("ui_demo_state", "idle");
@@ -127,7 +148,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
               <FabBuildingIcon />
             </IconButton>
             <IconButton variant="circle" size="sm" title="#btnOpenHistory" onClick={noop} disabled>
-              H
+              <FabClockIcon />
             </IconButton>
           </Row>
 
@@ -217,35 +238,27 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
                 Cmd+Enter / Ctrl+Enter
               </Text>
             </Row>
-            <Row
-              gap={10}
-              align="start"
-              style={{
-                alignItems: "flex-start",
-                flexWrap: "nowrap",
-                width: "100%",
-                minWidth: 0,
-              }}
-            >
-              <TextArea
-                value="Describe what to build — subject, style, lighting…"
-                disabled
-                rows={2}
-                style={{
-                  boxSizing: "border-box",
-                  flex: "1 1 0%",
-                  minWidth: 0,
-                  opacity: 0.85,
-                }}
-              />
-              <Stack gap={4} style={{ flex: "0 0 auto", flexShrink: 0 }}>
+            <Grid columns="minmax(0, 1fr) auto" gap={10} align="start">
+              <div style={{ minWidth: 0, width: "100%" }}>
+                <TextArea
+                  value="Describe what to build — subject, style, lighting…"
+                  disabled
+                  rows={2}
+                  style={{
+                    boxSizing: "border-box",
+                    width: "100%",
+                    minWidth: 0,
+                    opacity: 0.85,
+                  }}
+                />
+              </div>
+              <Stack gap={4}>
                 <Row
                   align="stretch"
                   style={{
                     border: `1px solid ${theme.stroke.secondary}`,
                     borderRadius: 6,
                     overflow: "hidden",
-                    alignSelf: "flex-start",
                     background: theme.fill.secondary,
                   }}
                 >
@@ -283,7 +296,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
                   {demo === "generating" ? "12.4s" : demo === "done" ? "Done in 3.2s" : "#elapsed"}
                 </Text>
               </Stack>
-            </Row>
+            </Grid>
           </Stack>
         </div>
       </Stack>

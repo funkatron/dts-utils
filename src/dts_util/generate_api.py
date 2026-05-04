@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import threading
@@ -50,6 +52,23 @@ def coerce_generations_json(value: object) -> int:
     raise ConfigurationError("generations must be an integer.")
 
 
+def expand_prompt_templates_for_batch(
+    prompt: str,
+    negative_prompt: str,
+    *,
+    count: int,
+) -> tuple[list[str], list[str]]:
+    """Expand `{…}` wildcards *count* times with independent RNG (same semantics as per-RPC expansion)."""
+    n = validate_batch_generations(count)
+    neg_in = negative_prompt.strip()
+    prompts_out: list[str] = []
+    negatives_out: list[str] = []
+    for _ in range(n):
+        prompts_out.append(expand_prompt_wildcards(prompt))
+        negatives_out.append(expand_prompt_wildcards(neg_in) if neg_in else "")
+    return prompts_out, negatives_out
+
+
 @dataclass(frozen=True)
 class GrpcClientOptions:
     host: str = "localhost"
@@ -72,7 +91,19 @@ class ImageGenerationRequestOptions:
     config_dir: Path | None = None
 
 
-def build_image_generation_request(gen: ImageGenerationRequestOptions) -> up_pb2.ImageGenerationRequest:
+@dataclass(frozen=True)
+class GeneratePngBatchResult:
+    """One multipart-capable generation round: PNG bytes plus prompts actually sent (after wildcard expansion)."""
+
+    images: list[bytes]
+    expanded_prompts: list[str]
+    expanded_negative_prompts: list[str]
+
+
+def prepare_image_generation_request(
+    gen: ImageGenerationRequestOptions,
+) -> tuple[up_pb2.ImageGenerationRequest, str, str]:
+    """Build the gRPC request and return expanded prompt strings (same values set on *request*)."""
     configuration = read_configuration_bytes(
         configuration=gen.configuration,
         configuration_json=gen.configuration_json,
@@ -92,7 +123,12 @@ def build_image_generation_request(gen: ImageGenerationRequestOptions) -> up_pb2
     )
     if gen.shared_secret:
         request.sharedSecret = gen.shared_secret
-    return request
+    return request, prompt_expanded, negative_expanded
+
+
+def build_image_generation_request(gen: ImageGenerationRequestOptions) -> up_pb2.ImageGenerationRequest:
+    req, _, _ = prepare_image_generation_request(gen)
+    return req
 
 
 def _open_channel(client: GrpcClientOptions) -> grpc.Channel:
@@ -127,6 +163,45 @@ def collect_raw_generation_tensors(
             close()
 
 
+def generate_png_batch(
+    client: GrpcClientOptions,
+    gen: ImageGenerationRequestOptions,
+    *,
+    generations: int = 1,
+    cancel_event: threading.Event | None = None,
+    prompts_per_run: Sequence[str] | None = None,
+    negative_prompts_per_run: Sequence[str] | None = None,
+) -> GeneratePngBatchResult:
+    n = validate_batch_generations(generations)
+    if prompts_per_run is not None and len(prompts_per_run) != n:
+        raise ConfigurationError("'prompts' length must equal generations.")
+    if negative_prompts_per_run is not None and len(negative_prompts_per_run) != n:
+        raise ConfigurationError("'negative_prompts' length must equal generations.")
+    pngs: list[bytes] = []
+    expanded_prompts: list[str] = []
+    expanded_negatives: list[str] = []
+    for i in range(n):
+        if cancel_event is not None and cancel_event.is_set():
+            raise GenerationCancelledError("Generation cancelled.")
+        g = gen
+        if prompts_per_run is not None:
+            g = dataclasses.replace(g, prompt=prompts_per_run[i])
+        if negative_prompts_per_run is not None:
+            g = dataclasses.replace(g, negative_prompt=negative_prompts_per_run[i])
+        request, ep, en = prepare_image_generation_request(g)
+        expanded_prompts.append(ep)
+        expanded_negatives.append(en)
+        tensors = collect_raw_generation_tensors(client, request)
+        if not tensors:
+            raise GenerationEmptyError("No generated images returned by the server.")
+        pngs.extend(decode_dt_tensor_to_png(tensor) for tensor in tensors)
+    return GeneratePngBatchResult(
+        images=pngs,
+        expanded_prompts=expanded_prompts,
+        expanded_negative_prompts=expanded_negatives,
+    )
+
+
 def generate_png_bytes(
     client: GrpcClientOptions,
     gen: ImageGenerationRequestOptions,
@@ -134,17 +209,7 @@ def generate_png_bytes(
     generations: int = 1,
     cancel_event: threading.Event | None = None,
 ) -> list[bytes]:
-    n = validate_batch_generations(generations)
-    pngs: list[bytes] = []
-    for _ in range(n):
-        if cancel_event is not None and cancel_event.is_set():
-            raise GenerationCancelledError("Generation cancelled.")
-        request = build_image_generation_request(gen)
-        tensors = collect_raw_generation_tensors(client, request)
-        if not tensors:
-            raise GenerationEmptyError("No generated images returned by the server.")
-        pngs.extend(decode_dt_tensor_to_png(tensor) for tensor in tensors)
-    return pngs
+    return generate_png_batch(client, gen, generations=generations, cancel_event=cancel_event).images
 
 
 def generate_to_paths(
@@ -156,7 +221,7 @@ def generate_to_paths(
 ) -> list[Path]:
     n = validate_batch_generations(generations)
     if n == 1:
-        request = build_image_generation_request(gen)
+        request, _, _ = prepare_image_generation_request(gen)
         tensors = collect_raw_generation_tensors(client, request)
         if not tensors:
             raise GenerationEmptyError("No generated images returned by the server.")
@@ -165,7 +230,7 @@ def generate_to_paths(
     paths_out: list[Path] = []
     for i in range(n):
         batch_base = output_base.with_name(f"{output_base.stem}-{stamp}-{i}{output_base.suffix}")
-        request = build_image_generation_request(gen)
+        request, _, _ = prepare_image_generation_request(gen)
         tensors = collect_raw_generation_tensors(client, request)
         if not tensors:
             raise GenerationEmptyError("No generated images returned by the server.")

@@ -44,6 +44,12 @@ def test_expand_plain_unchanged() -> None:
     assert expand_prompt_wildcards("hello world") == "hello world"
 
 
+def test_expand_normalizes_fullwidth_braces_and_pipe() -> None:
+    """NFKC maps U+FF5B/FF5D/FF5C to ASCII `{`, `}`, `|` so pasted “smart” punctuation works."""
+    assert expand_prompt_wildcards("｛a｜b｝", rng=PickFirst()) == "a"
+    assert expand_prompt_wildcards("｛天｜地｝", rng=PickFirst()) == "天"
+
+
 def test_expand_no_braces_even_if_special_chars() -> None:
     assert expand_prompt_wildcards("a | b, c") == "a | b, c"
 

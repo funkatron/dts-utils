@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+import unicodedata
 
 from dts_util.exceptions import PromptWildcardError
 
@@ -105,6 +106,8 @@ def expand_prompt_wildcards(
     - ``max_passes``: stop after this many full passes (deep nesting); default from ``DEFAULT_MAX_PASSES``.
     - ``max_chars``: refuse longer expanded strings (runaway templates); default from ``DEFAULT_MAX_EXPANDED_CHARS``.
 
+    Prompt text is normalized with Unicode NFKC first so full-width ``｛｝｜`` from pasted sources are treated like ASCII ``{}|``.
+
     Raises:
         PromptWildcardError: Unclosed braces, empty alternatives, no progress with ``{`` left,
             or limits exceeded.
@@ -113,6 +116,7 @@ def expand_prompt_wildcards(
     lim_chars = DEFAULT_MAX_EXPANDED_CHARS if max_chars is None else max_chars
     if not prompt:
         return prompt
+    prompt = unicodedata.normalize("NFKC", prompt)
     if "{" not in prompt:
         return prompt
     r = rng if rng is not None else random.Random()

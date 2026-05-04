@@ -183,6 +183,17 @@
       border-radius: 4px;
       border: 1px solid var(--border);
     }
+    .expanded-prompts-note {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 0.35rem 0.35rem 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-sizing: border-box;
+    }
     /* Error strip — thin, above composer */
     #err {
       flex: 0 0 auto;
@@ -536,11 +547,12 @@
           <span id="busyElapsed" class="hint"></span>
         </div>
         <details class="busy-payload" open>
-          <summary>Exact request JSON (<code>POST /api/generate</code>)</summary>
-          <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON"></pre>
+          <summary class="busy-summary">Generate request JSON — POST /api/generate body</summary>
+          <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON body"></pre>
         </details>
       </div>
       <div id="results" class="results"></div>
+      <p id="expandedPromptsNote" class="expanded-prompts-note" hidden aria-live="polite"></p>
     </div>
   </div>
 
@@ -555,7 +567,7 @@
       <div class="composer-input-row">
         <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
         <div class="split-run-gen" role="group" aria-label="Runs, generate, or stop">
-          <select id="generations" autocomplete="off" aria-label="Runs" title="Separate generations (wildcards re-roll each run)">
+          <select id="generations" autocomplete="off" aria-label="Runs" title="Runs — each run sends one entry from the expanded prompts array (see request JSON)">
             {% for n in range(1, 26) %}
             <option value="{{ n }}"{% if n == 1 %} selected{% endif %}>{{ n }}</option>
             {% endfor %}
@@ -721,6 +733,33 @@ uv run dts-util server check</pre>
     return parts;
   }
 
+  function decodeExpandedWildcardsHeader(b64) {
+    if (!b64 || typeof b64 !== "string") return null;
+    try {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const json = new TextDecoder().decode(bytes);
+      const o = JSON.parse(json);
+      if (!o || typeof o !== "object") return null;
+      if (!Array.isArray(o.prompts) || !Array.isArray(o.negative_prompts)) return null;
+      return o;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function formatExpandedWildcardsNote(exp) {
+    const lines = [];
+    for (let i = 0; i < exp.prompts.length; i++) {
+      let line = "Run " + (i + 1) + ": " + String(exp.prompts[i]);
+      const neg = exp.negative_prompts[i];
+      if (neg && String(neg).trim()) line += "\n  Negative: " + String(neg);
+      lines.push(line);
+    }
+    return "Expanded prompts (sent to Draw Things):\n\n" + lines.join("\n\n");
+  }
+
   function formatListenerLine(j) {
     const probe = j.probe ? " (" + j.probe + ")" : "";
     if (j.listener_ok)
@@ -807,13 +846,12 @@ uv run dts-util server check</pre>
     return body;
   }
 
-  /** Full JSON body as sent to POST /api/generate (same strings as UI; server expands {…} wildcards per RPC). */
-  function buildGenerateRequestBody(prompt, generations) {
+  /** Full JSON body for POST /api/generate after wildcards are resolved server-side. */
+  function buildResolvedGenerateBody(expanded, generations) {
     const shared = document.getElementById("sharedSecret").value.trim();
-    const neg = document.getElementById("neg").value;
     const body = Object.assign(connectionPayload(), {
-      prompt,
-      negative_prompt: neg,
+      prompts: expanded.prompts,
+      negative_prompts: expanded.negative_prompts,
       configuration: effectiveProfile(),
       generations,
     });
@@ -992,6 +1030,11 @@ uv run dts-util server check</pre>
     errEl.style.display = "none";
     revokeResultBlobUrls();
     results.innerHTML = "";
+    var expNoteClear = document.getElementById("expandedPromptsNote");
+    if (expNoteClear) {
+      expNoteClear.hidden = true;
+      expNoteClear.textContent = "";
+    }
     btnGen.disabled = true;
     const t0 = performance.now();
     elapsed.textContent = "";
@@ -1015,12 +1058,45 @@ uv run dts-util server check</pre>
     var generations = parseInt(runsEl.value, 10);
     if (!Number.isFinite(generations) || generations < 1) generations = 1;
     if (generations > 25) generations = 25;
-    const body = buildGenerateRequestBody(prompt, generations);
-    const payloadPreview = formatGenerateBodyForDisplay(body);
 
-    setGeneratingUi(true, t0, timerRef, payloadPreview);
+    setGeneratingUi(true, t0, timerRef, "");
 
     try {
+      const expandRes = await fetch("/api/prompt/expand", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          prompt,
+          negative_prompt: document.getElementById("neg").value,
+          count: generations,
+        }),
+        signal: ac.signal,
+      });
+
+      if (expandRes.status === 401) {
+        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      if (!expandRes.ok) {
+        let msg = expandRes.statusText;
+        try {
+          const ej = await expandRes.json();
+          msg = ej.detail || msg;
+        } catch (_) {}
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      const expanded = await expandRes.json();
+      const body = buildResolvedGenerateBody(expanded, generations);
+      const payloadPreview = formatGenerateBodyForDisplay(body);
+      setGeneratingUi(true, t0, timerRef, payloadPreview);
+
       const r = await fetch("/api/generate", {
         method: "POST",
         headers: authHeaders({ "Content-Type": "application/json", "Accept": "multipart/mixed,*/*" }),
@@ -1073,6 +1149,17 @@ uv run dts-util server check</pre>
           wrap.appendChild(a);
           results.appendChild(wrap);
         });
+        var expNote = document.getElementById("expandedPromptsNote");
+        if (expNote) {
+          var exp = decodeExpandedWildcardsHeader(r.headers.get("X-Expanded-Wildcards-B64"));
+          if (exp && exp.prompts.length) {
+            expNote.hidden = false;
+            expNote.textContent = formatExpandedWildcardsNote(exp);
+          } else {
+            expNote.hidden = true;
+            expNote.textContent = "";
+          }
+        }
       } else {
         errEl.textContent = "Unexpected response " + ct;
         errEl.style.display = "block";

@@ -20,8 +20,8 @@ This document is the **human-readable layout contract** for the loopback web UI.
 ├─────────────────────────────────────────────────────────┤
 │  (optional error strip #err)                             │
 ├─────────────────────────────────────────────────────────┤
-│  Prompt [ textarea……………………………………… ]  [ Generate ]        │
-│                      ⌘↵ / Ctrl+Enter hint    elapsed     │
+│  Prompt [ textarea……………………………………… ]  Runs [#]  [ Generate ] │
+│                      ⌘↵ / Ctrl+Enter hint          #elapsed       │
 └─────────────────────────────────────────────────────────┘
 
 Setup → modal dialog #toolsDialog:
@@ -35,17 +35,17 @@ History → modal dialog #historyDialog (#historyList, Clear all / Close):
 
 ## Interactive mock (Cursor Canvas)
 
-The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) shows an **older stacked layout** (connection above prompt). The **shipped** UI is **stage + composer + Setup dialog** as in the wireframe above.
+The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is kept **in sync with the shipped template** ([`index.html.j2`](../src/dts_util/web/templates/index.html.j2)): stage-first viewport, Setup + History FABs, footer composer (**Prompt**, **Runs** / `#generations`, **Generate**, **elapsed**), and collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
 
-Cursor can still render the canvas for experimentation:
+Cursor can render it beside the chat:
 
-1. **Command Palette** (`Cmd+Shift+P` / `Ctrl+Shift+P`) → run **Open Canvas** → pick **`dts-util-web-humane-layout`** if listed.
+1. **Command Palette** (`Cmd+Shift+P` / `Ctrl+Shift+P`) → **Open Canvas** → **`dts-util-web-humane-layout`**.
 
 2. Or open the IDE canvases path:
 
    `~/.cursor/projects/Users-coj-alt-sync-src-dts-utils/canvases/dts-util-web-humane-layout.canvas.tsx`
 
-3. **Same file in-repo** (for diff/review): [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx)
+3. **In-repo copy** (diff/review): [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx)
 
 ---
 
@@ -57,7 +57,7 @@ Cursor can still render the canvas for experimentation:
 | Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` |
 | History | `#btnOpenHistory` — stacked below setup FAB, opens `#historyDialog` |
 | Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
-| Composer | `#prompt`, `#btnGen`, `#elapsed` |
+| Composer | `#prompt`, `#generations` (Runs), `#btnGen`, `#elapsed`; shortcut hint beside Prompt label |
 | Errors | `#err` (`role="alert"`), thin strip above composer |
 | Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
 | History dialog | `#historyDialog` — `#historyList`, `#btnClearHistory`, `#btnCloseHistory` |

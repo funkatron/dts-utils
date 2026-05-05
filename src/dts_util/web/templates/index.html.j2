@@ -168,14 +168,15 @@
       .spinner { animation: none; border-top-color: var(--border); }
     }
     .results {
-      --result-col-max: min(40rem, 100%);
-      display: grid;
-      grid-template-columns: minmax(0, var(--result-col-max));
+      display: flex;
+      flex-wrap: wrap;
       justify-content: center;
-      align-items: start;
+      align-content: flex-start;
+      align-items: flex-start;
       gap: 0.85rem;
       width: 100%;
-      margin: 0 auto;
+      max-width: min(100%, 76rem);
+      margin-inline: auto;
       flex: 0 1 auto;
       min-height: 0;
     }
@@ -185,13 +186,15 @@
       align-items: center;
       justify-content: center;
       gap: 0.35rem;
-      width: 100%;
+      box-sizing: border-box;
+      flex: 1 1 16rem;
+      max-width: min(22rem, 100%);
+      min-width: min(14rem, 100%);
       min-height: 0;
       padding: 0.5rem;
       background: rgba(34, 35, 40, 0.36);
       border: 1px solid var(--border);
       border-radius: 6px;
-      box-sizing: border-box;
     }
     .results img {
       display: block;
@@ -220,7 +223,7 @@
     .expanded-prompts-panel {
       flex: 0 1 auto;
       width: 100%;
-      max-width: min(40rem, 100%);
+      max-width: min(76rem, 100%);
       margin-left: auto;
       margin-right: auto;
       padding: 0.55rem 0.65rem;

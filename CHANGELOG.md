@@ -39,9 +39,21 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-05-05
+
+### Tested with
+
+- **gRPCServerCLI:** not smoke-tested for this tag.
+- **pytest:** 205 passed, 6 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+
 ### Added
 
-- **Web UI:** history rows now include a **Reuse** action that restores a prior prompt to the composer; new browser history entries may also restore the negative prompt and run count when those fields are still clean.
+- **`dts-util web`:** History rows include **Reuse** — restores prompt (and negative prompt / run count when stored) to the composer.
+
+### Changed
+
+- **`dts-util web`:** Results layout — fixed missing **`img`** constraints (CSS), card-style thumbnails, bounded image height; expanded prompts shown **per run** in a scrollable panel instead of one wall of text; idle/busy centering when no thumbnails yet; slightly taller prompt textarea.
+- **Docs:** [CLI.md](CLI.md) — removed redundant “If you only run one command…” lines before example blocks.
 
 ## [0.4.1] - 2026-05-05
 

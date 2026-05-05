@@ -102,8 +102,6 @@ On `localhost` / loopback, the default probe tries **TLS** with the server-prese
 
 Lists gRPC services and methods exposed through server reflection.
 
-If you only run one command, run this:
-
 ```bash
 uv run dts-util reflect --trust-server-cert
 ```
@@ -126,8 +124,6 @@ Draw Things often builds `gRPCServerCLI` without gRPC reflection. `reflect` may 
 ### configs
 
 Shows and lists saved Draw Things JSON generation configurations.
-
-If you only run one command, run this:
 
 ```bash
 uv run dts-util configs path
@@ -229,8 +225,6 @@ LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer l
 ### generate
 
 Sends a prompt through the upstream Draw Things streaming gRPC API and writes PNG output.
-
-If you only run one explicit `generate` command, run this:
 
 ```bash
 uv run dts-util generate \

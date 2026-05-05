@@ -39,6 +39,20 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-05
+
+### Tested with
+
+- **gRPCServerCLI:** not smoke-tested for this tag.
+- **pytest:** 203 passed, 6 skipped (maintainer, local; unchanged from 0.4.0 expectation). **CI:** `pytest` on Ubuntu (`ci.yml`).
+
+### Changed
+
+- **Docs:** [CLI.md](CLI.md) — task-first navigation table; web HTTP/SSE as tables; removed duplicate generate section; **`DTS_WEB_*`** in environment table.
+- **Docs:** [CHANGELOG.md](CHANGELOG.md) — reader vs maintainer framing; maintainer checklist anchor; tighter **0.4.0** notes.
+- **Docs:** [README.md](README.md), [docs/README.md](docs/README.md), [PROTOBUF.md](PROTOBUF.md) — updated cross-links.
+- **Docstrings:** clearer wording for prompt wildcard preview (`expand_prompt_templates_for_batch`, `/api/prompt/expand` handler).
+
 ## [0.4.0] - 2026-04-28
 
 ### Tested with

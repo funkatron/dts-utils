@@ -24,9 +24,18 @@ Example:
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-28
+
+### Tested with
+
+- **gRPCServerCLI:** not smoke-tested for this tag. **pytest:** 203 passed, 6 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+
 ### Added
 
 - **`dts-util web`:** loopback web UI (prompt-first generation via HTTP → gRPC). Dependencies: Starlette, Jinja2, uvicorn. Optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`); optional `DTS_WEB_GENERATE_TIMEOUT`. See [CLI.md](CLI.md#web-dts-util-web).
+- **Streaming generation API:** **`POST /api/generate/stream`** (`text/event-stream`, SSE). Events: **`meta`**, **`progress`** (once per generation run), **`image`** (standard base64 PNG; multiple per run if the server returns several tensors), **`done`**, or **`error`**. The browser UI uses streaming for run progress and in-flight thumbnails; **`POST /api/generate`** remains **`multipart/mixed`** for clients that want all PNG parts at once.
+- **`POST /api/prompt/expand`:** optional pre-expand of `{…}` wildcards (same RNG semantics as per-RPC expansion).
+- **Docs:** [CLI.md](CLI.md) — SSE contract, multipart vs stream, timeout/cancel semantics (multipart **499** / **504** vs SSE **`error`**), bounded SSE queue (**64**) / slow-client backpressure.
 - **Docs:** [docs/web-ui-layout.md](docs/web-ui-layout.md) — `dts-util web` humane layout wireframe, DOM map, how to open the Cursor Canvas mockup; canvas source under [docs/design/](docs/design/dts-util-web-humane-layout.canvas.tsx).
 
 ### Fixed
@@ -39,6 +48,7 @@ Example:
 
 - **`dts-util web`:** floating **Setup** FAB (top-right, sliders icon) opens connection/profile dialog; product label `dts-util web` is `.sr-only` on the main screen.
 - **`dts-util web`:** **⌘↵** / **Ctrl+Enter** submits generation from the prompt; **History** FAB opens past runs (PNG thumbnails + downloads, **localStorage**, capped); **Clear all** wipes stored history.
+- **`DTS_WEB_GENERATE_TIMEOUT`:** applies to **`POST /api/generate/stream`** as well as multipart generate (SSE **`error`** with detail **`Generation timed out.`**). After timeout the handler drains the bounded SSE queue so the worker does not wedge when the queue is full; cooperative cancel still applies **between** batch runs (not mid–single RPC).
 - **Implicit shorthand profile:** default saved name is **`zit`** (`zit.json`). If missing, a starter JSON is created there. **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`** replaces **`"default"`**.
 - **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior. [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) includes optional **`dts-util web`** steps next to `generate` / shorthand.
 - **Docs:** [AGENTS.md](AGENTS.md) and [docs/README.md](docs/README.md) — agent conventions and operator documentation map; README shorthand section renamed to **Shorthand profile (zit)**.

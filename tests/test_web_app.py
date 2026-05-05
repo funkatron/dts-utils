@@ -39,6 +39,26 @@ def test_index_loads(client: TestClient) -> None:
     assert "/api/generate/stream" in r.text
 
 
+def test_index_history_rows_can_reuse_prompt(client: TestClient) -> None:
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Reuse" in r.text
+    assert "restoreHistoryEntryToComposer(entry)" in r.text
+    assert 'reuse.setAttribute("aria-label", "Reuse prompt from history")' in r.text
+    assert 'promptEl.value = String(entry.prompt || "")' in r.text
+
+
+def test_index_history_contract_stores_optional_reuse_metadata(client: TestClient) -> None:
+    r = client.get("/")
+    assert r.status_code == 200
+    assert 'var HISTORY_KEY = "dts_web_gen_history_v1"' in r.text
+    assert "item.negative_prompt = cleanNegativePrompt.slice(0, 4000)" in r.text
+    assert "item.generations = cleanGenerations" in r.text
+    assert 'negEl.value.trim() === ""' in r.text
+    assert 'runsEl.value === "1"' in r.text
+    assert 'historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers)' in r.text
+
+
 def test_server_status_without_token(client: TestClient) -> None:
     r = client.get("/api/server-status", params={"host": "localhost", "port": "7859", "no_tls": "false"})
     assert r.status_code == 200

@@ -494,6 +494,24 @@
       font-size: 0.8rem;
     }
     .history-dl a { color: var(--accent); }
+    .history-actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.65rem;
+      margin-top: 0.5rem;
+    }
+    .history-actions button {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--fg);
+      padding: 0.3rem 0.55rem;
+      font: inherit;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .history-actions button:hover { border-color: var(--muted); }
     .dialog-actions-split {
       padding: 0.65rem 1rem;
       border-top: 1px solid var(--border);
@@ -678,6 +696,7 @@ uv run dts-util server check</pre>
       <h2 id="history-dialog-title">Generation history</h2>
       <p class="hint" style="margin-top:0">Saved in this browser only (localStorage). Not synced.</p>
       <div id="historyList" class="history-list"></div>
+      <p id="historyStatus" class="hint" aria-live="polite"></p>
     </div>
     <div class="dialog-actions-split">
       <button type="button" class="btn-danger-ghost" id="btnClearHistory">Clear all</button>
@@ -931,25 +950,80 @@ uv run dts-util server check</pre>
     }
   }
 
-  function historyAppend(promptText, pngArrayBuffers) {
+  function coerceHistoryGenerations(value) {
+    var n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    if (n > 25) return null;
+    return n;
+  }
+
+  function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers) {
     if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
     var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
-    var state = loadHistoryState();
-    state.items.unshift({
+    var item = {
       id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9),
       ts: Date.now(),
       prompt: promptText.slice(0, 4000),
       images: images,
-    });
+    };
+    var cleanNegativePrompt = String(negativePromptText || "").trim();
+    if (cleanNegativePrompt) item.negative_prompt = cleanNegativePrompt.slice(0, 4000);
+    var cleanGenerations = coerceHistoryGenerations(generations);
+    if (cleanGenerations) item.generations = cleanGenerations;
+    var state = loadHistoryState();
+    state.items.unshift(item);
     while (state.items.length > HISTORY_MAX_ITEMS) state.items.pop();
     saveHistoryState(state);
     renderHistoryList();
+  }
+
+  function restoreHistoryEntryToComposer(entry) {
+    var promptEl = document.getElementById("prompt");
+    var negEl = document.getElementById("neg");
+    var runsEl = document.getElementById("generations");
+    var statusEl = document.getElementById("historyStatus");
+    var restoredOptional = [];
+
+    promptEl.value = String(entry.prompt || "");
+
+    if (
+      negEl &&
+      typeof entry.negative_prompt === "string" &&
+      entry.negative_prompt.trim() &&
+      negEl.value.trim() === ""
+    ) {
+      negEl.value = entry.negative_prompt;
+      restoredOptional.push("negative prompt");
+    }
+
+    var entryGenerations = coerceHistoryGenerations(entry.generations);
+    if (runsEl && entryGenerations && runsEl.value === "1") {
+      runsEl.value = String(entryGenerations);
+      restoredOptional.push("runs");
+    }
+
+    if (statusEl) {
+      statusEl.textContent = restoredOptional.length
+        ? "Restored prompt, " + restoredOptional.join(", ") + "."
+        : "Restored prompt.";
+    }
+
+    var dlg = document.getElementById("historyDialog");
+    if (dlg && typeof dlg.close === "function") dlg.close();
+    window.setTimeout(function () {
+      promptEl.focus();
+      try {
+        promptEl.setSelectionRange(promptEl.value.length, promptEl.value.length);
+      } catch (e) {}
+    }, 0);
   }
 
   function renderHistoryList() {
     var root = document.getElementById("historyList");
     if (!root) return;
     root.innerHTML = "";
+    var statusEl = document.getElementById("historyStatus");
+    if (statusEl) statusEl.textContent = "";
     var state = loadHistoryState();
     if (state.items.length === 0) {
       var empty = document.createElement("p");
@@ -989,6 +1063,17 @@ uv run dts-util server check</pre>
         dl.appendChild(a);
       });
       row.appendChild(dl);
+      var actions = document.createElement("div");
+      actions.className = "history-actions";
+      var reuse = document.createElement("button");
+      reuse.type = "button";
+      reuse.textContent = "Reuse";
+      reuse.setAttribute("aria-label", "Reuse prompt from history");
+      reuse.addEventListener("click", function () {
+        restoreHistoryEntryToComposer(entry);
+      });
+      actions.appendChild(reuse);
+      row.appendChild(actions);
       root.appendChild(row);
     });
   }
@@ -1255,7 +1340,9 @@ uv run dts-util server check</pre>
         im.classList.remove("result-inflight");
       });
 
-      if (historyBuffers.length) historyAppend(prompt, historyBuffers);
+      if (historyBuffers.length) {
+        historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers);
+      }
 
       var expNote = document.getElementById("expandedPromptsNote");
       if (expNote && donePayload && donePayload.expanded_prompts && donePayload.expanded_prompts.length) {

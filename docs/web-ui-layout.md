@@ -29,7 +29,8 @@ Setup → modal dialog #toolsDialog:
   Connection row, status line, profile, advanced <details>, CLI footer
 
 History → modal dialog #historyDialog (#historyList, Clear all / Close):
-  Recent PNG generations (browser localStorage only); per-image download links
+  Recent PNG generations (browser localStorage only); Reuse restores the prompt
+  to the composer; per-image download links remain available
 ```
 
 ---
@@ -61,7 +62,12 @@ Cursor can render it beside the chat:
 | Composer | `#prompt` + `.split-run-gen` (`#generations`, `#btnGen`, **`#btnStop`** replaces Generate while busy) — split stretches to textarea height; `#elapsed` below. Shortcut hint above |
 | Errors | `#err` (`role="alert"`), thin strip above composer |
 | Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
-| History dialog | `#historyDialog` — `#historyList`, `#btnClearHistory`, `#btnCloseHistory` |
+| History dialog | `#historyDialog` — `#historyList`, row-level Reuse buttons, `#historyStatus`, `#btnClearHistory`, `#btnCloseHistory` |
+
+## History storage
+
+History is stored in browser `localStorage` under `dts_web_gen_history_v1`.
+Legacy entries with `{ id, ts, prompt, images }` remain valid and restore the prompt only. New entries may also include `negative_prompt` and `generations`; Reuse fills those fields only when the current composer values are still clean (`#neg` blank and `#generations` still `1`).
 
 ---
 

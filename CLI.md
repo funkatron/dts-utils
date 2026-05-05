@@ -218,7 +218,7 @@ One line per event: `data: <json>\n\n`.
 - **⌘↵** (macOS) or **Ctrl+Enter**: Generate from the prompt.
 - **Stop**: **`POST /api/generate/cancel`** + abort fetch; cancel applies between runs (see above).
 - Busy panel shows the JSON sent to **`/api/generate/stream`** (`shared_secret` redacted in the preview).
-- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs in **localStorage** with download links; **Clear all** wipes storage.
+- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs in **localStorage** with download links and a **Reuse** action that restores the prompt to the composer. New history entries may also store `negative_prompt` and `generations`; Reuse applies those only when the current negative prompt is blank and runs is still `1`. **Clear all** wipes storage.
 
 LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer links to the README quickstart.
 

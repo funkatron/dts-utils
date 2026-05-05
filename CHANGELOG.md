@@ -39,6 +39,10 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+### Added
+
+- **Web UI:** history rows now include a **Reuse** action that restores a prior prompt to the composer; new browser history entries may also restore the negative prompt and run count when those fields are still clean.
+
 ## [0.4.1] - 2026-05-05
 
 ### Tested with
@@ -179,4 +183,3 @@ Example snippet for the next release:
 - Improved error handling in `handle_grpc_error`
   - Simplified error code checking
   - Better handling of missing `code()` methods
-

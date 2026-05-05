@@ -378,7 +378,11 @@ def _run_generate(
 
 
 async def api_prompt_expand(request: Request) -> JSONResponse:
-    """Expand `{…}` wildcards without generating (same RNG semantics as each generation RPC)."""
+    """Expand `{…}` prompt templates without generating images.
+
+    Each returned expansion applies one random pass through the template—the same wildcard logic
+    used when sending a single generate request. Multiple expansions are independent rolls; they
+    are not seeded to match your next batch."""
     if err := _require_bearer(request):
         return err
     if request.method == "GET":

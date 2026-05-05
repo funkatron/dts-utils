@@ -5,22 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## Documenting `gRPCServerCLI` for each release
+---
 
-When you **cut a release** (promote items from `[Unreleased]` into `## [x.y.z] - YYYY-MM-DD`), add a **Tested with** subsection under that version. Record the Draw Things **`gRPCServerCLI`** build you used for **manual** smoke against a live server—normally the GitHub release **`tag_name`** from [draw-things-community](https://github.com/drawthingsai/draw-things-community/releases) (for example `v1.20250225.0`, the same sort of tag `dts-util server install` resolves when it prints “Found latest version”). If you ship without running a real server, say so explicitly (for example “unit tests only; not smoke-tested against gRPCServerCLI”) so downstream can gauge compatibility. **Concrete smoke commands:** see [tests/README.md](tests/README.md#manual-release-smoke).
+## Reading this file
 
-Example:
+| Audience | What to do |
+| --- | --- |
+| **Users / downstream** | Read **`[Unreleased]`** (upcoming) and the latest **`## [version]`** block for shipped behavior. |
+| **Maintainers cutting a tag** | Move bullets from **`[Unreleased]`** into a dated **`## [x.y.z] - YYYY-MM-DD`** section, add **`### Tested with`** (below), sync **`pyproject.toml`** `version`, then open an empty **`[Unreleased]`**. |
+
+---
+
+## Maintainer release checklist (`gRPCServerCLI`)
+
+Record which Draw Things **`gRPCServerCLI`** build you used for **manual** smoke (GitHub **`tag_name`** from [draw-things-community releases](https://github.com/drawthingsai/draw-things-community/releases), same sort of tag `dts-util server install` prints as “Found latest version”). If you ship **without** a live server, say so (e.g. “pytest + CI only; not smoke-tested against gRPCServerCLI”). Commands: [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
+
+Example snippet for the next release:
 
 ```markdown
-## [0.4.0] - YYYY-MM-DD
+## [0.5.0] - YYYY-MM-DD
 
 ### Tested with
 
 - **gRPCServerCLI:** `v…` — smoke on macOS: `server check`, `generate` (saved config), `reflect`
+- Or: **pytest:** … passed; **CI:** … ; **gRPCServerCLI:** not smoke-tested.
 
 ### Added
+
 - …
 ```
+
+---
 
 ## [Unreleased]
 
@@ -28,34 +43,33 @@ Example:
 
 ### Tested with
 
-- **gRPCServerCLI:** not smoke-tested for this tag. **pytest:** 203 passed, 6 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+- **gRPCServerCLI:** not smoke-tested for this tag.
+- **pytest:** 203 passed, 6 skipped (maintainer, local).
+- **CI:** `pytest` on Ubuntu (`ci.yml`).
 
 ### Added
 
-- **`dts-util web`:** loopback web UI (prompt-first generation via HTTP → gRPC). Dependencies: Starlette, Jinja2, uvicorn. Optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`); optional `DTS_WEB_GENERATE_TIMEOUT`. See [CLI.md](CLI.md#web-dts-util-web).
-- **Streaming generation API:** **`POST /api/generate/stream`** (`text/event-stream`, SSE). Events: **`meta`**, **`progress`** (once per generation run), **`image`** (standard base64 PNG; multiple per run if the server returns several tensors), **`done`**, or **`error`**. The browser UI uses streaming for run progress and in-flight thumbnails; **`POST /api/generate`** remains **`multipart/mixed`** for clients that want all PNG parts at once.
-- **`POST /api/prompt/expand`:** optional pre-expand of `{…}` wildcards (same RNG semantics as per-RPC expansion).
-- **Docs:** [CLI.md](CLI.md) — SSE contract, multipart vs stream, timeout/cancel semantics (multipart **499** / **504** vs SSE **`error`**), bounded SSE queue (**64**) / slow-client backpressure.
-- **Docs:** [docs/web-ui-layout.md](docs/web-ui-layout.md) — `dts-util web` humane layout wireframe, DOM map, how to open the Cursor Canvas mockup; canvas source under [docs/design/](docs/design/dts-util-web-humane-layout.canvas.tsx).
+- **`dts-util web`:** Loopback HTTP UI for prompt-first generation (Starlette, Jinja2, uvicorn). Optional **`DTS_WEB_TOKEN`** on `/api/*` except **`GET /api/health`**; optional **`DTS_WEB_GENERATE_TIMEOUT`**. Details: [CLI.md § web](CLI.md#web-dts-util-web).
+- **`POST /api/generate/stream`:** Server-sent events for thumbnails and batch progress; multipart **`POST /api/generate`** unchanged for batch/script clients.
+- **`POST /api/prompt/expand`:** Preview **`count`** wildcard expansions without generating (same rules as generate; each preview is an independent random pass—not locked to your next batch).
+- **Docs:** [CLI.md](CLI.md) — SSE vs multipart, cancel/timeout, queue/backpressure; [docs/web-ui-layout.md](docs/web-ui-layout.md) — UI wireframe and Canvas mockup ([docs/design/](docs/design/dts-util-web-humane-layout.canvas.tsx)).
 
 ### Fixed
 
-- **`dts-util web`:** profile dropdown failed to populate (JavaScript referenced an undefined `def`); `loadConfigs` now uses `default_profile` from `/api/configs` and falls back safely on errors or `401`.
-- **`server check` / `server test`:** probe loopback with **TLS** using the server-presented certificate (same idea as `--trust-server-cert`), then fall back to plaintext, so the check matches default Draw Things `gRPCServerCLI`. Use `server test --no-tls` when the server runs without TLS.
-- **Tests:** [test_grpc_server.py](tests/test_grpc_server.py) closes gRPC channels via context managers so teardown does not race connectivity polling (`PytestUnhandledThreadExceptionWarning` / “Channel closed” in background threads).
+- **`dts-util web`:** Profile dropdown referenced an undefined JS binding; config load uses `default_profile` and fails closed on errors/`401`.
+- **`server check` / `server test`:** TLS-first loopback probe (trust presented cert), then plaintext fallback—aligned with default Draw Things installs; use **`--no-tls`** when the server has no TLS.
+- **Tests:** gRPC tests close channels cleanly ([test_grpc_server.py](tests/test_grpc_server.py)) to avoid teardown races.
 
 ### Changed
 
-- **`dts-util web`:** floating **Setup** FAB (top-right, sliders icon) opens connection/profile dialog; product label `dts-util web` is `.sr-only` on the main screen.
-- **`dts-util web`:** **⌘↵** / **Ctrl+Enter** submits generation from the prompt; **History** FAB opens past runs (PNG thumbnails + downloads, **localStorage**, capped); **Clear all** wipes stored history.
-- **`DTS_WEB_GENERATE_TIMEOUT`:** applies to **`POST /api/generate/stream`** as well as multipart generate (SSE **`error`** with detail **`Generation timed out.`**). After timeout the handler drains the bounded SSE queue so the worker does not wedge when the queue is full; cooperative cancel still applies **between** batch runs (not mid–single RPC).
-- **Implicit shorthand profile:** default saved name is **`zit`** (`zit.json`). If missing, a starter JSON is created there. **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`** replaces **`"default"`**.
-- **Docs / smoke:** [README.md](README.md) troubleshooting and [tests/README.md](tests/README.md) note that `reflect` is often `UNIMPLEMENTED` on Draw Things; [tests/README.md](tests/README.md) describes TLS-first check behavior. [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) includes optional **`dts-util web`** steps next to `generate` / shorthand.
-- **Docs:** [AGENTS.md](AGENTS.md) and [docs/README.md](docs/README.md) — agent conventions and operator documentation map; README shorthand section renamed to **Shorthand profile (zit)**.
+- **`dts-util web`:** Setup FAB (connection/profile); ⌘↵ / Ctrl+Enter to generate; History FAB (**localStorage**, downloads, clear).
+- **`DTS_WEB_GENERATE_TIMEOUT`:** Applies to streaming SSE as well as multipart; timeout drains the SSE queue so workers do not wedge.
+- **Implicit shorthand profile:** Saved name **`zit`** / **`zit.json`** (replaces historical **`default`**); **`setdefault(..., "zit")`** for env visibility.
+- **Docs:** README / tests README — `reflect` often **`UNIMPLEMENTED`**; TLS-first check; optional **`dts-util web`** in manual smoke. [AGENTS.md](AGENTS.md), [docs/README.md](docs/README.md) map updates.
 
 ### Removed
 
-- **Console scripts:** `dtsutils` and `dts-utils` removed from `[project.scripts](pyproject.toml)`; use `dts-util` only (shorthand behavior unchanged).
+- **Console scripts:** **`dtsutils`** and **`dts-utils`** removed; entrypoint **`dts-util`** only.
 
 ## [0.3.3] - 2026-05-03
 
@@ -81,7 +95,7 @@ Example:
 
 ### Added
 
-- **Manual release smoke:** [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) defines the live-server CLI checklist (`server check`, `reflect`, `generate`); linked from [CHANGELOG.md](CHANGELOG.md#documenting-grpcservercli-for-each-release) and [PROTOBUF.md](PROTOBUF.md).
+- **Manual release smoke:** [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke) defines the live-server CLI checklist (`server check`, `reflect`, `generate`); linked from [CHANGELOG.md](CHANGELOG.md#maintainer-release-checklist-grpcservercli) and [PROTOBUF.md](PROTOBUF.md).
 
 ### Removed
 

@@ -1,6 +1,18 @@
 # dts-util CLI reference
 
-Reference for the `dts-util` command-line tool (flags, shorthand, environment variables). For install, TLS, and troubleshooting, use [README.md](README.md).
+Reference for the `dts-util` command-line tool (flags, shorthand, environment variables). Install, TLS overview, and troubleshooting: [README.md](README.md).
+
+## How to use this doc
+
+| If you want to… | Go to… |
+| --- | --- |
+| Run your first image from a prompt | [README.md § Quickstart](README.md#quickstart), then [Generate shorthand](#generate-shorthand-prompt-first) here |
+| Look up a flag or subcommand | [Available commands](#available-commands) |
+| Use the browser UI or HTTP API | [web (`dts-util web`)](#web-dts-util-web) |
+| Copy example commands | [Examples](#examples) |
+| Script-friendly env vars | [Environment variables](#environment-variables) |
+
+---
 
 ## Command structure
 
@@ -148,26 +160,69 @@ With `server install` (macOS): `uv run dts-util server install --export-tls-cert
 
 ### web (`dts-util web`)
 
-Runs a loopback-first web UI for prompt-first image generation. The browser talks HTTP to `dts-util`; the tool forwards to Draw Things over gRPC (same stack as `generate`).
+Loopback HTTP UI: the browser talks to `dts-util`; the tool calls Draw Things over gRPC (same idea as `dts-util generate`).
 
 ```bash
 uv run dts-util web [--bind ADDR] [--port N] [--open]
 ```
 
-- **Defaults:** bind `127.0.0.1`, HTTP port `8765`.
-- **`--open`:** open the default browser after the server starts (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`).
-- **Auth:** If **`DTS_WEB_TOKEN`** is set, all **`/api/*`** routes except **`GET /api/health`** require **`Authorization: Bearer <token>`**. Prefer loopback; binding more broadly without a token prints a **stderr warning**—set the token for mutating routes.
-- **Probe:** **`GET /api/server-status`** mirrors listener checks (`no_tls` query flag aligns with `server check --no-tls`). The message is **probe only**; generation can still fail (config, `flatc`, TLS mismatch).
-- **Generate (multipart):** **`POST /api/generate`** accepts JSON (`prompt`, optional `negative_prompt`, optional **`generations`** integer 1–25 default 1 for independent runs with fresh wildcard expansion each time, `configuration`, `host`, `port`, `no_tls`, `trust_server_cert`, `force_trust_server_cert`, `root_cert`, `shared_secret`, `config_dir`). Success responses are **`multipart/mixed`** PNG parts (all images concatenated). Response headers **`X-Generated-Count`** (PNG parts) and **`X-Generation-Runs`** (batch size). Errors return JSON `{"detail": "…"}` with the same actionable messages as the CLI where applicable.
-- **Generate (stream):** **`POST /api/generate/stream`** uses the **same JSON body and auth** as **`POST /api/generate`**. The response is **`text/event-stream`** (SSE). Each event is one line: `data: <json>\n\n`. Event types, in typical order:
-  - **`meta`**: `total_runs` (integer batch size).
-  - **`progress`**: `run` / `total_runs` (current generation RPC, 1-based). There is one **`progress`** per run; each run may emit multiple **`image`** events if the server returns more than one tensor.
-  - **`image`**: `run`, `index` (global counter across the batch), `png_b64` (standard base64 PNG bytes).
-  - **`done`**: `expanded_prompts`, `expanded_negative_prompts`, `total_images` — sent only when all runs finish without error.
-  - **`error`**: `detail` (string). Used for validation/generation failures or wall-clock timeout; there is no **`done`** after **`error`**. The UI uses this endpoint so progress and thumbnails can appear before the batch completes.
-- **Cancel:** **`POST /api/generate/cancel`** (JSON `{}`, same bearer auth as **`/api/generate`**) sets a cooperative cancel flag. The worker clears it when a new generation acquires the lock and checks the flag **between** batch iterations (`generations` loop). One long RPC cannot be split mid-flight; cancellation surfaces as **499** with JSON `{"detail": "…"}` when the worker stops before finishing all runs (**multipart**). For **streaming**, cancel between runs surfaces as an SSE **`error`** event (same cooperative semantics).
-- **Timeout:** Optional **`DTS_WEB_GENERATE_TIMEOUT`** (seconds, default `900`) caps wall-clock generation time for **`POST /api/generate`** (HTTP **504**) and for **`POST /api/generate/stream`** (SSE **`error`** with detail **`Generation timed out.`**). As with multipart, a timeout cannot abort a single gRPC call mid-flight; when the stream deadline elapses the handler emits that **`error`** and sets cooperative cancel so the worker can stop **between** runs after the in-flight RPC finishes. The stream endpoint uses a bounded queue (**64** pending SSE payloads); if the client reads slowly, generation blocks until space frees up (backpressure).
-- **Browser UI:** **⌘↵** (macOS) or **Ctrl+Enter** runs **Generate** from the prompt field (hammer icon). The UI calls **`POST /api/generate/stream`** so thumbnails and run progress can update during the batch. While a request is in flight, **Stop** (square icon) replaces **Generate**, calls **`POST /api/generate/cancel`**, and aborts the browser fetch; cooperative cancel applies between batch runs (see **Cancel** above). The busy stage shows **exact JSON** posted to **`/api/generate/stream`** (`shared_secret` redacted in the preview only). **Setup** is the building FAB (top-right); **History** is the clock FAB stacked below it — lists recent successful generations stored only in **localStorage** (this browser); each row has **Download** links for PNGs. **Clear all** removes that storage.
+#### Run / defaults
+
+| Item | Value |
+| --- | --- |
+| Bind | `127.0.0.1` by default |
+| HTTP port | `8765` |
+| `--open` | Open the default browser after startup (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`) |
+
+#### Auth and limits
+
+- **`DTS_WEB_TOKEN`:** When set, every **`/api/*`** route except **`GET /api/health`** requires **`Authorization: Bearer <token>`**. Prefer loopback; binding widely without a token prints a **stderr** warning—set the token for anything sensitive.
+- **`DTS_WEB_GENERATE_TIMEOUT`:** Optional seconds (default **900**). Caps wall-clock time for **`POST /api/generate`** (**504** JSON) and **`POST /api/generate/stream`** (SSE **`error`** with **`Generation timed out.`**). Cannot cancel a single gRPC mid-flight; timeout + cancel apply **between** batch runs after the current RPC returns.
+- **Slow clients (streaming only):** Up to **64** SSE payloads may buffer; if the reader stalls, generation waits until there is space (**backpressure**).
+
+#### HTTP endpoints
+
+**Probe:** **`GET /api/server-status`** checks for a listener (`no_tls` query matches `server check --no-tls`). Result is **probe only**—generation can still fail (bad config, missing `flatc`, TLS mismatch).
+
+**Generate — choose one response style:**
+
+| Endpoint | Response | Typical client |
+| --- | --- | --- |
+| **`POST /api/generate`** | **`multipart/mixed`** PNG parts + headers **`X-Generated-Count`**, **`X-Generation-Runs`** | Scripts that want all bytes at once |
+| **`POST /api/generate/stream`** | **`text/event-stream`** (SSE); browser UI | Live progress and thumbnails |
+
+Both use the **same JSON body and bearer rules**. Common keys (mirror CLI concepts; snake_case in JSON):
+
+`prompt`, `negative_prompt`, `generations` (1–25), optional `prompts` / `negative_prompts` arrays (length must match `generations`), `configuration`, `host`, `port`, `no_tls`, `trust_server_cert`, `force_trust_server_cert`, `root_cert`, `shared_secret`, `config_dir`.
+
+Errors return JSON `{"detail":"…"}` for bad requests; generation failures use the same messages as the CLI where applicable.
+
+**Other routes:**
+
+| Route | Purpose |
+| --- | --- |
+| **`POST /api/generate/cancel`** | Cooperative cancel between batch iterations (`{}` body). Multipart in-flight → HTTP **499**; streaming → SSE **`error`**. One long RPC cannot be interrupted mid-flight. |
+| **`POST /api/prompt/expand`** | **`count`** random expansions of `{…}` templates **without** generating—same wildcard rules as generate; previews are **not** tied to your next batch. **`GET`** describes the POST JSON shape. |
+| **`GET /api/configs`** | Saved profile names (used by the UI). |
+
+#### SSE events (`/api/generate/stream`)
+
+One line per event: `data: <json>\n\n`.
+
+| `type` | Meaning |
+| --- | --- |
+| **`meta`** | `total_runs` |
+| **`progress`** | `run`, `total_runs` (one event per generation RPC). |
+| **`image`** | `run`, `index` (global image counter), `png_b64`. Multiple **`image`** events per run if the server returns several tensors. |
+| **`done`** | `expanded_prompts`, `expanded_negative_prompts`, `total_images` — only after full success. |
+| **`error`** | `detail` — validation, RPC failure, cancel, or timeout. No **`done`** after **`error`**. |
+
+#### Browser UI (built-in page)
+
+- **⌘↵** (macOS) or **Ctrl+Enter**: Generate from the prompt.
+- **Stop**: **`POST /api/generate/cancel`** + abort fetch; cancel applies between runs (see above).
+- Busy panel shows the JSON sent to **`/api/generate/stream`** (`shared_secret` redacted in the preview).
+- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs in **localStorage** with download links; **Clear all** wipes storage.
 
 LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer links to the README quickstart.
 
@@ -196,7 +251,22 @@ Important options:
 - `--no-tls`: Plaintext gRPC when the server was installed with `--no-tls`.
 - `--max-message-mb N`: gRPC send/receive limits in MiB.
 - `--open`: Open written images with the platform default viewer.
-- **Prompt wildcards:** `{a|b}` picks one branch at random; `{a, b}` does the same when the block has no `|`. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP 400 from **`dts-util web`**). **`--generations N`** (CLI) or **`generations`** (web JSON) runs **N** separate RPCs; the template prompt is wildcard-expanded again on every run.
+- **Prompt wildcards:** Write **`{option A | option B}`** (or **`{option A, option B}`** when the block has no `|`). Each time a prompt is sent to the server, every `{…}` block picks **one** branch at random—so multi-image runs (**`--generations N`** or **`generations`** in JSON) **re-roll** the whole template for **each** image. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP **400** from **`dts-util web`**). Use **`POST /api/prompt/expand`** in the web server to sample expansions without generating.
+
+Explicit `generate` requires **`--configuration`** or **`--configuration-json`** (unlike shorthand, which can materialize **`zit.json`**).
+
+**Common tasks (explicit `generate`):**
+
+| Goal | Command | What you get |
+| --- | --- | --- |
+| Saved config | `uv run dts-util generate --prompt "…" --configuration portrait --trust-server-cert` | PNG under `./output` with default output naming |
+| Draw Things JSON file | `uv run dts-util generate --prompt "…" --configuration config.json --trust-server-cert` | PNG after JSON → FlatBuffer via [`flatc`](https://github.com/google/flatbuffers) |
+| Open result | `uv run dts-util generate --prompt "…" --configuration config.json --trust-server-cert --open` | PNG plus viewer launch |
+| Prebuilt FlatBuffer | `uv run dts-util generate --prompt "…" --configuration config.bin --trust-server-cert` | PNG without running `flatc` on JSON |
+| Pinned cert | `uv run dts-util generate --prompt "…" --configuration config.json --root-cert cert.pem` | TLS verified against a known PEM |
+| Remote diagnostic | `uv run dts-util generate --host gpu.local --prompt "…" --configuration config.json --force-trust-server-cert` | Trust-on-first-use for that host (MITM risk) |
+
+Prefer **`--root-cert`** off localhost. Use **`--force-trust-server-cert`** only when you cannot pin a cert and accept the risk for that connection.
 
 ### Generate shorthand (prompt-first)
 
@@ -260,37 +330,11 @@ uv run dts-util reflect --trust-server-cert
 uv run dts-util configs path
 uv run dts-util tls path
 uv run dts-util tls export
+uv run dts-util web --open
 uv run dts-util server restart
 uv run dts-util server restart --model-browser
 uv run dts-util server uninstall
 ```
-
-## Image generation
-
-If you only run one explicit generate invocation, run this:
-
-```bash
-uv run dts-util generate \
-  --prompt "a small robot painting clouds" \
-  --configuration portrait \
-  --trust-server-cert \
-  --open
-```
-
-Explicit `generate` requires `--configuration` or `--configuration-json` so the server receives FlatBuffer configuration bytes before streaming.
-
-**Common tasks (`generate`)**
-
-| Goal | Command | What you get |
-| --- | --- | --- |
-| Saved config | `uv run dts-util generate --prompt "…" --configuration portrait --trust-server-cert` | PNG under `./output` with default output naming |
-| Draw Things JSON file | `uv run dts-util generate --prompt "…" --configuration config.json --trust-server-cert` | PNG after JSON → FlatBuffer via [`flatc`](https://github.com/google/flatbuffers) |
-| Open result | `uv run dts-util generate --prompt "…" --configuration config.json --trust-server-cert --open` | PNG plus viewer launch |
-| Prebuilt FlatBuffer | `uv run dts-util generate --prompt "…" --configuration config.bin --trust-server-cert` | PNG without running `flatc` on JSON |
-| Pinned cert | `uv run dts-util generate --prompt "…" --configuration config.json --root-cert cert.pem` | TLS verified against a known PEM |
-| Remote diagnostic | `uv run dts-util generate --host gpu.local --prompt "…" --configuration config.json --force-trust-server-cert` | Trust-on-first-use for that host (MITM risk) |
-
-Prefer `--root-cert` off localhost. Use `--force-trust-server-cert` only when you cannot pin a cert and accept the risk for that connection.
 
 ## Environment variables
 
@@ -299,6 +343,8 @@ Prefer `--root-cert` off localhost. Use `--force-trust-server-cert` only when yo
 | `DRAW_THINGS_MODEL_PATH` | Default Draw Things models directory for `server install` (CLI `--model-path` overrides). Also used when guessing `model` in auto-created `zit.json`. |
 | `DTS_UTIL_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `zit` (via `setdefault`) when the tool materializes the implicit profile, unless you already exported another value. |
 | `DTS_UTIL_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `zit.json` the first time; overrides guessing from the models directory. |
+| `DTS_WEB_TOKEN` | When set, `dts-util web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
+| `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
 
 `DRAW_THINGS_MODEL_PATH` example:
 

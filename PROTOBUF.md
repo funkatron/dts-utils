@@ -132,7 +132,7 @@ The fake is a **mirror of a wire contract**, not the product. When Draw Things u
 - Update the **test servicer** so its behavior and types still match the messages clients send. Otherwise tests can stay green while real usage breaks.
 - Use the **optional real-server** run occasionally or on release branches to catch drift the fake cannot see (timing, TLS, streaming quirks, etc.).
 - **Pin or note** the Draw Things / proto revision you copied from (in commit messages or this doc) so the next bump is a deliberate step, not guesswork.
-- **Shipping `dts-util`:** each versioned release should list the **gRPCServerCLI** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see *Documenting `gRPCServerCLI` for each release*). A concrete **manual smoke** command list lives in [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
+- **Shipping `dts-util`:** each versioned release should list the **gRPCServerCLI** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see [Maintainer release checklist](CHANGELOG.md#maintainer-release-checklist-grpcservercli)). A concrete **manual smoke** command list lives in [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
 
 ## Practical Client Command
 

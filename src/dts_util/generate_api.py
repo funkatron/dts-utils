@@ -59,7 +59,11 @@ def expand_prompt_templates_for_batch(
     *,
     count: int,
 ) -> tuple[list[str], list[str]]:
-    """Expand `{…}` wildcards *count* times with independent RNG (same semantics as per-RPC expansion)."""
+    """Expand `{…}` templates *count* times—once per item—with independent random choices each time.
+
+    Matches generation behavior: each call uses `expand_prompt_wildcards` exactly as when building
+    a single image RPC (same brace rules and random picks per block). There is no shared random
+    state across iterations; preview batches behave like *count* separate expansions."""
     n = validate_batch_generations(count)
     neg_in = negative_prompt.strip()
     prompts_out: list[str] = []

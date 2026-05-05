@@ -9,12 +9,14 @@ import json
 import os
 import queue
 import secrets
+import shutil
 import threading
+import time
 from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response, StreamingResponse
+from starlette.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
@@ -23,6 +25,7 @@ from dts_util.configs import (
     configurations_dir,
     ensure_default_generation_json_config,
     list_configuration_names,
+    user_config_dir,
 )
 from dts_util.exceptions import (
     ChannelSetupError,
@@ -52,12 +55,15 @@ _generation_cancel_event = threading.Event()
 _DEFAULT_GENERATE_TIMEOUT = 900.0
 _ENV_GENERATE_TIMEOUT = "DTS_WEB_GENERATE_TIMEOUT"
 _ENV_WEB_TOKEN = "DTS_WEB_TOKEN"
+_ENV_HISTORY_DIR = "DTS_WEB_HISTORY_DIR"
 
 # Bound SSE chunks waiting on a slow client (producer blocks on put when full).
 _GENERATE_STREAM_QUEUE_MAXSIZE = 64
 
 # Some proxies cap individual header values; omit expanded-prompt metadata when larger.
 _MAX_EXPANDED_WILDCARDS_B64_LEN = 6000
+_HISTORY_MAX_ITEMS = 30
+_HISTORY_INDEX = "index.json"
 
 
 def _expanded_wildcards_b64(prompts: list[str], negatives: list[str]) -> str | None:
@@ -94,6 +100,98 @@ def _require_bearer(request: Request) -> JSONResponse | None:
     if auth != f"Bearer {expected}":
         return JSONResponse({"detail": "Unauthorized. Set Authorization: Bearer to match DTS_WEB_TOKEN."}, status_code=401)
     return None
+
+
+def _history_dir() -> Path:
+    override = os.environ.get(_ENV_HISTORY_DIR, "").strip()
+    if override:
+        return Path(override).expanduser()
+    return user_config_dir() / "web-history"
+
+
+def _history_index_path() -> Path:
+    return _history_dir() / _HISTORY_INDEX
+
+
+def _empty_history_state() -> dict[str, object]:
+    return {"version": 1, "items": []}
+
+
+def _load_history_state() -> dict[str, object]:
+    path = _history_index_path()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        return _empty_history_state()
+    if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+        return _empty_history_state()
+    return data
+
+
+def _save_history_state(state: dict[str, object]) -> None:
+    directory = _history_dir()
+    directory.mkdir(parents=True, exist_ok=True)
+    _history_index_path().write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _safe_history_id(raw: str) -> bool:
+    return bool(raw) and all(ch.isalnum() or ch in {"-", "_"} for ch in raw)
+
+
+def _coerce_history_generations(value: object) -> int | None:
+    try:
+        n = int(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return None
+    if n < 1 or n > 25:
+        return None
+    return n
+
+
+def _coerce_history_images(images_raw: object) -> list[bytes] | JSONResponse:
+    if not isinstance(images_raw, list):
+        return JSONResponse({"detail": "images must be an array of PNG base64 strings."}, status_code=400)
+    if len(images_raw) > 25:
+        return JSONResponse({"detail": "images cannot contain more than 25 entries."}, status_code=400)
+    images: list[bytes] = []
+    for i, image_raw in enumerate(images_raw):
+        if not isinstance(image_raw, str):
+            return JSONResponse({"detail": f"images[{i}] must be a base64 string."}, status_code=400)
+        try:
+            png = base64.b64decode(image_raw, validate=True)
+        except ValueError:
+            return JSONResponse({"detail": f"images[{i}] is not valid base64."}, status_code=400)
+        if not png.startswith(b"\x89PNG\r\n\x1a\n"):
+            return JSONResponse({"detail": f"images[{i}] is not a PNG."}, status_code=400)
+        images.append(png)
+    return images
+
+
+def _history_public_item(entry: dict[str, object]) -> dict[str, object]:
+    item_id = str(entry.get("id") or "")
+    images = entry.get("images") if isinstance(entry.get("images"), list) else []
+    out = dict(entry)
+    out["images"] = [
+        {
+            "url": f"/history/{item_id}/{str(name)}",
+            "download": str(name),
+        }
+        for name in images
+        if isinstance(name, str)
+    ]
+    return out
+
+
+def _cleanup_history_files(items: list[object]) -> None:
+    keep_ids = {str(item.get("id")) for item in items if isinstance(item, dict) and item.get("id")}
+    directory = _history_dir()
+    if not directory.is_dir():
+        return
+    for child in directory.iterdir():
+        if child.name == _HISTORY_INDEX:
+            continue
+        if child.is_dir() and child.name not in keep_ids:
+            shutil.rmtree(child, ignore_errors=True)
 
 
 def _multipart_png_response(
@@ -428,6 +526,76 @@ async def api_generate_cancel(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True, "cancel_requested": True})
 
 
+async def api_history(request: Request) -> JSONResponse:
+    if err := _require_bearer(request):
+        return err
+    if request.method == "GET":
+        state = _load_history_state()
+        items = state.get("items") if isinstance(state.get("items"), list) else []
+        return JSONResponse({"version": 1, "items": [_history_public_item(item) for item in items if isinstance(item, dict)]})
+
+    if request.method == "DELETE":
+        shutil.rmtree(_history_dir(), ignore_errors=True)
+        return JSONResponse(_empty_history_state())
+
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
+    if not isinstance(body, dict):
+        return JSONResponse({"detail": "Expected JSON object"}, status_code=400)
+
+    prompt = body.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        return JSONResponse({"detail": "prompt is required."}, status_code=400)
+    images = _coerce_history_images(body.get("images"))
+    if isinstance(images, JSONResponse):
+        return images
+
+    item_id = secrets.token_urlsafe(12).replace("-", "_")
+    item_dir = _history_dir() / item_id
+    item_dir.mkdir(parents=True, exist_ok=True)
+    image_names: list[str] = []
+    for i, png in enumerate(images, start=1):
+        name = f"generated-{i}.png"
+        (item_dir / name).write_bytes(png)
+        image_names.append(name)
+
+    entry: dict[str, object] = {
+        "id": item_id,
+        "ts": int(body.get("ts")) if isinstance(body.get("ts"), int) else int(time.time() * 1000),
+        "prompt": prompt.strip()[:4000],
+        "images": image_names,
+        "image_count": len(image_names),
+    }
+    negative_prompt = body.get("negative_prompt")
+    if isinstance(negative_prompt, str) and negative_prompt.strip():
+        entry["negative_prompt"] = negative_prompt.strip()[:4000]
+    generations = _coerce_history_generations(body.get("generations"))
+    if generations is not None:
+        entry["generations"] = generations
+
+    state = _load_history_state()
+    items = state.get("items") if isinstance(state.get("items"), list) else []
+    items.insert(0, entry)
+    del items[_HISTORY_MAX_ITEMS:]
+    state = {"version": 1, "items": items}
+    _save_history_state(state)
+    _cleanup_history_files(items)
+    return JSONResponse(_history_public_item(entry), status_code=201)
+
+
+async def history_image(request: Request) -> Response:
+    item_id = request.path_params.get("item_id", "")
+    filename = request.path_params.get("filename", "")
+    if not _safe_history_id(item_id) or filename.startswith(".") or "/" in filename or "\\" in filename:
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+    path = _history_dir() / item_id / filename
+    if not path.is_file() or path.suffix.lower() != ".png":
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+    return FileResponse(path, media_type="image/png", filename=filename)
+
+
 def _generate_stream_exception_payload(exc: BaseException) -> dict[str, object]:
     """Single SSE JSON payload for failures during streaming generation."""
     if isinstance(exc, ConfigurationError):
@@ -610,9 +778,11 @@ def create_app() -> Starlette:
         Route("/api/health", health, methods=["GET"]),
         Route("/api/server-status", server_status, methods=["GET"]),
         Route("/api/configs", api_configs, methods=["GET"]),
+        Route("/api/history", api_history, methods=["GET", "POST", "DELETE"]),
         Route("/api/prompt/expand", api_prompt_expand, methods=["GET", "POST"]),
         Route("/api/generate/cancel", api_generate_cancel, methods=["POST"]),
         Route("/api/generate/stream", api_generate_stream, methods=["POST"]),
         Route("/api/generate", api_generate, methods=["POST"]),
+        Route("/history/{item_id:str}/{filename:str}", history_image, methods=["GET"]),
     ]
     return Starlette(routes=routes)

@@ -218,7 +218,7 @@ One line per event: `data: <json>\n\n`.
 - **⌘↵** (macOS) or **Ctrl+Enter**: Generate from the prompt.
 - **Stop**: **`POST /api/generate/cancel`** + abort fetch; cancel applies between runs (see above).
 - Busy panel shows the JSON sent to **`/api/generate/stream`** (`shared_secret` redacted in the preview).
-- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs in **localStorage** with download links and a **Reuse** action that restores the prompt to the composer. New history entries may also store `negative_prompt` and `generations`; Reuse applies those only when the current negative prompt is blank and runs is still `1`. **Clear all** wipes storage.
+- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs saved by the web server under the dts-util config directory, with download links and a **Reuse** action that restores the prompt to the composer. New history entries may also store `negative_prompt` and `generations`; Reuse applies those only when the current negative prompt is blank and runs is still `1`. Existing browser **`localStorage`** history is imported the first time you open History. Set **`DTS_WEB_HISTORY_DIR`** to override the image/history storage directory. **Clear all** wipes web history files.
 
 LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer links to the README quickstart.
 
@@ -339,6 +339,7 @@ uv run dts-util server uninstall
 | `DTS_UTIL_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `zit.json` the first time; overrides guessing from the models directory. |
 | `DTS_WEB_TOKEN` | When set, `dts-util web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
+| `DTS_WEB_HISTORY_DIR` | Override where `dts-util web` stores history metadata and PNG files (default: `web-history` under the dts-util config directory). |
 
 `DRAW_THINGS_MODEL_PATH` example:
 

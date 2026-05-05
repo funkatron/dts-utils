@@ -52,11 +52,59 @@ def test_index_history_contract_stores_optional_reuse_metadata(client: TestClien
     r = client.get("/")
     assert r.status_code == 200
     assert 'var HISTORY_KEY = "dts_web_gen_history_v1"' in r.text
-    assert "item.negative_prompt = cleanNegativePrompt.slice(0, 4000)" in r.text
-    assert "item.generations = cleanGenerations" in r.text
+    assert 'fetch("/api/history"' in r.text
+    assert "migrateLegacyHistoryToServer" in r.text
     assert 'negEl.value.trim() === ""' in r.text
     assert 'runsEl.value === "1"' in r.text
-    assert 'historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers)' in r.text
+    assert 'await historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers)' in r.text
+
+
+def test_history_api_persists_png_files(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
+    client = TestClient(create_app())
+    png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\nfake").decode("ascii")
+
+    r = client.post(
+        "/api/history",
+        json={
+            "ts": 1234567890,
+            "prompt": "a saved prompt",
+            "negative_prompt": "blur",
+            "generations": 2,
+            "images": [png_b64],
+        },
+    )
+    assert r.status_code == 201
+    item = r.json()
+    assert item["prompt"] == "a saved prompt"
+    assert item["negative_prompt"] == "blur"
+    assert item["generations"] == 2
+    assert item["image_count"] == 1
+    assert item["images"][0]["url"].startswith("/history/")
+
+    listed = client.get("/api/history")
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["prompt"] == "a saved prompt"
+
+    image = client.get(item["images"][0]["url"])
+    assert image.status_code == 200
+    assert image.headers["content-type"] == "image/png"
+    assert image.content == b"\x89PNG\r\n\x1a\nfake"
+
+    cleared = client.delete("/api/history")
+    assert cleared.status_code == 200
+    assert client.get("/api/history").json()["items"] == []
+
+
+def test_history_api_rejects_non_png(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
+    client = TestClient(create_app())
+    r = client.post(
+        "/api/history",
+        json={"prompt": "x", "images": [base64.b64encode(b"not png").decode("ascii")]},
+    )
+    assert r.status_code == 400
+    assert "not a PNG" in r.json()["detail"]
 
 
 def test_server_status_without_token(client: TestClient) -> None:

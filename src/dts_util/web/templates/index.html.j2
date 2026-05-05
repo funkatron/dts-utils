@@ -80,7 +80,7 @@
       display: flex;
       align-items: stretch;
       justify-content: flex-start;
-      padding: 0.5rem 0.75rem 0.65rem;
+      padding: 0.75rem 1rem 0.85rem;
       overflow: auto;
     }
     #resultPane {
@@ -168,12 +168,12 @@
       .spinner { animation: none; border-top-color: var(--border); }
     }
     .results {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 1rem;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+      align-items: start;
+      gap: 0.75rem;
       width: 100%;
-      max-width: min(100%, 52rem);
+      max-width: min(100%, 72rem);
       margin: 0 auto;
       flex: 0 1 auto;
       min-height: 0;
@@ -182,12 +182,14 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.45rem;
+      justify-content: center;
+      gap: 0.35rem;
       width: 100%;
-      padding: 0.65rem 0.75rem;
-      background: rgba(34, 35, 40, 0.6);
+      min-height: 0;
+      padding: 0.5rem;
+      background: rgba(34, 35, 40, 0.36);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 6px;
       box-sizing: border-box;
     }
     .results img {
@@ -195,9 +197,9 @@
       max-width: 100%;
       width: auto;
       height: auto;
-      max-height: min(42vh, 400px);
+      max-height: min(58vh, 620px);
       object-fit: contain;
-      border-radius: 6px;
+      border-radius: 4px;
       border: 1px solid var(--border);
     }
     .results img.result-inflight {
@@ -217,23 +219,30 @@
     .expanded-prompts-panel {
       flex: 0 1 auto;
       width: 100%;
-      max-width: min(100%, 52rem);
+      max-width: min(100%, 72rem);
       margin: 0 auto;
-      padding: 0.75rem 1rem 1rem;
+      padding: 0.55rem 0.65rem;
       background: var(--panel);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 6px;
       box-sizing: border-box;
+      max-height: min(26vh, 13rem);
+      overflow-y: auto;
     }
     .expanded-prompts-panel .expanded-prompts-title {
-      font-size: 0.78rem;
+      position: sticky;
+      top: -0.55rem;
+      z-index: 1;
+      padding: 0.45rem 0 0.35rem;
+      background: var(--panel);
+      font-size: 0.72rem;
       font-weight: 600;
       color: var(--fg);
-      margin: 0 0 0.65rem;
+      margin: 0 0 0.35rem;
     }
     .expanded-prompts-panel .expanded-run {
-      margin-bottom: 0.75rem;
-      padding-bottom: 0.75rem;
+      margin-bottom: 0.5rem;
+      padding-bottom: 0.5rem;
       border-bottom: 1px solid var(--border);
     }
     .expanded-prompts-panel .expanded-run:last-child {
@@ -242,28 +251,24 @@
       border-bottom: none;
     }
     .expanded-prompts-panel .expanded-run-label {
-      font-size: 0.65rem;
+      font-size: 0.62rem;
       text-transform: uppercase;
-      letter-spacing: 0.05em;
+      letter-spacing: 0;
       color: var(--muted);
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.2rem;
     }
     .expanded-prompts-panel .expanded-run-label.neg {
       margin-top: 0.45rem;
     }
     .expanded-prompts-panel .expanded-run-text {
       margin: 0;
-      padding: 0.45rem 0.55rem;
+      padding: 0;
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.68rem;
+      font-size: 0.64rem;
       line-height: 1.45;
       white-space: pre-wrap;
       word-break: break-word;
-      background: #25262b;
-      border-radius: 4px;
       color: var(--fg);
-      max-height: min(26vh, 11rem);
-      overflow-y: auto;
     }
     /* Error strip — thin, above composer */
     #err {
@@ -278,7 +283,7 @@
     /* Bottom composer: prompt row + split Runs | Generate */
     .composer {
       flex: 0 0 auto;
-      padding: 0.55rem 0.75rem 0.65rem;
+      padding: 0.45rem 0.75rem 0.55rem;
       border-top: 1px solid var(--border);
       background: var(--bg);
     }
@@ -310,10 +315,10 @@
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
-      min-height: 3.25rem;
-      max-height: min(38vh, 15rem);
+      min-height: 2.85rem;
+      max-height: min(30vh, 12rem);
       resize: vertical;
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       line-height: 1.35;
       background: #25262b;
       border: 1px solid var(--border);
@@ -330,7 +335,7 @@
       display: flex;
       flex-direction: row;
       align-items: stretch;
-      min-height: 3.25rem;
+      min-height: 2.85rem;
       border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
@@ -756,7 +761,7 @@ uv run dts-util server check</pre>
   <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title" inert>
     <div class="history-dialog-inner">
       <h2 id="history-dialog-title">Generation history</h2>
-      <p class="hint" style="margin-top:0">Saved in this browser only (localStorage). Not synced.</p>
+      <p class="hint" style="margin-top:0">Saved by this web server. Not synced.</p>
       <div id="historyList" class="history-list"></div>
       <p id="historyStatus" class="hint" aria-live="polite"></p>
     </div>
@@ -983,8 +988,6 @@ uv run dts-util server check</pre>
   }
 
   var HISTORY_KEY = "dts_web_gen_history_v1";
-  var HISTORY_MAX_ITEMS = 30;
-  var HISTORY_SOFT_CHARS = 4 * 1024 * 1024;
 
   /** Blob URLs from the current result pane; must revoke before dropping DOM or each leaks until tab exit. */
   var __dtsResultBlobUrls = [];
@@ -1006,7 +1009,7 @@ uv run dts-util server check</pre>
     return btoa(bin);
   }
 
-  function loadHistoryState() {
+  function loadLegacyHistoryState() {
     try {
       var s = localStorage.getItem(HISTORY_KEY);
       if (!s) return { version: 1, items: [] };
@@ -1018,22 +1021,6 @@ uv run dts-util server check</pre>
     }
   }
 
-  function saveHistoryState(state) {
-    var str = JSON.stringify(state);
-    while (str.length > HISTORY_SOFT_CHARS && state.items.length > 1) {
-      state.items.pop();
-      str = JSON.stringify(state);
-    }
-    try {
-      localStorage.setItem(HISTORY_KEY, str);
-    } catch (e) {
-      state.items = state.items.slice(0, Math.max(1, Math.floor(state.items.length / 2)));
-      try {
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(state));
-      } catch (e2) {}
-    }
-  }
-
   function coerceHistoryGenerations(value) {
     var n = parseInt(value, 10);
     if (!Number.isFinite(n) || n < 1) return null;
@@ -1041,24 +1028,53 @@ uv run dts-util server check</pre>
     return n;
   }
 
-  function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers) {
+  async function migrateLegacyHistoryToServer() {
+    var legacy = loadLegacyHistoryState();
+    if (!legacy.items.length) return;
+    for (var i = legacy.items.length - 1; i >= 0; i--) {
+      var entry = legacy.items[i];
+      if (!entry || !Array.isArray(entry.images) || !entry.images.length) continue;
+      await fetch("/api/history", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          ts: entry.ts,
+          prompt: String(entry.prompt || ""),
+          negative_prompt: entry.negative_prompt || "",
+          generations: entry.generations || entry.image_count || entry.images.length,
+          images: entry.images,
+        }),
+      });
+    }
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch (e) {}
+  }
+
+  async function fetchHistoryState() {
+    var r = await fetch("/api/history", { headers: authHeaders() });
+    if (r.status === 401) throw new Error("Unauthorized — set DTS_WEB_TOKEN and reload.");
+    if (!r.ok) throw new Error("Could not load history.");
+    var state = await r.json();
+    if (!state || !Array.isArray(state.items)) return { version: 1, items: [] };
+    return state;
+  }
+
+  async function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers) {
     if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
     var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
-    var item = {
-      id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9),
-      ts: Date.now(),
-      prompt: promptText.slice(0, 4000),
-      images: images,
-    };
-    var cleanNegativePrompt = String(negativePromptText || "").trim();
-    if (cleanNegativePrompt) item.negative_prompt = cleanNegativePrompt.slice(0, 4000);
-    var cleanGenerations = coerceHistoryGenerations(generations);
-    if (cleanGenerations) item.generations = cleanGenerations;
-    var state = loadHistoryState();
-    state.items.unshift(item);
-    while (state.items.length > HISTORY_MAX_ITEMS) state.items.pop();
-    saveHistoryState(state);
-    renderHistoryList();
+    await fetch("/api/history", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: JSON.stringify({
+        ts: Date.now(),
+        prompt: promptText.slice(0, 4000),
+        negative_prompt: String(negativePromptText || "").trim().slice(0, 4000),
+        generations: coerceHistoryGenerations(generations) || images.length,
+        images: images,
+      }),
+    });
+    await renderHistoryList();
   }
 
   function restoreHistoryEntryToComposer(entry) {
@@ -1102,13 +1118,22 @@ uv run dts-util server check</pre>
     }, 0);
   }
 
-  function renderHistoryList() {
+  async function renderHistoryList() {
     var root = document.getElementById("historyList");
     if (!root) return;
     root.innerHTML = "";
     var statusEl = document.getElementById("historyStatus");
     if (statusEl) statusEl.textContent = "";
-    var state = loadHistoryState();
+    var state;
+    try {
+      state = await fetchHistoryState();
+    } catch (e) {
+      var fail = document.createElement("p");
+      fail.className = "hint";
+      fail.textContent = String(e);
+      root.appendChild(fail);
+      return;
+    }
     if (state.items.length === 0) {
       var empty = document.createElement("p");
       empty.className = "hint";
@@ -1121,8 +1146,10 @@ uv run dts-util server check</pre>
       row.className = "history-row";
       var meta = document.createElement("div");
       meta.className = "history-row-meta";
+      var images = Array.isArray(entry.images) ? entry.images : [];
       var d = new Date(entry.ts);
-      meta.textContent = d.toLocaleString() + " · " + entry.images.length + " image(s)";
+      var imageCount = coerceHistoryGenerations(entry.image_count) || images.length;
+      meta.textContent = d.toLocaleString() + " · " + imageCount + " image(s)";
       row.appendChild(meta);
       var pr = document.createElement("p");
       pr.className = "history-row-prompt";
@@ -1130,19 +1157,19 @@ uv run dts-util server check</pre>
       row.appendChild(pr);
       var thumbs = document.createElement("div");
       thumbs.className = "history-thumbs";
-      entry.images.forEach(function (b64, i) {
+      images.forEach(function (imageRef, i) {
         var img = document.createElement("img");
-        img.src = "data:image/png;base64," + b64;
+        img.src = imageRef.url;
         img.alt = "Thumbnail " + (i + 1);
         thumbs.appendChild(img);
       });
       row.appendChild(thumbs);
       var dl = document.createElement("div");
       dl.className = "history-dl";
-      entry.images.forEach(function (b64, i) {
+      images.forEach(function (imageRef, i) {
         var a = document.createElement("a");
-        a.href = "data:image/png;base64," + b64;
-        a.download = "dts-gen-" + entry.id + "-" + i + ".png";
+        a.href = imageRef.url;
+        a.download = imageRef.download || "dts-gen-" + entry.id + "-" + i + ".png";
         a.textContent = "Download " + (i + 1);
         dl.appendChild(a);
       });
@@ -1425,7 +1452,7 @@ uv run dts-util server check</pre>
       });
 
       if (historyBuffers.length) {
-        historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers);
+        await historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers);
       }
 
       var expNote = document.getElementById("expandedPromptsNote");
@@ -1468,19 +1495,21 @@ uv run dts-util server check</pre>
     var openBtn = document.getElementById("btnOpenHistory");
     var closeBtn = document.getElementById("btnCloseHistory");
     var clearBtn = document.getElementById("btnClearHistory");
-    openBtn.addEventListener("click", function () {
-      renderHistoryList();
+    openBtn.addEventListener("click", async function () {
+      await migrateLegacyHistoryToServer();
+      await renderHistoryList();
       dlg.removeAttribute("inert");
       if (typeof dlg.showModal === "function") dlg.showModal();
       openBtn.setAttribute("aria-expanded", "true");
     });
     closeBtn.addEventListener("click", function () { dlg.close(); });
-    clearBtn.addEventListener("click", function () {
+    clearBtn.addEventListener("click", async function () {
       if (!window.confirm("Remove all saved generations from this browser?")) return;
+      await fetch("/api/history", { method: "DELETE", headers: authHeaders() });
       try {
         localStorage.removeItem(HISTORY_KEY);
       } catch (e) {}
-      renderHistoryList();
+      await renderHistoryList();
     });
     dlg.addEventListener("close", function () {
       dlg.setAttribute("inert", "");

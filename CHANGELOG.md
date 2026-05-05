@@ -39,6 +39,11 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+### Changed
+
+- **`dts-util web`:** history PNGs are now saved by the web server under the dts-util config directory instead of relying on browser `localStorage`; legacy `localStorage` rows import on first History open.
+- **`dts-util web`:** result cards use a wider responsive grid, the composer is more compact, and expanded prompt details are shown as a slimmer scrollable log.
+
 ## [0.4.2] - 2026-05-05
 
 ### Tested with

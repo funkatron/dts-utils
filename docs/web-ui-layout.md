@@ -29,7 +29,7 @@ Setup → modal dialog #toolsDialog:
   Connection row, status line, profile, advanced <details>, CLI footer
 
 History → modal dialog #historyDialog (#historyList, Clear all / Close):
-  Recent PNG generations (browser localStorage only); Reuse restores the prompt
+  Recent PNG generations (server-side web history); Reuse restores the prompt
   to the composer; per-image download links remain available
 ```
 
@@ -66,8 +66,7 @@ Cursor can render it beside the chat:
 
 ## History storage
 
-History is stored in browser `localStorage` under `dts_web_gen_history_v1`.
-Legacy entries with `{ id, ts, prompt, images }` remain valid and restore the prompt only. New entries may also include `negative_prompt` and `generations`; Reuse fills those fields only when the current composer values are still clean (`#neg` blank and `#generations` still `1`).
+History is stored by the web server under `web-history` in the dts-util user config directory. Set `DTS_WEB_HISTORY_DIR` to override that location. The browser imports legacy `localStorage` entries from `dts_web_gen_history_v1` the first time History opens, then clears that old browser-only key. Server entries include prompt metadata plus PNG filenames exposed through `/history/{item_id}/{filename}`. Reuse restores optional fields only when the current composer values are still clean (`#neg` blank and `#generations` still `1`).
 
 ---
 

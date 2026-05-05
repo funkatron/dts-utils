@@ -622,7 +622,7 @@
     </svg>
   </button>
 
-  <div id="stage" role="region" aria-label="Generated image">
+  <div id="stage" role="region" aria-label="Generation output">
     <div id="resultPane" aria-live="polite">
       <p id="resultPlaceholder" class="result-placeholder">
         Built render lands here. Enter a prompt below and run Generate.
@@ -647,7 +647,7 @@
   <div id="err" class="status bad" role="alert"></div>
 
   <footer class="composer">
-    <div class="composer-prompt-block">
+    <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
         <span class="hint" style="font-size:0.65rem;margin:0">⌘↵ · Ctrl+Enter generate</span>
@@ -680,7 +680,7 @@
     </div>
   </footer>
 
-  <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title">
+  <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title" inert>
     <div class="tools-dialog-inner">
       <h2 id="tools-dialog-title">Connection &amp; profile</h2>
 
@@ -751,7 +751,7 @@ uv run dts-util server check</pre>
     </div>
   </dialog>
 
-  <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title">
+  <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title" inert>
     <div class="history-dialog-inner">
       <h2 id="history-dialog-title">Generation history</h2>
       <p class="hint" style="margin-top:0">Saved in this browser only (localStorage). Not synced.</p>
@@ -1468,6 +1468,7 @@ uv run dts-util server check</pre>
     var clearBtn = document.getElementById("btnClearHistory");
     openBtn.addEventListener("click", function () {
       renderHistoryList();
+      dlg.removeAttribute("inert");
       if (typeof dlg.showModal === "function") dlg.showModal();
       openBtn.setAttribute("aria-expanded", "true");
     });
@@ -1480,6 +1481,7 @@ uv run dts-util server check</pre>
       renderHistoryList();
     });
     dlg.addEventListener("close", function () {
+      dlg.setAttribute("inert", "");
       openBtn.setAttribute("aria-expanded", "false");
       openBtn.focus();
     });
@@ -1497,6 +1499,7 @@ uv run dts-util server check</pre>
     const openBtn = document.getElementById("btnOpenSetup");
     const closeBtn = document.getElementById("btnCloseSetup");
     openBtn.addEventListener("click", function () {
+      dlg.removeAttribute("inert");
       if (typeof dlg.showModal === "function")
         dlg.showModal();
       openBtn.setAttribute("aria-expanded", "true");
@@ -1505,6 +1508,7 @@ uv run dts-util server check</pre>
       dlg.close();
     });
     dlg.addEventListener("close", function () {
+      dlg.setAttribute("inert", "");
       openBtn.setAttribute("aria-expanded", "false");
       openBtn.focus();
     });

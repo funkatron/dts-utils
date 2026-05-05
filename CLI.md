@@ -146,6 +146,31 @@ Subcommands:
 
 With `server install` (macOS): `uv run dts-util server install --export-tls-cert` runs export to the default PEM after `server test` passes (skipped when `--no-tls` is set).
 
+### web (`dts-util web`)
+
+Runs a loopback-first web UI for prompt-first image generation. The browser talks HTTP to `dts-util`; the tool forwards to Draw Things over gRPC (same stack as `generate`).
+
+```bash
+uv run dts-util web [--bind ADDR] [--port N] [--open]
+```
+
+- **Defaults:** bind `127.0.0.1`, HTTP port `8765`.
+- **`--open`:** open the default browser after the server starts (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`).
+- **Auth:** If **`DTS_WEB_TOKEN`** is set, all **`/api/*`** routes except **`GET /api/health`** require **`Authorization: Bearer <token>`**. Prefer loopback; binding more broadly without a token prints a **stderr warning**—set the token for mutating routes.
+- **Probe:** **`GET /api/server-status`** mirrors listener checks (`no_tls` query flag aligns with `server check --no-tls`). The message is **probe only**; generation can still fail (config, `flatc`, TLS mismatch).
+- **Generate (multipart):** **`POST /api/generate`** accepts JSON (`prompt`, optional `negative_prompt`, optional **`generations`** integer 1–25 default 1 for independent runs with fresh wildcard expansion each time, `configuration`, `host`, `port`, `no_tls`, `trust_server_cert`, `force_trust_server_cert`, `root_cert`, `shared_secret`, `config_dir`). Success responses are **`multipart/mixed`** PNG parts (all images concatenated). Response headers **`X-Generated-Count`** (PNG parts) and **`X-Generation-Runs`** (batch size). Errors return JSON `{"detail": "…"}` with the same actionable messages as the CLI where applicable.
+- **Generate (stream):** **`POST /api/generate/stream`** uses the **same JSON body and auth** as **`POST /api/generate`**. The response is **`text/event-stream`** (SSE). Each event is one line: `data: <json>\n\n`. Event types, in typical order:
+  - **`meta`**: `total_runs` (integer batch size).
+  - **`progress`**: `run` / `total_runs` (current generation RPC, 1-based). There is one **`progress`** per run; each run may emit multiple **`image`** events if the server returns more than one tensor.
+  - **`image`**: `run`, `index` (global counter across the batch), `png_b64` (standard base64 PNG bytes).
+  - **`done`**: `expanded_prompts`, `expanded_negative_prompts`, `total_images` — sent only when all runs finish without error.
+  - **`error`**: `detail` (string). Used for validation/generation failures or wall-clock timeout; there is no **`done`** after **`error`**. The UI uses this endpoint so progress and thumbnails can appear before the batch completes.
+- **Cancel:** **`POST /api/generate/cancel`** (JSON `{}`, same bearer auth as **`/api/generate`**) sets a cooperative cancel flag. The worker clears it when a new generation acquires the lock and checks the flag **between** batch iterations (`generations` loop). One long RPC cannot be split mid-flight; cancellation surfaces as **499** with JSON `{"detail": "…"}` when the worker stops before finishing all runs (**multipart**). For **streaming**, cancel between runs surfaces as an SSE **`error`** event (same cooperative semantics).
+- **Timeout:** Optional **`DTS_WEB_GENERATE_TIMEOUT`** (seconds, default `900`) caps wall-clock generation time for **`POST /api/generate`** (HTTP **504**) and for **`POST /api/generate/stream`** (SSE **`error`** with detail **`Generation timed out.`**). As with multipart, a timeout cannot abort a single gRPC call mid-flight; when the stream deadline elapses the handler emits that **`error`** and sets cooperative cancel so the worker can stop **between** runs after the in-flight RPC finishes. The stream endpoint uses a bounded queue (**64** pending SSE payloads); if the client reads slowly, generation blocks until space frees up (backpressure).
+- **Browser UI:** **⌘↵** (macOS) or **Ctrl+Enter** runs **Generate** from the prompt field (hammer icon). The UI calls **`POST /api/generate/stream`** so thumbnails and run progress can update during the batch. While a request is in flight, **Stop** (square icon) replaces **Generate**, calls **`POST /api/generate/cancel`**, and aborts the browser fetch; cooperative cancel applies between batch runs (see **Cancel** above). The busy stage shows **exact JSON** posted to **`/api/generate/stream`** (`shared_secret` redacted in the preview only). **Setup** is the building FAB (top-right); **History** is the clock FAB stacked below it — lists recent successful generations stored only in **localStorage** (this browser); each row has **Download** links for PNGs. **Clear all** removes that storage.
+
+LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer links to the README quickstart.
+
 ### generate
 
 Sends a prompt through the upstream Draw Things streaming gRPC API and writes PNG output.
@@ -171,10 +196,11 @@ Important options:
 - `--no-tls`: Plaintext gRPC when the server was installed with `--no-tls`.
 - `--max-message-mb N`: gRPC send/receive limits in MiB.
 - `--open`: Open written images with the platform default viewer.
+- **Prompt wildcards:** `{a|b}` picks one branch at random; `{a, b}` does the same when the block has no `|`. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP 400 from **`dts-util web`**). **`--generations N`** (CLI) or **`generations`** (web JSON) runs **N** separate RPCs; the template prompt is wildcard-expanded again on every run.
 
 ### Generate shorthand (prompt-first)
 
-When the first argument after the program name is not a known subcommand (`generate`, `configs`, `reflect`, `tls`, `models`, `server`, …), not a lifecycle verb, and not a flag, the line is treated as shorthand for image generation.
+When the first argument after the program name is not a known subcommand (`generate`, `configs`, `reflect`, `tls`, `models`, `web`, `server`, …), not a lifecycle verb, and not a flag, the line is treated as shorthand for image generation.
 
 Syntax:
 

@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>dts-util — generate</title>
+  <style>
+    :root {
+      --bg: #1a1b1e;
+      --fg: #e8e6e3;
+      --muted: #9b9898;
+      --accent: #4a9eff;
+      --ok: #5a9a6e;
+      --bad: #c45c5c;
+      --border: #3a3d45;
+      --panel: #222328;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.45;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh;
+      overflow: hidden;
+    }
+    /* Floating setup control — fixed over stage */
+    .fab-setup {
+      position: fixed;
+      top: max(0.6rem, env(safe-area-inset-top, 0px));
+      right: max(0.6rem, env(safe-area-inset-right, 0px));
+      z-index: 20;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .fab-setup:hover { border-color: var(--muted); color: var(--fg); }
+    .fab-setup:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .fab-history {
+      position: fixed;
+      top: calc(max(0.6rem, env(safe-area-inset-top, 0px)) + 2.75rem + 0.45rem);
+      right: max(0.6rem, env(safe-area-inset-right, 0px));
+      z-index: 20;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .fab-history:hover { border-color: var(--muted); color: var(--fg); }
+    .fab-history:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    /* Image dominates remaining space */
+    #stage {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.25rem;
+      overflow: auto;
+    }
+    #resultPane {
+      width: 100%;
+      height: 100%;
+      min-height: 12rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+    }
+    .result-placeholder {
+      font-size: 0.9rem;
+      color: var(--muted);
+      text-align: center;
+      margin: 0;
+      padding: 1rem;
+      max-width: 22rem;
+    }
+    .result-busy {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.65rem;
+      font-size: 0.9rem;
+      color: var(--muted);
+      width: 100%;
+      max-width: min(100%, 42rem);
+      margin: 0 auto;
+      padding: 0 0.5rem;
+      box-sizing: border-box;
+    }
+    .result-busy-head {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+    #busyProgress {
+      font-size: 0.78rem;
+      color: var(--muted);
+      flex: 1 1 auto;
+      min-width: 8rem;
+    }
+    .busy-payload summary {
+      cursor: pointer;
+      color: var(--fg);
+      font-weight: 600;
+      font-size: 0.78rem;
+      list-style-position: outside;
+    }
+    .busy-request-json {
+      margin: 0.35rem 0 0;
+      padding: 0.45rem 0.5rem;
+      background: #25262b;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: auto;
+      max-height: min(38vh, 14rem);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.65rem;
+      line-height: 1.35;
+      color: var(--fg);
+    }
+    .result-busy[hidden] { display: none !important; }
+    .spinner {
+      width: 1.25rem;
+      height: 1.25rem;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: dts-spin 0.65s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes dts-spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; border-top-color: var(--border); }
+    }
+    .results {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+    .results > div {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.35rem;
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .results img.result-inflight {
+      outline: 1px dashed var(--accent);
+      opacity: 0.94;
+    }
+      max-width: 100%;
+      max-height: min(88vh, calc(100dvh - 8rem));
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .expanded-prompts-note {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      padding: 0.35rem 0.35rem 0;
+      font-size: 0.72rem;
+      color: var(--muted);
+      white-space: pre-wrap;
+      word-break: break-word;
+      box-sizing: border-box;
+    }
+    /* Error strip — thin, above composer */
+    #err {
+      flex: 0 0 auto;
+      display: none;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+      color: var(--bad);
+      background: rgba(196, 92, 92, 0.12);
+      border-top: 1px solid var(--border);
+    }
+    /* Bottom composer: prompt row + split Runs | Generate */
+    .composer {
+      flex: 0 0 auto;
+      padding: 0.45rem 0.65rem 0.5rem;
+      border-top: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .composer-prompt-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      min-width: 0;
+    }
+    .composer-prompt-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .composer-prompt-head label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin: 0;
+    }
+    .composer-input-row {
+      display: flex;
+      align-items: stretch;
+      gap: 0.45rem;
+      min-width: 0;
+    }
+    textarea#prompt {
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+      min-height: 2.85rem;
+      max-height: min(40vh, 12rem);
+      resize: vertical;
+      font-size: 0.95rem;
+      line-height: 1.35;
+      background: #25262b;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 6px;
+      padding: 0.5rem 0.6rem;
+      font: inherit;
+      box-sizing: border-box;
+    }
+    /* Runs | Generate — stretched to match #prompt height; #elapsed is below */
+    .split-run-gen {
+      flex: 0 0 auto;
+      align-self: stretch;
+      display: flex;
+      flex-direction: row;
+      align-items: stretch;
+      min-height: 2.85rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      background: #25262b;
+    }
+    .split-run-gen select#generations {
+      margin: 0;
+      border: none;
+      border-radius: 0;
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0 1.5rem 0 0.55rem;
+      min-width: 3rem;
+      max-width: 4rem;
+      cursor: pointer;
+      appearance: none;
+      align-self: stretch;
+      height: 100%;
+      box-sizing: border-box;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239b9898' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.35rem center;
+      text-align: center;
+      text-align-last: center;
+    }
+    .split-run-gen select#generations:focus {
+      outline: none;
+    }
+    .split-run-gen:focus-within {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .split-run-gen > button.split-action {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      align-self: stretch;
+      min-width: 3rem;
+      padding: 0 0.65rem;
+      margin: 0;
+      border: none;
+      border-left: 1px solid var(--border);
+      border-radius: 0;
+      color: #fff;
+      cursor: pointer;
+    }
+    .split-run-gen > button.split-action:hover:not(:disabled) {
+      filter: brightness(1.06);
+    }
+    .split-run-gen > button.split-action:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: none;
+    }
+    .split-run-gen > button.split-action:focus-visible {
+      outline: 2px solid #fff;
+      outline-offset: -2px;
+      position: relative;
+      z-index: 1;
+    }
+    .split-run-gen > button.split-action svg {
+      display: block;
+      flex-shrink: 0;
+    }
+    #btnGen {
+      background: var(--accent);
+    }
+    #btnStop {
+      display: none;
+      background: var(--bad);
+    }
+    .split-run-gen.is-busy #btnGen {
+      display: none;
+    }
+    .split-run-gen.is-busy #btnStop {
+      display: inline-flex;
+    }
+    textarea#prompt:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .composer-elapsed-row {
+      display: flex;
+      justify-content: flex-end;
+      min-height: 0.85rem;
+    }
+    #elapsed {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-align: right;
+      line-height: 1.2;
+      min-height: 0.85rem;
+    }
+    /* Setup dialog */
+    dialog.tools-dialog {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0;
+      background: var(--panel);
+      color: var(--fg);
+      max-width: 26rem;
+      width: calc(100vw - 2rem);
+      max-height: min(85vh, 640px);
+    }
+    dialog.tools-dialog::backdrop {
+      background: rgba(0, 0, 0, 0.55);
+    }
+    .tools-dialog-inner {
+      padding: 1rem;
+      overflow-y: auto;
+      max-height: min(78vh, 580px);
+    }
+    .tools-dialog h2 {
+      margin: 0 0 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--fg);
+    }
+    label { color: var(--muted); font-size: 0.8rem; }
+    input[type="text"], input[type="number"], select, textarea.field {
+      background: #25262b;
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 4px;
+      padding: 0.35rem 0.5rem;
+      font: inherit;
+    }
+    .tools-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      align-items: flex-end;
+      margin-bottom: 0.65rem;
+    }
+    .tools-row > div { flex: 0 0 auto; }
+    button.btn-secondary {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.35rem 0.65rem;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .status { font-size: 0.85rem; margin: 0.35rem 0; }
+    .status.ok { color: var(--ok); }
+    .status.bad { color: var(--bad); }
+    .hint { font-size: 0.75rem; color: var(--muted); margin: 0 0 0.75rem; }
+    details.advanced { margin-top: 0.75rem; font-size: 0.85rem; }
+    details.advanced summary { cursor: pointer; color: var(--muted); }
+    .tools-footer {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .tools-footer a { color: var(--accent); }
+    .dialog-close-row {
+      padding: 0.65rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      background: var(--bg);
+    }
+    .dialog-close-row button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.45rem 1rem;
+      font: inherit;
+      cursor: pointer;
+    }
+    .history-dialog-inner {
+      padding: 1rem;
+      overflow-y: auto;
+      max-height: min(70vh, 520px);
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .history-row {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.65rem;
+      background: var(--bg);
+    }
+    .history-row-meta {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .history-row-prompt {
+      font-size: 0.85rem;
+      margin: 0 0 0.5rem;
+      word-break: break-word;
+    }
+    .history-thumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: flex-end;
+    }
+    .history-thumbs img {
+      max-height: 72px;
+      max-width: 120px;
+      object-fit: contain;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .history-dl {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem 0.65rem;
+      margin-top: 0.45rem;
+      font-size: 0.8rem;
+    }
+    .history-dl a { color: var(--accent); }
+    .dialog-actions-split {
+      padding: 0.65rem 1rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      background: var(--bg);
+    }
+    button.btn-danger-ghost {
+      background: transparent;
+      color: var(--bad);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.4rem 0.75rem;
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+  </style>
+</head>
+<body>
+  <span class="sr-only">dts-util web</span>
+
+  <button type="button" class="fab-setup" id="btnOpenSetup" aria-label="Setup: connection and profile" aria-haspopup="dialog" aria-controls="toolsDialog" aria-expanded="false">
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+      <path d="M9 22v-4h6v4"/>
+      <path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>
+    </svg>
+  </button>
+
+  <button type="button" class="fab-history" id="btnOpenHistory" aria-label="Generation history" aria-haspopup="dialog" aria-controls="historyDialog" aria-expanded="false">
+    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+    </svg>
+  </button>
+
+  <div id="stage" role="region" aria-label="Generated image">
+    <div id="resultPane" aria-live="polite">
+      <p id="resultPlaceholder" class="result-placeholder">
+        Built render lands here. Enter a prompt below and run Generate.
+      </p>
+      <div id="resultBusy" class="result-busy" hidden>
+        <div class="result-busy-head">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="sr-only">Generating</span>
+          <span id="busyElapsed" class="hint"></span>
+          <span id="busyProgress" class="hint" aria-live="polite"></span>
+        </div>
+        <details class="busy-payload" open>
+          <summary class="busy-summary">Generate request JSON — POST /api/generate/stream</summary>
+          <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON body"></pre>
+        </details>
+      </div>
+      <div id="results" class="results"></div>
+      <p id="expandedPromptsNote" class="expanded-prompts-note" hidden aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div id="err" class="status bad" role="alert"></div>
+
+  <footer class="composer">
+    <div class="composer-prompt-block">
+      <div class="composer-prompt-head">
+        <label for="prompt">Prompt</label>
+        <span class="hint" style="font-size:0.65rem;margin:0">⌘↵ · Ctrl+Enter generate</span>
+      </div>
+      <div class="composer-input-row">
+        <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
+        <div class="split-run-gen" role="group" aria-label="Runs, generate, or stop">
+          <select id="generations" autocomplete="off" aria-label="Runs" title="Runs — each run sends one entry from the expanded prompts array (see request JSON)">
+            {% for n in range(1, 26) %}
+            <option value="{{ n }}"{% if n == 1 %} selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" class="split-action" id="btnGen" aria-label="Generate">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
+              <path d="m18 15 4-4"/>
+              <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/>
+            </svg>
+            <span class="sr-only">Generate</span>
+          </button>
+          <button type="button" class="split-action" id="btnStop" aria-label="Stop generation">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="10" rx="1.5"/>
+            </svg>
+            <span class="sr-only">Stop</span>
+          </button>
+        </div>
+      </div>
+      <div class="composer-elapsed-row"><span id="elapsed" class="hint"></span></div>
+    </div>
+  </footer>
+
+  <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title">
+    <div class="tools-dialog-inner">
+      <h2 id="tools-dialog-title">Connection &amp; profile</h2>
+
+      <section aria-label="gRPC connection">
+        <div class="tools-row">
+          <div>
+            <label for="host">Host</label><br/>
+            <input id="host" type="text" value="localhost" size="14" autocomplete="off" />
+          </div>
+          <div>
+            <label for="port">gRPC port</label><br/>
+            <input id="port" type="number" value="7859" style="width:4.5rem" />
+          </div>
+          <div>
+            <label><input type="checkbox" id="noTls" /> no-TLS</label>
+          </div>
+          <div>
+            <label><input type="checkbox" id="trustCert" checked /> trust loopback</label>
+          </div>
+          <button type="button" class="btn-secondary" id="btnCheck">Check listener</button>
+        </div>
+        <div id="statusLine" class="status" role="status" aria-live="polite">Not checked yet.</div>
+        <p class="hint">Probe only (listener). Generation can still fail (config, flatc, model, TLS).</p>
+      </section>
+
+      <section aria-label="Profile">
+        <label for="profile">Saved JSON profile</label><br/>
+        <select id="profile"></select>
+        <input id="profileCustom" type="text" placeholder="Or custom name/path…" style="margin-top:0.35rem;width:100%" autocomplete="off" class="field" />
+      </section>
+
+      <details class="advanced">
+        <summary>Negative prompt, secret, TLS paths</summary>
+        <div style="margin-top:0.6rem">
+          <label for="neg">Negative prompt</label>
+          <textarea id="neg" class="field" style="min-height:3rem;width:100%;margin-top:0.25rem"></textarea>
+        </div>
+        <div class="tools-row" style="margin-top:0.5rem">
+          <div style="flex:1;min-width:12rem">
+            <label for="sharedSecret">Shared secret</label><br/>
+            <input id="sharedSecret" type="text" style="width:100%" autocomplete="off" class="field" />
+          </div>
+          <div style="flex:1;min-width:12rem">
+            <label for="rootCert">Root cert path</label><br/>
+            <input id="rootCert" type="text" style="width:100%" autocomplete="off" class="field" />
+          </div>
+        </div>
+        <div style="margin-top:0.5rem">
+          <label><input type="checkbox" id="forceTrust" /> force-trust server cert (MITM risk)</label>
+        </div>
+        <div style="margin-top:0.5rem">
+          <label for="configDir">Config directory override</label><br/>
+          <input id="configDir" type="text" style="width:100%" placeholder="Default: dts-util configs path" autocomplete="off" class="field" />
+        </div>
+      </details>
+
+      <div class="tools-footer">
+        <p><a href="https://github.com/funkatron/dts-utils/blob/main/CLI.md" target="_blank" rel="noopener">CLI reference</a></p>
+        <details>
+          <summary>Server not installed?</summary>
+          <pre style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.35rem">uv run dts-util server install
+uv run dts-util server check</pre>
+        </details>
+      </div>
+    </div>
+    <div class="dialog-close-row">
+      <button type="button" id="btnCloseSetup">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title">
+    <div class="history-dialog-inner">
+      <h2 id="history-dialog-title">Generation history</h2>
+      <p class="hint" style="margin-top:0">Saved in this browser only (localStorage). Not synced.</p>
+      <div id="historyList" class="history-list"></div>
+    </div>
+    <div class="dialog-actions-split">
+      <button type="button" class="btn-danger-ghost" id="btnClearHistory">Clear all</button>
+      <button type="button" id="btnCloseHistory">Close</button>
+    </div>
+  </dialog>
+
+  <script>
+  window.__DTS_INIT__ = { token: {{ (api_token or none)|tojson }} };
+
+  function authHeaders(base) {
+    const h = Object.assign({}, base || {});
+    if (window.__DTS_INIT__.token)
+      h["Authorization"] = "Bearer " + window.__DTS_INIT__.token;
+    return h;
+  }
+
+  /** Ask the server to set cooperative cancel (checked between batch RPCs). Fire-and-forget. */
+  function requestGenerationCancel() {
+    fetch("/api/generate/cancel", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: "{}",
+    }).catch(function () {});
+  }
+
+  function indexOfU8(hay, needle, start) {
+    start = start | 0;
+    outer: for (let i = start; i <= hay.length - needle.length; i++) {
+      for (let j = 0; j < needle.length; j++)
+        if (hay[i + j] !== needle[j]) continue outer;
+      return i;
+    }
+    return -1;
+  }
+
+  function parseMultipartPngs(arrayBuffer, contentType) {
+    const ct = contentType || "";
+    const m = /boundary=([\w'./+:-]+)/i.exec(ct);
+    if (!m) throw new Error("No multipart boundary in Content-Type");
+    const boundary = m[1].trim().replace(/^["']|["']$/g, "");
+    const u8 = new Uint8Array(arrayBuffer);
+    const enc = new TextEncoder();
+    const dec = new TextDecoder("latin1");
+    const sep = enc.encode("\r\n--" + boundary);
+    const preamble = enc.encode("--" + boundary);
+    const parts = [];
+    let idx = indexOfU8(u8, preamble, 0);
+    while (idx !== -1) {
+      idx += 2 + boundary.length;
+      if (idx + 1 < u8.length && u8[idx] === 45 && u8[idx + 1] === 45) break;
+      if (idx + 1 < u8.length && u8[idx] === 13 && u8[idx + 1] === 10) idx += 2;
+      const hdrEnd = indexOfU8(u8, enc.encode("\r\n\r\n"), idx);
+      if (hdrEnd === -1) break;
+      const headers = dec.decode(u8.subarray(idx, hdrEnd));
+      const bodyStart = hdrEnd + 4;
+      const nextSep = indexOfU8(u8, sep, bodyStart);
+      if (nextSep === -1) break;
+      if (headers.toLowerCase().includes("content-type: image/png"))
+        parts.push(arrayBuffer.slice(bodyStart, nextSep));
+      idx = nextSep;
+    }
+    return parts;
+  }
+
+  function decodeExpandedWildcardsHeader(b64) {
+    if (!b64 || typeof b64 !== "string") return null;
+    try {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const json = new TextDecoder().decode(bytes);
+      const o = JSON.parse(json);
+      if (!o || typeof o !== "object") return null;
+      if (!Array.isArray(o.prompts) || !Array.isArray(o.negative_prompts)) return null;
+      return o;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function formatExpandedWildcardsNote(exp) {
+    const lines = [];
+    for (let i = 0; i < exp.prompts.length; i++) {
+      let line = "Run " + (i + 1) + ": " + String(exp.prompts[i]);
+      const neg = exp.negative_prompts[i];
+      if (neg && String(neg).trim()) line += "\n  Negative: " + String(neg);
+      lines.push(line);
+    }
+    return "Expanded prompts (sent to Draw Things):\n\n" + lines.join("\n\n");
+  }
+
+  function formatListenerLine(j) {
+    const probe = j.probe ? " (" + j.probe + ")" : "";
+    if (j.listener_ok)
+      return { text: "Listener OK — " + (j.message || "") + probe, ok: true };
+    return { text: "Unreachable — " + (j.message || "") + probe, ok: false };
+  }
+
+  async function refreshStatus() {
+    const host = document.getElementById("host").value.trim() || "localhost";
+    const port = document.getElementById("port").value || "7859";
+    const noTls = document.getElementById("noTls").checked;
+    const el = document.getElementById("statusLine");
+    el.textContent = "Checking…";
+    el.className = "status";
+    const q = new URLSearchParams({ host, port, no_tls: noTls ? "true" : "false" });
+    const r = await fetch("/api/server-status?" + q.toString(), { headers: authHeaders() });
+    if (r.status === 401) {
+      el.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+      el.className = "status bad";
+      return;
+    }
+    const j = await r.json();
+    if (!r.ok) {
+      el.textContent = j.detail || "Error";
+      el.className = "status bad";
+      return;
+    }
+    const fmt = formatListenerLine(j);
+    el.textContent = fmt.text;
+    el.className = "status " + (fmt.ok ? "ok" : "bad");
+  }
+
+  async function loadConfigs() {
+    const sel = document.getElementById("profile");
+    sel.innerHTML = "";
+    try {
+      const r = await fetch("/api/configs", { headers: authHeaders() });
+      if (r.status === 401) {
+        const o = document.createElement("option");
+        o.value = "zit";
+        o.textContent = "zit (set DTS_WEB_TOKEN to list profiles)";
+        o.selected = true;
+        sel.appendChild(o);
+        return;
+      }
+      const j = await r.json();
+      if (!r.ok) return;
+      const defaultProfile = j.default_profile || "zit";
+      const names = [...new Set([...(j.names || []), defaultProfile])].sort();
+      for (const n of names) {
+        const o = document.createElement("option");
+        o.value = n;
+        o.textContent = n;
+        if (n === defaultProfile) o.selected = true;
+        sel.appendChild(o);
+      }
+    } catch (e) {
+      console.error("loadConfigs:", e);
+      const o = document.createElement("option");
+      o.value = "zit";
+      o.textContent = "zit";
+      o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  function effectiveProfile() {
+    const c = document.getElementById("profileCustom").value.trim();
+    if (c) return c;
+    return document.getElementById("profile").value || "zit";
+  }
+
+  function connectionPayload() {
+    const host = document.getElementById("host").value.trim() || "localhost";
+    const port = parseInt(document.getElementById("port").value, 10) || 7859;
+    const noTls = document.getElementById("noTls").checked;
+    const trust = document.getElementById("trustCert").checked;
+    const force = document.getElementById("forceTrust").checked;
+    const rootCert = document.getElementById("rootCert").value.trim();
+    const configDir = document.getElementById("configDir").value.trim();
+    const body = { host, port, no_tls: noTls, trust_server_cert: trust, force_trust_server_cert: force };
+    if (rootCert) body.root_cert = rootCert;
+    if (configDir) body.config_dir = configDir;
+    return body;
+  }
+
+  /** Full JSON body for POST /api/generate after wildcards are resolved server-side. */
+  function buildResolvedGenerateBody(expanded, generations) {
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const body = Object.assign(connectionPayload(), {
+      prompts: expanded.prompts,
+      negative_prompts: expanded.negative_prompts,
+      configuration: effectiveProfile(),
+      generations,
+    });
+    if (shared) body.shared_secret = shared;
+    return body;
+  }
+
+  /** Pretty JSON for UI; never echo raw shared_secret. */
+  function formatGenerateBodyForDisplay(body) {
+    var copy = {};
+    Object.keys(body).forEach(function (k) {
+      copy[k] = body[k];
+    });
+    if (copy.shared_secret) copy.shared_secret = "***";
+    return JSON.stringify(copy, null, 2);
+  }
+
+  var HISTORY_KEY = "dts_web_gen_history_v1";
+  var HISTORY_MAX_ITEMS = 30;
+  var HISTORY_SOFT_CHARS = 4 * 1024 * 1024;
+
+  /** Blob URLs from the current result pane; must revoke before dropping DOM or each leaks until tab exit. */
+  var __dtsResultBlobUrls = [];
+
+  function revokeResultBlobUrls() {
+    __dtsResultBlobUrls.forEach(function (u) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch (e) {}
+    });
+    __dtsResultBlobUrls.length = 0;
+  }
+
+  function arrayBufferToBase64(buf) {
+    var bin = "";
+    var bytes = new Uint8Array(buf);
+    var len = bytes.byteLength;
+    for (var i = 0; i < len; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+
+  function loadHistoryState() {
+    try {
+      var s = localStorage.getItem(HISTORY_KEY);
+      if (!s) return { version: 1, items: [] };
+      var o = JSON.parse(s);
+      if (!o || !Array.isArray(o.items)) return { version: 1, items: [] };
+      return o;
+    } catch (e) {
+      return { version: 1, items: [] };
+    }
+  }
+
+  function saveHistoryState(state) {
+    var str = JSON.stringify(state);
+    while (str.length > HISTORY_SOFT_CHARS && state.items.length > 1) {
+      state.items.pop();
+      str = JSON.stringify(state);
+    }
+    try {
+      localStorage.setItem(HISTORY_KEY, str);
+    } catch (e) {
+      state.items = state.items.slice(0, Math.max(1, Math.floor(state.items.length / 2)));
+      try {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(state));
+      } catch (e2) {}
+    }
+  }
+
+  function historyAppend(promptText, pngArrayBuffers) {
+    if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
+    var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
+    var state = loadHistoryState();
+    state.items.unshift({
+      id: String(Date.now()) + "-" + Math.random().toString(36).slice(2, 9),
+      ts: Date.now(),
+      prompt: promptText.slice(0, 4000),
+      images: images,
+    });
+    while (state.items.length > HISTORY_MAX_ITEMS) state.items.pop();
+    saveHistoryState(state);
+    renderHistoryList();
+  }
+
+  function renderHistoryList() {
+    var root = document.getElementById("historyList");
+    if (!root) return;
+    root.innerHTML = "";
+    var state = loadHistoryState();
+    if (state.items.length === 0) {
+      var empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "No generations yet.";
+      root.appendChild(empty);
+      return;
+    }
+    state.items.forEach(function (entry) {
+      var row = document.createElement("article");
+      row.className = "history-row";
+      var meta = document.createElement("div");
+      meta.className = "history-row-meta";
+      var d = new Date(entry.ts);
+      meta.textContent = d.toLocaleString() + " · " + entry.images.length + " image(s)";
+      row.appendChild(meta);
+      var pr = document.createElement("p");
+      pr.className = "history-row-prompt";
+      pr.textContent = entry.prompt || "(no prompt)";
+      row.appendChild(pr);
+      var thumbs = document.createElement("div");
+      thumbs.className = "history-thumbs";
+      entry.images.forEach(function (b64, i) {
+        var img = document.createElement("img");
+        img.src = "data:image/png;base64," + b64;
+        img.alt = "Thumbnail " + (i + 1);
+        thumbs.appendChild(img);
+      });
+      row.appendChild(thumbs);
+      var dl = document.createElement("div");
+      dl.className = "history-dl";
+      entry.images.forEach(function (b64, i) {
+        var a = document.createElement("a");
+        a.href = "data:image/png;base64," + b64;
+        a.download = "dts-gen-" + entry.id + "-" + i + ".png";
+        a.textContent = "Download " + (i + 1);
+        dl.appendChild(a);
+      });
+      row.appendChild(dl);
+      root.appendChild(row);
+    });
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  /** Parse newline-delimited SSE (data: …\\n\\n) from a fetch Response body. */
+  function readSSEStream(response, onEvent) {
+    return new Promise(function (resolve, reject) {
+      if (!response.body || !response.body.getReader) {
+        reject(new Error("Streaming response body not supported in this browser."));
+        return;
+      }
+      const reader = response.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      function pump() {
+        reader
+          .read()
+          .then(function (res) {
+            if (res.done) {
+              resolve();
+              return;
+            }
+            buf += dec.decode(res.value, { stream: true });
+            let sep;
+            while ((sep = buf.indexOf("\n\n")) !== -1) {
+              const block = buf.slice(0, sep);
+              buf = buf.slice(sep + 2);
+              const lines = block.split("\n");
+              for (let li = 0; li < lines.length; li++) {
+                const line = lines[li];
+                if (line.indexOf("data:") !== 0) continue;
+                const raw = line.slice(5).trim();
+                if (!raw) continue;
+                let msg;
+                try {
+                  msg = JSON.parse(raw);
+                } catch (e) {
+                  reject(new Error("Invalid event data from server."));
+                  return;
+                }
+                if (msg.type === "error") {
+                  reject(new Error(msg.detail || "Generation failed."));
+                  return;
+                }
+                try {
+                  onEvent(msg);
+                } catch (e) {
+                  reject(e);
+                  return;
+                }
+              }
+            }
+            pump();
+          })
+          .catch(reject);
+      }
+      pump();
+    });
+  }
+
+  function setGeneratingUi(active, t0, timerRef, requestJsonText) {
+    const placeholder = document.getElementById("resultPlaceholder");
+    const busy = document.getElementById("resultBusy");
+    const busyElapsed = document.getElementById("busyElapsed");
+    const busyJson = document.getElementById("busyRequestJson");
+    const pane = document.getElementById("resultPane");
+    if (active) {
+      placeholder.hidden = true;
+      busy.hidden = false;
+      busyElapsed.textContent = prefersReducedMotion() ? "Generating…" : "0.0s";
+      var bp = document.getElementById("busyProgress");
+      if (bp) bp.textContent = "";
+      if (busyJson) busyJson.textContent = typeof requestJsonText === "string" ? requestJsonText : "";
+      pane.setAttribute("aria-busy", "true");
+      if (timerRef.id) clearInterval(timerRef.id);
+      timerRef.id = setInterval(function () {
+        if (prefersReducedMotion()) return;
+        busyElapsed.textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+      }, 100);
+    } else {
+      if (timerRef.id) {
+        clearInterval(timerRef.id);
+        timerRef.id = null;
+      }
+      busy.hidden = true;
+      if (busyJson) busyJson.textContent = "";
+      var bpOff = document.getElementById("busyProgress");
+      if (bpOff) bpOff.textContent = "";
+      pane.removeAttribute("aria-busy");
+    }
+  }
+
+  var generateAbortController = null;
+  var generationInFlight = false;
+
+  async function runGenerate() {
+    if (generationInFlight) return;
+    const errEl = document.getElementById("err");
+    const results = document.getElementById("results");
+    const placeholder = document.getElementById("resultPlaceholder");
+    const elapsed = document.getElementById("elapsed");
+    const splitEl = document.querySelector(".split-run-gen");
+    const btnGen = document.getElementById("btnGen");
+    const timerRef = { id: null };
+    errEl.style.display = "none";
+    revokeResultBlobUrls();
+    results.innerHTML = "";
+    var expNoteClear = document.getElementById("expandedPromptsNote");
+    if (expNoteClear) {
+      expNoteClear.hidden = true;
+      expNoteClear.textContent = "";
+    }
+    btnGen.disabled = true;
+    const t0 = performance.now();
+    elapsed.textContent = "";
+
+    const prompt = document.getElementById("prompt").value.trim();
+    if (!prompt) {
+      errEl.textContent = "Enter a prompt.";
+      errEl.style.display = "block";
+      placeholder.hidden = false;
+      btnGen.disabled = false;
+      return;
+    }
+
+    generationInFlight = true;
+    const ac = new AbortController();
+    generateAbortController = ac;
+    splitEl.classList.add("is-busy");
+    var runsEl = document.getElementById("generations");
+    runsEl.disabled = true;
+
+    var generations = parseInt(runsEl.value, 10);
+    if (!Number.isFinite(generations) || generations < 1) generations = 1;
+    if (generations > 25) generations = 25;
+
+    setGeneratingUi(true, t0, timerRef, "");
+
+    try {
+      const expandRes = await fetch("/api/prompt/expand", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          prompt,
+          negative_prompt: document.getElementById("neg").value,
+          count: generations,
+        }),
+        signal: ac.signal,
+      });
+
+      if (expandRes.status === 401) {
+        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      if (!expandRes.ok) {
+        let msg = expandRes.statusText;
+        try {
+          const ej = await expandRes.json();
+          msg = ej.detail || msg;
+        } catch (_) {}
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      const expanded = await expandRes.json();
+      const body = buildResolvedGenerateBody(expanded, generations);
+      const payloadPreview = formatGenerateBodyForDisplay(body);
+      setGeneratingUi(true, t0, timerRef, payloadPreview);
+
+      const r = await fetch("/api/generate/stream", {
+        method: "POST",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        }),
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      });
+
+      if (r.status === 401) {
+        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      if (!r.ok) {
+        let msg = r.statusText;
+        try {
+          const j = await r.json();
+          msg = j.detail || msg;
+        } catch (_) {}
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("text/event-stream")) {
+        errEl.textContent = "Expected text/event-stream from server, got: " + ct;
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      const historyBuffers = [];
+      let donePayload = null;
+      await readSSEStream(r, function (msg) {
+        if (msg.type === "meta") {
+          var prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Starting · " + msg.total_runs + " run(s)";
+        }
+        if (msg.type === "progress") {
+          var prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
+        }
+        if (msg.type === "image") {
+          placeholder.hidden = true;
+          var bin = atob(msg.png_b64);
+          var bytes = new Uint8Array(bin.length);
+          for (var j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+          historyBuffers.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+          var blob = new Blob([bytes], { type: "image/png" });
+          var url = URL.createObjectURL(blob);
+          __dtsResultBlobUrls.push(url);
+          var img = document.createElement("img");
+          img.src = url;
+          img.alt = "Generated " + msg.index + " (run " + msg.run + ")";
+          img.className = "result-inflight";
+          var wrap = document.createElement("div");
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = "generated_" + msg.index + ".png";
+          a.textContent = "Download";
+          a.style.color = "var(--accent)";
+          wrap.appendChild(img);
+          wrap.appendChild(document.createElement("br"));
+          wrap.appendChild(a);
+          results.appendChild(wrap);
+          var prog2 = document.getElementById("busyProgress");
+          if (prog2)
+            prog2.textContent =
+              "Run " + msg.run + " / " + msg.total_runs + " · received image " + msg.index;
+        }
+        if (msg.type === "done") {
+          donePayload = msg;
+        }
+      });
+
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      elapsed.textContent = "Done in " + dt + "s";
+
+      results.querySelectorAll("img.result-inflight").forEach(function (im) {
+        im.classList.remove("result-inflight");
+      });
+
+      if (historyBuffers.length) historyAppend(prompt, historyBuffers);
+
+      var expNote = document.getElementById("expandedPromptsNote");
+      if (expNote && donePayload && donePayload.expanded_prompts && donePayload.expanded_prompts.length) {
+        expNote.hidden = false;
+        expNote.textContent = formatExpandedWildcardsNote({
+          prompts: donePayload.expanded_prompts,
+          negative_prompts: donePayload.expanded_negative_prompts || [],
+        });
+      } else if (expNote) {
+        expNote.hidden = true;
+        expNote.textContent = "";
+      }
+
+      placeholder.hidden = historyBuffers.length > 0;
+    } catch (e) {
+      if (e.name === "AbortError") {
+        requestGenerationCancel();
+        errEl.style.display = "none";
+        elapsed.textContent = "Stopped";
+        placeholder.hidden = false;
+      } else {
+        errEl.textContent = String(e);
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+      }
+    } finally {
+      splitEl.classList.remove("is-busy");
+      runsEl.disabled = false;
+      generateAbortController = null;
+      generationInFlight = false;
+      setGeneratingUi(false, t0, timerRef);
+      btnGen.disabled = false;
+    }
+  }
+
+  (function setupHistoryDialog() {
+    var dlg = document.getElementById("historyDialog");
+    var openBtn = document.getElementById("btnOpenHistory");
+    var closeBtn = document.getElementById("btnCloseHistory");
+    var clearBtn = document.getElementById("btnClearHistory");
+    openBtn.addEventListener("click", function () {
+      renderHistoryList();
+      if (typeof dlg.showModal === "function") dlg.showModal();
+      openBtn.setAttribute("aria-expanded", "true");
+    });
+    closeBtn.addEventListener("click", function () { dlg.close(); });
+    clearBtn.addEventListener("click", function () {
+      if (!window.confirm("Remove all saved generations from this browser?")) return;
+      try {
+        localStorage.removeItem(HISTORY_KEY);
+      } catch (e) {}
+      renderHistoryList();
+    });
+    dlg.addEventListener("close", function () {
+      openBtn.setAttribute("aria-expanded", "false");
+      openBtn.focus();
+    });
+  })();
+
+  document.getElementById("prompt").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    runGenerate();
+  });
+
+  (function setupDialog() {
+    const dlg = document.getElementById("toolsDialog");
+    const openBtn = document.getElementById("btnOpenSetup");
+    const closeBtn = document.getElementById("btnCloseSetup");
+    openBtn.addEventListener("click", function () {
+      if (typeof dlg.showModal === "function")
+        dlg.showModal();
+      openBtn.setAttribute("aria-expanded", "true");
+    });
+    closeBtn.addEventListener("click", function () {
+      dlg.close();
+    });
+    dlg.addEventListener("close", function () {
+      openBtn.setAttribute("aria-expanded", "false");
+      openBtn.focus();
+    });
+  })();
+
+  window.addEventListener("pagehide", function (e) {
+    if (!e.persisted) revokeResultBlobUrls();
+  });
+
+  document.getElementById("btnCheck").addEventListener("click", refreshStatus);
+  document.getElementById("btnGen").addEventListener("click", runGenerate);
+  document.getElementById("btnStop").addEventListener("click", function () {
+    requestGenerationCancel();
+    if (generateAbortController) generateAbortController.abort();
+  });
+  loadConfigs().then(function () { refreshStatus(); });
+  </script>
+</body>
+</html>

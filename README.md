@@ -13,7 +13,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 ## Requirements
 
 - Python 3.12+ and [`uv`](https://github.com/astral-sh/uv).
-- macOS only if you use `dts-util server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate` and `reflect` run anywhere Python can reach the server.
+- macOS only if you use `dts-util server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, and `dts-util web` run anywhere Python can reach the server.
 - [`flatc`](https://github.com/google/flatbuffers) on `PATH` when you pass JSON configuration (conversion uses the bundled `config.fbs`).
 
 ---
@@ -67,6 +67,14 @@ uv run dts-util generate \
 ```
 
 Skip `server install` / `server check` if the server already runs elsewhere; see [Remote or existing servers](#remote-or-existing-servers).
+
+Optional **browser UI** (same gRPC server; loopback HTTP only by default):
+
+```bash
+uv run dts-util web --open
+```
+
+See [CLI.md — web](CLI.md#web-dts-util-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
 
 ---
 
@@ -230,11 +238,13 @@ Output paths:
 src/
 └── dts_util/
     ├── installer/       # LaunchAgent-backed install lifecycle (macOS)
-    ├── generate.py      # Prompt → gRPC GenerateImage → PNG
+    ├── cli_router.py    # Top-level dispatch and prompt-first shorthand
     ├── configs.py       # Saved JSON configs and zit implicit profile materialization
-    ├── cli_router.py    # Top-level dispatch and generate shorthand
-    ├── grpc/            # Channels, reflection, stubs, protobuf copies
-    └── utils/           # Shared helpers (e.g. gRPC errors)
+    ├── generate.py      # Prompt → gRPC GenerateImage → PNG
+    ├── tls_export.py    # Pin/export server PEM (`dts-util tls`)
+    ├── grpc/            # Channels, reflection, stubs, protobuf copies (`grpc/utils.py`, …)
+    ├── model_index/     # Community metadata index (`dts-util models`)
+    └── web/             # Loopback Starlette UI (`dts-util web`)
 ```
 
 Per-flag behavior: [CLI.md](CLI.md).

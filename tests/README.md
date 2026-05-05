@@ -42,4 +42,12 @@ uv run dts-util "smoke test" --output output/smoke-shorthand.png
 - **`reflect`:** gRPC **server reflection**. Many `gRPCServerCLI` builds do not implement it, so `UNIMPLEMENTED` is common even when generation works; treat this step as optional for Draw Things.
 - **`generate` / shorthand:** streaming decode and PNG write.
 
+Optional **web UI** (HTTP front-end to the same gRPC stack):
+
+```bash
+uv run dts-util web --open
+```
+
+In the browser, match TLS mode to your server (`no-TLS` vs trust loopback cert), pick a profile, generate, and confirm a PNG downloads. See [CLI.md § web](../CLI.md#web-dts-util-web).
+
 If you **cannot** run against a live server for a release, say so in **Tested with** (e.g. “pytest + CI only; not smoke-tested against gRPCServerCLI”).

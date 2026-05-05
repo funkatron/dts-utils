@@ -20,8 +20,10 @@ from dts_util.exceptions import (
 from dts_util.generate_api import (
     GrpcClientOptions,
     ImageGenerationRequestOptions,
+    MAX_BATCH_GENERATIONS,
     build_image_generation_request,
     generate_to_paths,
+    validate_batch_generations,
 )
 from dts_util.generation_stream import collect_generated_images
 from dts_util.image_output import unique_ms_timestamp_output_path
@@ -46,6 +48,16 @@ def build_parser() -> argparse.ArgumentParser:
             "Output path (default: output/generated.png under ./output); inserts -<unix_ms> before the extension so repeated runs do not overwrite "
             "prior files (e.g. out/foo.png → out/foo-1735123456789.png). "
             "Additional images from the same run append -2, -3, ... before the extension."
+        ),
+    )
+    parser.add_argument(
+        "--generations",
+        type=int,
+        default=1,
+        metavar="N",
+        help=(
+            "Run N independent generations; `{…}` wildcards expand fresh each time "
+            f"(default: 1, max: {MAX_BATCH_GENERATIONS})."
         ),
     )
     parser.add_argument("--host", default="localhost", help="gRPC server host.")
@@ -140,7 +152,12 @@ def main(argv: list[str] | None = None) -> int:
         shared_secret=args.shared_secret,
     )
     try:
-        written_paths = generate_to_paths(client_opts, gen_opts, args.output)
+        validate_batch_generations(args.generations)
+    except ConfigurationError as e:
+        print(f"Configuration error: {e}", file=sys.stderr)
+        return 1
+    try:
+        written_paths = generate_to_paths(client_opts, gen_opts, args.output, generations=args.generations)
     except ConfigurationError as e:
         print(f"Configuration error: {e}", file=sys.stderr)
         return 1

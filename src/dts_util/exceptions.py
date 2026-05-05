@@ -13,6 +13,10 @@ class ConfigurationError(DTSUtilError):
     """Invalid or missing Draw Things generation configuration."""
 
 
+class PromptWildcardError(ConfigurationError):
+    """Prompt ``{…}`` wildcards failed safety limits or could not be resolved."""
+
+
 class ChannelSetupError(DTSUtilError):
     """gRPC channel or TLS setup failed before RPC."""
 
@@ -44,3 +48,7 @@ class GenerationRpcError(DTSUtilError):
 
 class GenerationEmptyError(DTSUtilError):
     """The server completed without returning image tensors."""
+
+
+class GenerationCancelledError(DTSUtilError):
+    """Generation stopped cooperatively (e.g. web UI cancel between batch runs)."""

@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import base64
 import dataclasses
 import time
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 import threading
@@ -163,6 +164,42 @@ def collect_raw_generation_tensors(
             close()
 
 
+def _validate_per_run_prompt_lengths(
+    n: int,
+    prompts_per_run: Sequence[str] | None,
+    negative_prompts_per_run: Sequence[str] | None,
+) -> None:
+    if prompts_per_run is not None and len(prompts_per_run) != n:
+        raise ConfigurationError("'prompts' length must equal generations.")
+    if negative_prompts_per_run is not None and len(negative_prompts_per_run) != n:
+        raise ConfigurationError("'negative_prompts' length must equal generations.")
+
+
+def _generation_runs_iter(
+    client: GrpcClientOptions,
+    gen: ImageGenerationRequestOptions,
+    n: int,
+    cancel_event: threading.Event | None,
+    prompts_per_run: Sequence[str] | None,
+    negative_prompts_per_run: Sequence[str] | None,
+) -> Iterator[tuple[int, str, str, list[bytes]]]:
+    """Yield ``(run_index_zero_based, expanded_prompt, expanded_negative, png_bytes_for_run)`` per generation RPC."""
+    for i in range(n):
+        if cancel_event is not None and cancel_event.is_set():
+            raise GenerationCancelledError("Generation cancelled.")
+        g = gen
+        if prompts_per_run is not None:
+            g = dataclasses.replace(g, prompt=prompts_per_run[i])
+        if negative_prompts_per_run is not None:
+            g = dataclasses.replace(g, negative_prompt=negative_prompts_per_run[i])
+        request, ep, en = prepare_image_generation_request(g)
+        tensors = collect_raw_generation_tensors(client, request)
+        if not tensors:
+            raise GenerationEmptyError("No generated images returned by the server.")
+        pngs = [decode_dt_tensor_to_png(tensor) for tensor in tensors]
+        yield i, ep, en, pngs
+
+
 def generate_png_batch(
     client: GrpcClientOptions,
     gen: ImageGenerationRequestOptions,
@@ -173,33 +210,69 @@ def generate_png_batch(
     negative_prompts_per_run: Sequence[str] | None = None,
 ) -> GeneratePngBatchResult:
     n = validate_batch_generations(generations)
-    if prompts_per_run is not None and len(prompts_per_run) != n:
-        raise ConfigurationError("'prompts' length must equal generations.")
-    if negative_prompts_per_run is not None and len(negative_prompts_per_run) != n:
-        raise ConfigurationError("'negative_prompts' length must equal generations.")
+    _validate_per_run_prompt_lengths(n, prompts_per_run, negative_prompts_per_run)
     pngs: list[bytes] = []
     expanded_prompts: list[str] = []
     expanded_negatives: list[str] = []
-    for i in range(n):
-        if cancel_event is not None and cancel_event.is_set():
-            raise GenerationCancelledError("Generation cancelled.")
-        g = gen
-        if prompts_per_run is not None:
-            g = dataclasses.replace(g, prompt=prompts_per_run[i])
-        if negative_prompts_per_run is not None:
-            g = dataclasses.replace(g, negative_prompt=negative_prompts_per_run[i])
-        request, ep, en = prepare_image_generation_request(g)
+    for _i, ep, en, run_pngs in _generation_runs_iter(
+        client,
+        gen,
+        n,
+        cancel_event,
+        prompts_per_run,
+        negative_prompts_per_run,
+    ):
         expanded_prompts.append(ep)
         expanded_negatives.append(en)
-        tensors = collect_raw_generation_tensors(client, request)
-        if not tensors:
-            raise GenerationEmptyError("No generated images returned by the server.")
-        pngs.extend(decode_dt_tensor_to_png(tensor) for tensor in tensors)
+        pngs.extend(run_pngs)
     return GeneratePngBatchResult(
         images=pngs,
         expanded_prompts=expanded_prompts,
         expanded_negative_prompts=expanded_negatives,
     )
+
+
+def iter_generate_stream_dicts(
+    client: GrpcClientOptions,
+    gen: ImageGenerationRequestOptions,
+    *,
+    generations: int = 1,
+    cancel_event: threading.Event | None = None,
+    prompts_per_run: Sequence[str] | None = None,
+    negative_prompts_per_run: Sequence[str] | None = None,
+) -> Iterator[dict[str, object]]:
+    """Yield serializable dicts for SSE: meta, progress (once per generation run), image (per PNG; multiple per run if the server returns several tensors), done."""
+    n = validate_batch_generations(generations)
+    _validate_per_run_prompt_lengths(n, prompts_per_run, negative_prompts_per_run)
+    yield {"type": "meta", "total_runs": n}
+    global_idx = 0
+    expanded_prompts: list[str] = []
+    expanded_negatives: list[str] = []
+    for i, ep, en, run_pngs in _generation_runs_iter(
+        client,
+        gen,
+        n,
+        cancel_event,
+        prompts_per_run,
+        negative_prompts_per_run,
+    ):
+        expanded_prompts.append(ep)
+        expanded_negatives.append(en)
+        yield {"type": "progress", "run": i + 1, "total_runs": n}
+        for png in run_pngs:
+            global_idx += 1
+            yield {
+                "type": "image",
+                "run": i + 1,
+                "index": global_idx,
+                "png_b64": base64.standard_b64encode(png).decode("ascii"),
+            }
+    yield {
+        "type": "done",
+        "expanded_prompts": expanded_prompts,
+        "expanded_negative_prompts": expanded_negatives,
+        "total_images": global_idx,
+    }
 
 
 def generate_png_bytes(

@@ -118,6 +118,13 @@
       display: flex;
       align-items: center;
       gap: 0.65rem;
+      flex-wrap: wrap;
+    }
+    #busyProgress {
+      font-size: 0.78rem;
+      color: var(--muted);
+      flex: 1 1 auto;
+      min-width: 8rem;
     }
     .busy-payload summary {
       cursor: pointer;
@@ -173,8 +180,10 @@
       max-width: 100%;
       max-height: 100%;
     }
-    .results img {
-      display: block;
+    .results img.result-inflight {
+      outline: 1px dashed var(--accent);
+      opacity: 0.94;
+    }
       max-width: 100%;
       max-height: min(88vh, calc(100dvh - 8rem));
       width: auto;
@@ -545,9 +554,10 @@
           <span class="spinner" aria-hidden="true"></span>
           <span class="sr-only">Generating</span>
           <span id="busyElapsed" class="hint"></span>
+          <span id="busyProgress" class="hint" aria-live="polite"></span>
         </div>
         <details class="busy-payload" open>
-          <summary class="busy-summary">Generate request JSON — POST /api/generate body</summary>
+          <summary class="busy-summary">Generate request JSON — POST /api/generate/stream</summary>
           <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON body"></pre>
         </details>
       </div>
@@ -987,6 +997,62 @@ uv run dts-util server check</pre>
     return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   }
 
+  /** Parse newline-delimited SSE (data: …\\n\\n) from a fetch Response body. */
+  function readSSEStream(response, onEvent) {
+    return new Promise(function (resolve, reject) {
+      if (!response.body || !response.body.getReader) {
+        reject(new Error("Streaming response body not supported in this browser."));
+        return;
+      }
+      const reader = response.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      function pump() {
+        reader
+          .read()
+          .then(function (res) {
+            if (res.done) {
+              resolve();
+              return;
+            }
+            buf += dec.decode(res.value, { stream: true });
+            let sep;
+            while ((sep = buf.indexOf("\n\n")) !== -1) {
+              const block = buf.slice(0, sep);
+              buf = buf.slice(sep + 2);
+              const lines = block.split("\n");
+              for (let li = 0; li < lines.length; li++) {
+                const line = lines[li];
+                if (line.indexOf("data:") !== 0) continue;
+                const raw = line.slice(5).trim();
+                if (!raw) continue;
+                let msg;
+                try {
+                  msg = JSON.parse(raw);
+                } catch (e) {
+                  reject(new Error("Invalid event data from server."));
+                  return;
+                }
+                if (msg.type === "error") {
+                  reject(new Error(msg.detail || "Generation failed."));
+                  return;
+                }
+                try {
+                  onEvent(msg);
+                } catch (e) {
+                  reject(e);
+                  return;
+                }
+              }
+            }
+            pump();
+          })
+          .catch(reject);
+      }
+      pump();
+    });
+  }
+
   function setGeneratingUi(active, t0, timerRef, requestJsonText) {
     const placeholder = document.getElementById("resultPlaceholder");
     const busy = document.getElementById("resultBusy");
@@ -997,6 +1063,8 @@ uv run dts-util server check</pre>
       placeholder.hidden = true;
       busy.hidden = false;
       busyElapsed.textContent = prefersReducedMotion() ? "Generating…" : "0.0s";
+      var bp = document.getElementById("busyProgress");
+      if (bp) bp.textContent = "";
       if (busyJson) busyJson.textContent = typeof requestJsonText === "string" ? requestJsonText : "";
       pane.setAttribute("aria-busy", "true");
       if (timerRef.id) clearInterval(timerRef.id);
@@ -1011,6 +1079,8 @@ uv run dts-util server check</pre>
       }
       busy.hidden = true;
       if (busyJson) busyJson.textContent = "";
+      var bpOff = document.getElementById("busyProgress");
+      if (bpOff) bpOff.textContent = "";
       pane.removeAttribute("aria-busy");
     }
   }
@@ -1097,14 +1167,15 @@ uv run dts-util server check</pre>
       const payloadPreview = formatGenerateBodyForDisplay(body);
       setGeneratingUi(true, t0, timerRef, payloadPreview);
 
-      const r = await fetch("/api/generate", {
+      const r = await fetch("/api/generate/stream", {
         method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json", "Accept": "multipart/mixed,*/*" }),
+        headers: authHeaders({
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        }),
         body: JSON.stringify(body),
         signal: ac.signal,
       });
-      const dt = ((performance.now() - t0) / 1000).toFixed(1);
-      elapsed.textContent = r.ok ? ("Done in " + dt + "s") : "";
 
       if (r.status === 401) {
         errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
@@ -1113,7 +1184,6 @@ uv run dts-util server check</pre>
         return;
       }
 
-      const ct = r.headers.get("content-type") || "";
       if (!r.ok) {
         let msg = r.statusText;
         try {
@@ -1126,45 +1196,80 @@ uv run dts-util server check</pre>
         return;
       }
 
-      if (ct.includes("multipart/mixed")) {
-        const buf = await r.arrayBuffer();
-        const blobs = parseMultipartPngs(buf, ct);
-        const forHistory = blobs.map(function (b) { return b.slice(0); });
-        historyAppend(prompt, forHistory);
-        placeholder.hidden = true;
-        blobs.forEach((b, i) => {
-          const url = URL.createObjectURL(new Blob([b], { type: "image/png" }));
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("text/event-stream")) {
+        errEl.textContent = "Expected text/event-stream from server, got: " + ct;
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      const historyBuffers = [];
+      let donePayload = null;
+      await readSSEStream(r, function (msg) {
+        if (msg.type === "meta") {
+          var prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Starting · " + msg.total_runs + " run(s)";
+        }
+        if (msg.type === "progress") {
+          var prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
+        }
+        if (msg.type === "image") {
+          placeholder.hidden = true;
+          var bin = atob(msg.png_b64);
+          var bytes = new Uint8Array(bin.length);
+          for (var j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+          historyBuffers.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+          var blob = new Blob([bytes], { type: "image/png" });
+          var url = URL.createObjectURL(blob);
           __dtsResultBlobUrls.push(url);
-          const img = document.createElement("img");
+          var img = document.createElement("img");
           img.src = url;
-          img.alt = "Generated " + (i + 1);
-          const wrap = document.createElement("div");
-          const a = document.createElement("a");
+          img.alt = "Generated " + msg.index + " (run " + msg.run + ")";
+          img.className = "result-inflight";
+          var wrap = document.createElement("div");
+          var a = document.createElement("a");
           a.href = url;
-          a.download = "generated_" + i + ".png";
+          a.download = "generated_" + msg.index + ".png";
           a.textContent = "Download";
           a.style.color = "var(--accent)";
           wrap.appendChild(img);
           wrap.appendChild(document.createElement("br"));
           wrap.appendChild(a);
           results.appendChild(wrap);
-        });
-        var expNote = document.getElementById("expandedPromptsNote");
-        if (expNote) {
-          var exp = decodeExpandedWildcardsHeader(r.headers.get("X-Expanded-Wildcards-B64"));
-          if (exp && exp.prompts.length) {
-            expNote.hidden = false;
-            expNote.textContent = formatExpandedWildcardsNote(exp);
-          } else {
-            expNote.hidden = true;
-            expNote.textContent = "";
-          }
+          var prog2 = document.getElementById("busyProgress");
+          if (prog2)
+            prog2.textContent =
+              "Run " + msg.run + " / " + msg.total_runs + " · received image " + msg.index;
         }
-      } else {
-        errEl.textContent = "Unexpected response " + ct;
-        errEl.style.display = "block";
-        placeholder.hidden = false;
+        if (msg.type === "done") {
+          donePayload = msg;
+        }
+      });
+
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      elapsed.textContent = "Done in " + dt + "s";
+
+      results.querySelectorAll("img.result-inflight").forEach(function (im) {
+        im.classList.remove("result-inflight");
+      });
+
+      if (historyBuffers.length) historyAppend(prompt, historyBuffers);
+
+      var expNote = document.getElementById("expandedPromptsNote");
+      if (expNote && donePayload && donePayload.expanded_prompts && donePayload.expanded_prompts.length) {
+        expNote.hidden = false;
+        expNote.textContent = formatExpandedWildcardsNote({
+          prompts: donePayload.expanded_prompts,
+          negative_prompts: donePayload.expanded_negative_prompts || [],
+        });
+      } else if (expNote) {
+        expNote.hidden = true;
+        expNote.textContent = "";
       }
+
+      placeholder.hidden = historyBuffers.length > 0;
     } catch (e) {
       if (e.name === "AbortError") {
         requestGenerationCancel();

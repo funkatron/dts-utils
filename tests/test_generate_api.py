@@ -31,6 +31,7 @@ from dts_util.generate_api import (
     generate_png_batch,
     generate_png_bytes,
     generate_to_paths,
+    iter_generate_stream_dicts,
     prepare_image_generation_request,
 )
 
@@ -410,6 +411,28 @@ def test_generate_png_batch_prompts_per_run(
     assert len(batch.images) == 2
     assert prompts_seen == ["alpha", "beta"]
     assert batch.expanded_prompts == prompts_seen
+
+
+def test_iter_generate_stream_dicts_sequence(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", lambda _c, _r: [b"t"])
+    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+
+    gen = ImageGenerationRequestOptions(prompt="{a|b}", configuration=cfg)
+    events = list(
+        iter_generate_stream_dicts(GrpcClientOptions(no_tls=True), gen, generations=2),
+    )
+    types = [e["type"] for e in events]
+    assert types[0] == "meta"
+    assert types.count("progress") == 2
+    assert types.count("image") == 2
+    assert types[-1] == "done"
+    done = events[-1]
+    assert done["type"] == "done"
+    assert done["total_images"] == 2
+    assert len(done["expanded_prompts"]) == 2
 
 
 def test_generate_png_batch_prompts_per_run_length_mismatch(tmp_path: Path) -> None:

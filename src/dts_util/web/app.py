@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import functools
 import json
 import os
+import queue
 import secrets
 import threading
 from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
@@ -36,6 +38,7 @@ from dts_util.generate_api import (
     coerce_generations_json,
     expand_prompt_templates_for_batch,
     generate_png_batch,
+    iter_generate_stream_dicts,
 )
 from dts_util.grpc.connection import is_loopback_host
 from dts_util.grpc.utils import is_server_running
@@ -49,6 +52,9 @@ _generation_cancel_event = threading.Event()
 _DEFAULT_GENERATE_TIMEOUT = 900.0
 _ENV_GENERATE_TIMEOUT = "DTS_WEB_GENERATE_TIMEOUT"
 _ENV_WEB_TOKEN = "DTS_WEB_TOKEN"
+
+# Bound SSE chunks waiting on a slow client (producer blocks on put when full).
+_GENERATE_STREAM_QUEUE_MAXSIZE = 64
 
 # Some proxies cap individual header values; omit expanded-prompt metadata when larger.
 _MAX_EXPANDED_WILDCARDS_B64_LEN = 6000
@@ -418,6 +424,119 @@ async def api_generate_cancel(request: Request) -> JSONResponse:
     return JSONResponse({"ok": True, "cancel_requested": True})
 
 
+def _generate_stream_exception_payload(exc: BaseException) -> dict[str, object]:
+    """Single SSE JSON payload for failures during streaming generation."""
+    if isinstance(exc, ConfigurationError):
+        return {"type": "error", "detail": str(exc)}
+    if isinstance(exc, ChannelSetupError):
+        return {"type": "error", "detail": str(exc)}
+    if isinstance(exc, GenerationRpcError):
+        return {"type": "error", "detail": str(exc)}
+    if isinstance(exc, GenerationEmptyError):
+        return {"type": "error", "detail": str(exc)}
+    if isinstance(exc, GenerationCancelledError):
+        return {"type": "error", "detail": str(exc)}
+    return {"type": "error", "detail": str(exc)}
+
+
+async def api_generate_stream(request: Request) -> StreamingResponse | JSONResponse:
+    if err := _require_bearer(request):
+        return err
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
+
+    data, err = _parse_generate_payload(body)
+    if err:
+        return err
+
+    client, err = _build_client_options(data)
+    if err:
+        return err
+
+    try:
+        generation_runs = coerce_generations_json(data.get("generations"))
+    except ConfigurationError as e:
+        return JSONResponse({"detail": str(e)}, status_code=400)
+
+    prompts_per_run, negative_prompts_per_run, err = _coerce_prompt_arrays(data, generation_runs)
+    if err:
+        return err
+
+    gen, err = _build_generation_options(data, prompts_per_run=prompts_per_run)
+    if err:
+        return err
+
+    loop = asyncio.get_running_loop()
+    q: queue.Queue[str | None] = queue.Queue(maxsize=_GENERATE_STREAM_QUEUE_MAXSIZE)
+    timeout_sec = _generate_timeout_seconds()
+
+    def worker() -> None:
+        with _execute_lock:
+            _generation_cancel_event.clear()
+            try:
+                for evt in iter_generate_stream_dicts(
+                    client,
+                    gen,
+                    generations=generation_runs,
+                    cancel_event=_generation_cancel_event,
+                    prompts_per_run=prompts_per_run,
+                    negative_prompts_per_run=negative_prompts_per_run,
+                ):
+                    q.put(json.dumps(evt, ensure_ascii=False))
+            except BaseException as exc:
+                q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
+            finally:
+                q.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    async def event_iter():
+        deadline = loop.time() + timeout_sec
+        timed_out = False
+        try:
+            while True:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                try:
+                    line = await asyncio.wait_for(
+                        loop.run_in_executor(None, q.get),
+                        timeout=remaining,
+                    )
+                except TimeoutError:
+                    timed_out = True
+                    break
+                if line is None:
+                    break
+                yield f"data: {line}\n\n"
+            if timed_out:
+                _generation_cancel_event.set()
+                err_line = json.dumps(
+                    {"type": "error", "detail": "Generation timed out."},
+                    ensure_ascii=False,
+                )
+                yield f"data: {err_line}\n\n"
+        finally:
+            if timed_out:
+                while True:
+                    line = await loop.run_in_executor(None, q.get)
+                    if line is None:
+                        break
+
+    return StreamingResponse(
+        event_iter(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 async def api_generate(request: Request) -> Response:
     if err := _require_bearer(request):
         return err
@@ -447,9 +566,6 @@ async def api_generate(request: Request) -> Response:
     if err:
         return err
 
-    import asyncio
-
-    timeout = _generate_timeout_seconds()
     run_batch = functools.partial(
         _run_generate,
         client,
@@ -458,6 +574,7 @@ async def api_generate(request: Request) -> Response:
         prompts_per_run=prompts_per_run,
         negative_prompts_per_run=negative_prompts_per_run,
     )
+    timeout = _generate_timeout_seconds()
     try:
         batch = await asyncio.wait_for(asyncio.to_thread(run_batch), timeout=timeout)
     except TimeoutError:
@@ -491,6 +608,7 @@ def create_app() -> Starlette:
         Route("/api/configs", api_configs, methods=["GET"]),
         Route("/api/prompt/expand", api_prompt_expand, methods=["GET", "POST"]),
         Route("/api/generate/cancel", api_generate_cancel, methods=["POST"]),
+        Route("/api/generate/stream", api_generate_stream, methods=["POST"]),
         Route("/api/generate", api_generate, methods=["POST"]),
     ]
     return Starlette(routes=routes)

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+import json
+
 import pytest
 from starlette.testclient import TestClient
 
-from dts_util.exceptions import GenerationCancelledError
+from dts_util.exceptions import ConfigurationError, GenerationCancelledError
 from dts_util.generate_api import GeneratePngBatchResult
 from dts_util.web.app import create_app
 
@@ -29,9 +32,11 @@ def test_index_loads(client: TestClient) -> None:
     assert 'id="historyDialog"' in r.text
     assert "Ctrl+Enter" in r.text
     assert 'id="btnStop"' in r.text
+    assert 'id="busyProgress"' in r.text
     assert 'id="busyRequestJson"' in r.text
     assert 'id="expandedPromptsNote"' in r.text
     assert "Generate request JSON" in r.text
+    assert "/api/generate/stream" in r.text
 
 
 def test_server_status_without_token(client: TestClient) -> None:
@@ -65,6 +70,108 @@ def test_configs_with_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_generate_missing_prompt(client: TestClient) -> None:
     r = client.post("/api/generate", json={})
     assert r.status_code == 400
+
+
+def test_generate_stream_returns_sse(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    def fake_iter(*_a: object, **_k: object):
+        yield {"type": "meta", "total_runs": 1}
+        yield {"type": "progress", "run": 1, "total_runs": 1}
+        yield {
+            "type": "image",
+            "run": 1,
+            "index": 1,
+            "png_b64": base64.standard_b64encode(b"\x89PNG\r\n").decode("ascii"),
+        }
+        yield {
+            "type": "done",
+            "expanded_prompts": ["x"],
+            "expanded_negative_prompts": [""],
+            "total_images": 1,
+        }
+
+    monkeypatch.setattr("dts_util.web.app.iter_generate_stream_dicts", fake_iter)
+    with client.stream(
+        "POST",
+        "/api/generate/stream",
+        json={
+            "prompt": "hi",
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    ) as r:
+        assert r.status_code == 200
+        ct = r.headers.get("content-type", "")
+        assert "text/event-stream" in ct
+        raw = r.read().decode("utf-8")
+    data_lines = [ln for ln in raw.splitlines() if ln.startswith("data: ")]
+    payloads = [json.loads(ln.removeprefix("data: ")) for ln in data_lines]
+    assert [p["type"] for p in payloads] == ["meta", "progress", "image", "done"]
+
+
+def test_generate_stream_sse_maps_worker_exception(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:
+    def fake_iter(*_a: object, **_k: object):
+        raise ConfigurationError("bad cfg")
+
+    monkeypatch.setattr("dts_util.web.app.iter_generate_stream_dicts", fake_iter)
+    with client.stream(
+        "POST",
+        "/api/generate/stream",
+        json={
+            "prompt": "hi",
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    ) as r:
+        assert r.status_code == 200
+        raw = r.read().decode("utf-8")
+    data_lines = [ln for ln in raw.splitlines() if ln.startswith("data: ")]
+    assert len(data_lines) == 1
+    body = json.loads(data_lines[0].removeprefix("data: "))
+    assert body["type"] == "error"
+    assert "bad cfg" in str(body["detail"])
+
+
+def test_generate_stream_wall_clock_timeout_emits_sse_error(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+) -> None:
+    """Expired deadline yields SSE error; drain path must unblock the worker (bounded queue)."""
+
+    monkeypatch.setattr("dts_util.web.app._generate_timeout_seconds", lambda: -1.0)
+
+    def fake_iter(*_a: object, **_k: object):
+        yield {"type": "meta", "total_runs": 1}
+        yield {
+            "type": "done",
+            "expanded_prompts": ["x"],
+            "expanded_negative_prompts": [""],
+            "total_images": 0,
+        }
+
+    monkeypatch.setattr("dts_util.web.app.iter_generate_stream_dicts", fake_iter)
+    with client.stream(
+        "POST",
+        "/api/generate/stream",
+        json={
+            "prompt": "hi",
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    ) as r:
+        assert r.status_code == 200
+        raw = r.read().decode("utf-8")
+
+    data_lines = [ln for ln in raw.splitlines() if ln.startswith("data: ")]
+    assert len(data_lines) == 1
+    body = json.loads(data_lines[0].removeprefix("data: "))
+    assert body["type"] == "error"
+    assert body["detail"] == "Generation timed out."
 
 
 def test_generate_invalid_json(client: TestClient) -> None:
@@ -343,6 +450,13 @@ def test_generate_unauthorized_when_token_set(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
     client = TestClient(create_app())
     r = client.post("/api/generate", json={"prompt": "x", "no_tls": True})
+    assert r.status_code == 401
+
+
+def test_generate_stream_unauthorized_when_token_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
+    client = TestClient(create_app())
+    r = client.post("/api/generate/stream", json={"prompt": "x", "no_tls": True})
     assert r.status_code == 401
 
 

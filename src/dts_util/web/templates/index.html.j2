@@ -78,9 +78,9 @@
       flex: 1 1 auto;
       min-height: 0;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.25rem;
+      align-items: stretch;
+      justify-content: flex-start;
+      padding: 0.5rem 0.75rem 0.65rem;
       overflow: auto;
     }
     #resultPane {
@@ -89,9 +89,12 @@
       min-height: 12rem;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
+      justify-content: flex-start;
+      gap: 1rem;
+    }
+    #resultPane:not(:has(#results > *)) {
       justify-content: center;
-      gap: 0.75rem;
     }
     .result-placeholder {
       font-size: 0.9rem;
@@ -165,43 +168,100 @@
     .results {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      align-items: stretch;
       gap: 1rem;
       width: 100%;
-      flex: 1 1 auto;
+      max-width: min(100%, 52rem);
+      margin: 0 auto;
+      flex: 0 1 auto;
       min-height: 0;
     }
-    .results > div {
+    .results .result-slot {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 0.35rem;
-      max-width: 100%;
-      max-height: 100%;
+      gap: 0.45rem;
+      width: 100%;
+      padding: 0.65rem 0.75rem;
+      background: rgba(34, 35, 40, 0.6);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-sizing: border-box;
     }
-    .results img.result-inflight {
-      outline: 1px dashed var(--accent);
-      opacity: 0.94;
-    }
+    .results img {
+      display: block;
       max-width: 100%;
-      max-height: min(88vh, calc(100dvh - 8rem));
       width: auto;
       height: auto;
+      max-height: min(42vh, 400px);
       object-fit: contain;
-      border-radius: 4px;
+      border-radius: 6px;
       border: 1px solid var(--border);
     }
-    .expanded-prompts-note {
+    .results img.result-inflight {
+      outline: 2px dashed var(--accent);
+      outline-offset: 2px;
+      opacity: 0.94;
+    }
+    .results .result-download {
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .results .result-download:hover {
+      text-decoration: underline;
+      color: var(--fg);
+    }
+    .expanded-prompts-panel {
+      flex: 0 1 auto;
       width: 100%;
-      max-width: 100%;
-      margin: 0;
-      padding: 0.35rem 0.35rem 0;
-      font-size: 0.72rem;
+      max-width: min(100%, 52rem);
+      margin: 0 auto;
+      padding: 0.75rem 1rem 1rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-sizing: border-box;
+    }
+    .expanded-prompts-panel .expanded-prompts-title {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--fg);
+      margin: 0 0 0.65rem;
+    }
+    .expanded-prompts-panel .expanded-run {
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .expanded-prompts-panel .expanded-run:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+    .expanded-prompts-panel .expanded-run-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
       color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    .expanded-prompts-panel .expanded-run-label.neg {
+      margin-top: 0.45rem;
+    }
+    .expanded-prompts-panel .expanded-run-text {
+      margin: 0;
+      padding: 0.45rem 0.55rem;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.68rem;
+      line-height: 1.45;
       white-space: pre-wrap;
       word-break: break-word;
-      box-sizing: border-box;
+      background: #25262b;
+      border-radius: 4px;
+      color: var(--fg);
+      max-height: min(26vh, 11rem);
+      overflow-y: auto;
     }
     /* Error strip — thin, above composer */
     #err {
@@ -216,7 +276,7 @@
     /* Bottom composer: prompt row + split Runs | Generate */
     .composer {
       flex: 0 0 auto;
-      padding: 0.45rem 0.65rem 0.5rem;
+      padding: 0.55rem 0.75rem 0.65rem;
       border-top: 1px solid var(--border);
       background: var(--bg);
     }
@@ -248,8 +308,8 @@
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
-      min-height: 2.85rem;
-      max-height: min(40vh, 12rem);
+      min-height: 3.25rem;
+      max-height: min(38vh, 15rem);
       resize: vertical;
       font-size: 0.95rem;
       line-height: 1.35;
@@ -268,7 +328,7 @@
       display: flex;
       flex-direction: row;
       align-items: stretch;
-      min-height: 2.85rem;
+      min-height: 3.25rem;
       border: 1px solid var(--border);
       border-radius: 6px;
       overflow: hidden;
@@ -580,7 +640,7 @@
         </details>
       </div>
       <div id="results" class="results"></div>
-      <p id="expandedPromptsNote" class="expanded-prompts-note" hidden aria-live="polite"></p>
+      <div id="expandedPromptsNote" class="expanded-prompts-panel" hidden aria-live="polite"></div>
     </div>
   </div>
 
@@ -778,15 +838,37 @@ uv run dts-util server check</pre>
     }
   }
 
-  function formatExpandedWildcardsNote(exp) {
-    const lines = [];
-    for (let i = 0; i < exp.prompts.length; i++) {
-      let line = "Run " + (i + 1) + ": " + String(exp.prompts[i]);
-      const neg = exp.negative_prompts[i];
-      if (neg && String(neg).trim()) line += "\n  Negative: " + String(neg);
-      lines.push(line);
+  function renderExpandedPromptsPanel(container, prompts, negative_prompts) {
+    container.replaceChildren();
+    var title = document.createElement("div");
+    title.className = "expanded-prompts-title";
+    title.textContent = "Expanded prompts (sent to Draw Things)";
+    container.appendChild(title);
+    var negs = negative_prompts && negative_prompts.length ? negative_prompts : [];
+    for (var i = 0; i < prompts.length; i++) {
+      var run = document.createElement("div");
+      run.className = "expanded-run";
+      var lab = document.createElement("div");
+      lab.className = "expanded-run-label";
+      lab.textContent = "Run " + (i + 1);
+      run.appendChild(lab);
+      var pre = document.createElement("pre");
+      pre.className = "expanded-run-text";
+      pre.textContent = String(prompts[i]);
+      run.appendChild(pre);
+      var neg = negs[i];
+      if (neg && String(neg).trim()) {
+        var negLab = document.createElement("div");
+        negLab.className = "expanded-run-label neg";
+        negLab.textContent = "Negative";
+        run.appendChild(negLab);
+        var negPre = document.createElement("pre");
+        negPre.className = "expanded-run-text";
+        negPre.textContent = String(neg);
+        run.appendChild(negPre);
+      }
+      container.appendChild(run);
     }
-    return "Expanded prompts (sent to Draw Things):\n\n" + lines.join("\n\n");
   }
 
   function formatListenerLine(j) {
@@ -1188,7 +1270,7 @@ uv run dts-util server check</pre>
     var expNoteClear = document.getElementById("expandedPromptsNote");
     if (expNoteClear) {
       expNoteClear.hidden = true;
-      expNoteClear.textContent = "";
+      expNoteClear.replaceChildren();
     }
     btnGen.disabled = true;
     const t0 = performance.now();
@@ -1314,13 +1396,13 @@ uv run dts-util server check</pre>
           img.alt = "Generated " + msg.index + " (run " + msg.run + ")";
           img.className = "result-inflight";
           var wrap = document.createElement("div");
+          wrap.className = "result-slot";
           var a = document.createElement("a");
           a.href = url;
           a.download = "generated_" + msg.index + ".png";
           a.textContent = "Download";
-          a.style.color = "var(--accent)";
+          a.className = "result-download";
           wrap.appendChild(img);
-          wrap.appendChild(document.createElement("br"));
           wrap.appendChild(a);
           results.appendChild(wrap);
           var prog2 = document.getElementById("busyProgress");
@@ -1347,13 +1429,14 @@ uv run dts-util server check</pre>
       var expNote = document.getElementById("expandedPromptsNote");
       if (expNote && donePayload && donePayload.expanded_prompts && donePayload.expanded_prompts.length) {
         expNote.hidden = false;
-        expNote.textContent = formatExpandedWildcardsNote({
-          prompts: donePayload.expanded_prompts,
-          negative_prompts: donePayload.expanded_negative_prompts || [],
-        });
+        renderExpandedPromptsPanel(
+          expNote,
+          donePayload.expanded_prompts,
+          donePayload.expanded_negative_prompts || [],
+        );
       } else if (expNote) {
         expNote.hidden = true;
-        expNote.textContent = "";
+        expNote.replaceChildren();
       }
 
       placeholder.hidden = historyBuffers.length > 0;

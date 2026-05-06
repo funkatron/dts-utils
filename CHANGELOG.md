@@ -43,6 +43,7 @@ Example snippet for the next release:
 
 - **`dts-util web`:** history PNGs are now saved by the web server under the dts-util config directory instead of relying on browser `localStorage`; legacy `localStorage` rows import on first History open.
 - **`dts-util web`:** result cards use a wider responsive grid, the composer is more compact, and expanded prompt details are shown as a slimmer scrollable log.
+- **`dts-util web`:** results area scrolls reliably (including Safari): `#resultPane` is the scroll container with a proper flex `min-height` chain instead of `#stage` scrolling a `height: 100%` pane that failed to extend scroll height.
 
 ## [0.4.2] - 2026-05-05
 

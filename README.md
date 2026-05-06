@@ -145,7 +145,8 @@ Commands assume the LaunchAgent layout and use local probes (`pgrep` / `lsof`). 
 | Confirm process and port | `uv run dts-util server check` (or `server test`) |
 | Custom port, secret, or models path | `uv run dts-util server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
 | Enable model browsing on an existing install | `uv run dts-util server restart --model-browser` |
-| Restart or remove | `uv run dts-util server restart` · `uv run dts-util server uninstall` |
+| Stop / start without removing install | `uv run dts-util server stop` · `uv run dts-util server start` |
+| Restart or fully remove | `uv run dts-util server restart` · `uv run dts-util server uninstall` |
 
 Flag-level detail: [CLI.md](CLI.md).
 
@@ -223,7 +224,7 @@ Output paths:
 
 | Symptom | Where to look |
 | --- | --- |
-| `server check` fails | Wrong port; or use `dts-util server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-util server restart` |
+| `server check` fails | Wrong port; or use `dts-util server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-util server restart`, or `server stop` then `server start` |
 | TLS error against `localhost` | Add `--trust-server-cert` for loopback on `generate`. See [TLS](#tls) |
 | `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Shorthand profile (zit)](#shorthand-profile-zit). Wrong or missing `model` in JSON often fails at the server |
 | `reflect` returns `UNIMPLEMENTED` | Draw Things `gRPCServerCLI` often omits gRPC reflection; generation can still work |

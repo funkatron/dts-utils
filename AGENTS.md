@@ -27,7 +27,7 @@ Console entrypoint: [`dts_util.cli_router:main`](src/dts_util/cli_router.py). Na
 
 | Subcommand | Implementation |
 | --- | --- |
-| `server …` | [`installer/server_installer.py`](src/dts_util/installer/server_installer.py) (`install`, `uninstall`, `restart`, `test`, `check`) |
+| `server …` | [`installer/server_installer.py`](src/dts_util/installer/server_installer.py) (`install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`) |
 | `generate` | [`generate.py`](src/dts_util/generate.py) |
 | Prompt-first shorthand (`dts-util "…"`) | Same as `generate` after argv rewrite in `cli_router` |
 | `configs` | [`configs.py`](src/dts_util/configs.py) |

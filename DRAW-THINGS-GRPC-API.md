@@ -113,6 +113,8 @@ Use `dts-util` for installing and restarting the Draw Things server process:
 
 ```bash
 uv run dts-util server install --model-browser
+uv run dts-util server stop
+uv run dts-util server start
 uv run dts-util server restart --model-browser
 uv run dts-util server test
 ```

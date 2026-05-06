@@ -61,6 +61,8 @@ This script installs the Draw Things gRPCServerCLI and sets it up as a LaunchAge
 Usage:
     dts-util server install [-m MODEL_PATH] [gRPCServerCLI options]
     dts-util server uninstall
+    dts-util server start
+    dts-util server stop
     dts-util server restart [--model-browser]
     dts-util server test|check [--port PORT]
     dts-util generate --prompt PROMPT --configuration CONFIG [...]
@@ -80,7 +82,9 @@ The installer will:
 Commands:
     server install        Install or update LaunchAgent-managed gRPCServerCLI
     server uninstall      Stop service, remove plist + binary paths this tool manages
-    server restart        Reload plist (optional ``--model-browser``)
+    server start          Bootstrap plist into your GUI ``launchd`` domain (start job)
+    server stop           Boot job out of ``launchd`` (plist remains)
+    server restart        Stop then start (optional ``--model-browser``)
     server test|check     Probe localhost listener; ``check`` aliases ``test``
     generate …            Client RPC: image generation (see upstream ``GenerateImage``)
     reflect …             Client RPC: reflection
@@ -147,7 +151,9 @@ Examples:
     # Install with proxy configuration
     dts-util server install --join '{{"host":"proxy.local", "port":7859}}'
 
-    # Restart the service
+    # Start / stop / restart (plist must exist — run ``server install`` first)
+    dts-util server start
+    dts-util server stop
     dts-util server restart
 
     # Enable model browser for an existing service and restart
@@ -217,8 +223,15 @@ Examples:
             epilog=self.usage_text)
 
         # Add actions as positional arguments
-        parser.add_argument('action', nargs='?', choices=['install', 'uninstall', 'restart', 'test', 'check'],
-                          help='Action to perform (install: install server, uninstall: remove server, restart: restart server, test|check: check if server is responding)')
+        parser.add_argument(
+            'action',
+            nargs='?',
+            choices=['install', 'uninstall', 'start', 'stop', 'restart', 'test', 'check'],
+            help=(
+                'Action (install | uninstall | start | stop | restart | test | check); '
+                'test|check probes the listener'
+            ),
+        )
 
         # Installer arguments
         parser.add_argument('-m', '--model-path',
@@ -278,7 +291,13 @@ Examples:
         if args.action == "check":
             args.action = "test"
 
-        # Handle restart action
+        # Handle start / stop / restart (LaunchAgent lifecycle)
+        if args.action == 'start':
+            self.start_service()
+            sys.exit(0)
+        if args.action == 'stop':
+            self.stop_service()
+            sys.exit(0)
         if args.action == 'restart':
             self.restart_service(enable_model_browser=args.model_browser)
             sys.exit(0)
@@ -444,8 +463,7 @@ Examples:
                 if service_path.exists():
                     print("Stopping existing service before updating binary...")
                     try:
-                        subprocess.run(['launchctl', 'unload', service_path], check=False)
-                        subprocess.run(['launchctl', 'remove', self.SERVICE_NAME], check=False)
+                        self._launchctl_stop_job(service_path)
                         time.sleep(1)  # Give the service time to stop
                     except Exception as e:
                         print(f"Warning: Failed to stop service: {e}")
@@ -478,8 +496,7 @@ Examples:
             # Stop existing service
             print("Stopping existing service...")
             try:
-                subprocess.run(['launchctl', 'unload', service_path], check=False)
-                subprocess.run(['launchctl', 'remove', self.SERVICE_NAME], check=False)
+                self._launchctl_stop_job(service_path)
                 time.sleep(1)  # Give the service time to stop
             except Exception as e:
                 print(f"Warning: Failed to stop service: {e}")
@@ -524,7 +541,7 @@ Examples:
             with open(service_path, 'wb') as f:
                 plistlib.dump(service_config, f)
 
-            subprocess.run(['launchctl', 'load', service_path], check=True)
+            self._launchctl_start_job(service_path)
             print(f"Service installed and started at {service_path}")
             print("Server configuration:")
             # Only show non-default values
@@ -693,6 +710,74 @@ Examples:
         print("Model browser enabled in service configuration")
         return True
 
+    def _launchd_gui_domain(self) -> str:
+        """launchd domain for per-user GUI agents (``gui/<uid>``)."""
+        return f"gui/{os.getuid()}"
+
+    def _launchctl_stop_job(self, service_path: Path) -> None:
+        """Boot the LaunchAgent out of launchd; plist may remain on disk.
+
+        Prefer ``launchctl bootout`` (current macOS). Fall back to unload/remove for
+        older hosts or odd registration states.
+        """
+        domain = self._launchd_gui_domain()
+        out = subprocess.run(
+            ["launchctl", "bootout", domain, str(service_path)],
+            capture_output=True,
+            text=True,
+        )
+        if out.returncode == 0:
+            return
+        subprocess.run(["launchctl", "unload", str(service_path)], check=False)
+        subprocess.run(["launchctl", "remove", self.SERVICE_NAME], check=False)
+
+    def _launchctl_start_job(self, service_path: Path) -> None:
+        """Load plist into the user's GUI domain and ensure the job runs.
+
+        Prefer ``launchctl bootstrap``. If the job is already registered, use
+        ``kickstart``. Fall back to legacy ``load``.
+        """
+        domain = self._launchd_gui_domain()
+        boot = subprocess.run(
+            ["launchctl", "bootstrap", domain, str(service_path)],
+            capture_output=True,
+            text=True,
+        )
+        if boot.returncode == 0:
+            return
+        kick = subprocess.run(
+            ["launchctl", "kickstart", "-p", f"{domain}/{self.SERVICE_NAME}"],
+            capture_output=True,
+            text=True,
+        )
+        if kick.returncode == 0:
+            return
+        subprocess.run(["launchctl", "load", str(service_path)], check=True)
+
+    def start_service(self) -> None:
+        """Load the installed LaunchAgent plist and start gRPCServerCLI."""
+        service_path = self.AGENTS_DIR / f"{self.SERVICE_NAME}.plist"
+        if not service_path.exists():
+            print("Error: Service not installed")
+            sys.exit(1)
+        print("Starting gRPCServerCLI LaunchAgent...")
+        try:
+            self._launchctl_start_job(service_path)
+        except subprocess.CalledProcessError as e:
+            print(f"Failed to start service: {e}")
+            sys.exit(1)
+        print("Service started successfully")
+
+    def stop_service(self) -> None:
+        """Stop and unload the LaunchAgent job; plist and binary remain."""
+        service_path = self.AGENTS_DIR / f"{self.SERVICE_NAME}.plist"
+        if not service_path.exists():
+            print("Error: Service not installed")
+            sys.exit(1)
+        print("Stopping gRPCServerCLI LaunchAgent...")
+        self._launchctl_stop_job(service_path)
+        print("Service stopped successfully")
+
     def restart_service(self, enable_model_browser=False):
         """Restart the gRPCServerCLI service"""
         print("Restarting gRPCServerCLI service...")
@@ -705,9 +790,9 @@ Examples:
             self.enable_model_browser_for_service(service_path)
 
         try:
-            subprocess.run(['launchctl', 'unload', service_path], check=True)
+            self._launchctl_stop_job(service_path)
             time.sleep(1)  # Give the service time to stop
-            subprocess.run(['launchctl', 'load', service_path], check=True)
+            self._launchctl_start_job(service_path)
             print("Service restarted successfully")
         except subprocess.CalledProcessError as e:
             print(f"Failed to restart service: {e}")
@@ -764,7 +849,7 @@ Examples:
             sys.exit(0)
 
         # At this point, only the 'install' action should reach here
-        # All other actions (uninstall, restart, test) are handled in parse_args()
+        # All other actions (uninstall, start, stop, restart, test) are handled in parse_args()
         if args.action == 'install':
             try:
                 # Validate port availability
@@ -795,9 +880,10 @@ Examples:
                     print(f"Models directory: {self.model_path}")
                     print(f"Binary location: {binary_path}")
                     print("\nThe gRPCServerCLI service is running and will start automatically on login.")
-                    print("You can manage it with these commands:")
-                    print(f"    launchctl unload ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
-                    print(f"    launchctl load ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    print("You can manage it with:")
+                    uid = os.getuid()
+                    print(f"    uv run dts-util server stop   # or: launchctl bootout gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    print(f"    uv run dts-util server start  # or: launchctl bootstrap gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
                     self.maybe_export_installed_tls_pem(args)
                 else:
                     print("\nWARNING: Installation completed but server may not be running correctly.")
@@ -805,8 +891,10 @@ Examples:
                     print("1. Check the system log for errors:")
                     print("    log show --predicate 'process == \"gRPCServerCLI\"' --last 5m")
                     print("2. Restart the service:")
-                    print(f"    launchctl unload ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
-                    print(f"    launchctl load ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    uid = os.getuid()
+                    print("    uv run dts-util server restart")
+                    print(f"    # launchctl bootout gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    print(f"    # launchctl bootstrap gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
                     print("3. Check if the models directory is accessible:")
                     print(f"    ls {self.model_path}")
             except Exception as e:
@@ -834,8 +922,7 @@ Examples:
         if service_path.exists():
             try:
                 print("Stopping and removing service...")
-                subprocess.run(['launchctl', 'unload', service_path], check=False)
-                subprocess.run(['launchctl', 'remove', self.SERVICE_NAME], check=False)
+                self._launchctl_stop_job(service_path)
                 service_path.unlink()
             except Exception as e:
                 print(f"Warning: Failed to fully remove service: {e}")

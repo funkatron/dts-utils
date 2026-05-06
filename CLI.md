@@ -26,7 +26,7 @@ Some invocations omit `<command>` and use [Generate shorthand](#generate-shortha
 
 These commands manage macOS LaunchAgent + `gRPCServerCLI` (not pytest, not Docker).
 
-Required spelling: `dts-util server <subcommand>` for `install`, `uninstall`, `restart`, `test`, and `check`. Running `dts-util install` without `server` prints a usage error (stderr, exit code `2`).
+Required spelling: `dts-util server <subcommand>` for `install`, `uninstall`, `start`, `stop`, `restart`, `test`, and `check`. Running `dts-util install` without `server` prints a usage error (stderr, exit code `2`).
 
 Bare `dts-util server` prints a short summary.
 
@@ -68,9 +68,29 @@ Removes the Draw Things gRPC server and related files managed by this tool.
 uv run dts-util server uninstall
 ```
 
+### start
+
+Loads `~/Library/LaunchAgents/com.drawthings.grpcserver.plist` into your per-user GUI launchd domain and starts the job (requires `server install` first).
+
+Uses `launchctl bootstrap`; if the job is already registered, runs `launchctl kickstart`; falls back to legacy `launchctl load` when needed.
+
+```bash
+uv run dts-util server start
+```
+
+### stop
+
+Boots the job out of launchd so `gRPCServerCLI` stops. The plist and binary remain (`restart` is `stop` + `start`; use `uninstall` to remove files).
+
+Uses `launchctl bootout`; falls back to `unload`/`remove` on older or inconsistent registration states.
+
+```bash
+uv run dts-util server stop
+```
+
 ### restart
 
-Restarts the Draw Things gRPC server service.
+Stops then starts the Draw Things gRPC server service (same effect as `server stop` then `server start`; plist edits happen before the cycle when `--model-browser` is used).
 
 ```bash
 uv run dts-util server restart [--model-browser]
@@ -320,6 +340,8 @@ uv run dts-util server install --model-browser --debug --no-flash-attention
 ```bash
 uv run dts-util server test
 uv run dts-util server test --port 7860
+uv run dts-util server stop
+uv run dts-util server start
 uv run dts-util reflect --trust-server-cert
 uv run dts-util configs path
 uv run dts-util tls path

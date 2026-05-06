@@ -19,7 +19,9 @@ from dts_util.web.cli import main as web_main
 from dts_util.installer.server_installer import DTSServerInstaller
 from dts_util.tls_export import main as tls_main
 
-SERVER_LIFECYCLE_SUBCOMMANDS = frozenset({"install", "uninstall", "restart", "test", "check"})
+SERVER_LIFECYCLE_SUBCOMMANDS = frozenset(
+    {"install", "uninstall", "start", "stop", "restart", "test", "check"}
+)
 
 SERVER_SUBCOMMAND_HELP = """
 Draw Things gRPC server (macOS LaunchAgent for gRPCServerCLI)
@@ -28,6 +30,8 @@ Lifecycle commands require the ``server`` prefix so they stay distinct from clie
 
     dts-util server install [...]           Install binary + LaunchAgent
     dts-util server uninstall              Remove LaunchAgent service + binary
+    dts-util server start                  Load plist into launchd (start job)
+    dts-util server stop                   Boot out job (plist stays on disk)
     dts-util server restart [--model-browser]
     dts-util server test|check [--port PORT]    Probe localhost listener (check = alias for test)
 """.strip()

@@ -109,19 +109,13 @@ def test_restart_service(installer, mock_subprocess, mock_home_dir):
 
     installer.restart_service()
 
-    # Verify unload and load commands were called
     assert mock_subprocess.call_count == 2
-    unload_call, load_call = mock_subprocess.call_args_list
-
-    # Compare string representations of paths
-    expected_unload = ['launchctl', 'unload', str(service_path)]
-    expected_load = ['launchctl', 'load', str(service_path)]
-
-    actual_unload = [str(arg) if isinstance(arg, Path) else arg for arg in unload_call[0][0]]
-    actual_load = [str(arg) if isinstance(arg, Path) else arg for arg in load_call[0][0]]
-
-    assert actual_unload == expected_unload
-    assert actual_load == expected_load
+    uid = os.getuid()
+    domain = f"gui/{uid}"
+    stop_cmd = list(mock_subprocess.call_args_list[0].args[0])
+    start_cmd = list(mock_subprocess.call_args_list[1].args[0])
+    assert stop_cmd == ["launchctl", "bootout", domain, str(service_path)]
+    assert start_cmd == ["launchctl", "bootstrap", domain, str(service_path)]
 
 def test_restart_service_can_enable_model_browser(installer, mock_subprocess, mock_home_dir):
     """Test enabling model browser while restarting the installed service."""
@@ -168,6 +162,32 @@ def test_enable_model_browser_for_service_is_idempotent(installer, tmp_path):
         service_config = plistlib.load(f)
     assert changed is False
     assert service_config['ProgramArguments'].count('--model-browser') == 1
+
+def test_start_service(installer, mock_subprocess, mock_home_dir):
+    """``start_service`` bootstraps the installed plist."""
+    service_path = Path(mock_home_dir) / "Library/LaunchAgents" / f"{installer.SERVICE_NAME}.plist"
+    service_path.parent.mkdir(parents=True, exist_ok=True)
+    service_path.touch()
+    installer.AGENTS_DIR = Path(mock_home_dir) / "Library/LaunchAgents"
+    installer.start_service()
+    uid = os.getuid()
+    mock_subprocess.assert_called_once()
+    cmd = list(mock_subprocess.call_args.args[0])
+    assert cmd == ["launchctl", "bootstrap", f"gui/{uid}", str(service_path)]
+
+
+def test_stop_service(installer, mock_subprocess, mock_home_dir):
+    """``stop_service`` boots the job out of launchd."""
+    service_path = Path(mock_home_dir) / "Library/LaunchAgents" / f"{installer.SERVICE_NAME}.plist"
+    service_path.parent.mkdir(parents=True, exist_ok=True)
+    service_path.touch()
+    installer.AGENTS_DIR = Path(mock_home_dir) / "Library/LaunchAgents"
+    installer.stop_service()
+    uid = os.getuid()
+    mock_subprocess.assert_called_once()
+    cmd = list(mock_subprocess.call_args.args[0])
+    assert cmd == ["launchctl", "bootout", f"gui/{uid}", str(service_path)]
+
 
 def test_restart_service_not_installed(installer, mock_subprocess, mock_home_dir):
     """Test service restart when service is not installed."""
@@ -392,8 +412,10 @@ def test_create_launchd_service_new(installer, monkeypatch, tmp_path):
         'join': None
     }
 
-    # Mock subprocess calls
-    mock_subprocess = MagicMock()
+    # Mock subprocess — CompletedProcess so ``returncode == 0`` is reliable
+    mock_subprocess = MagicMock(
+        return_value=subprocess.CompletedProcess([], 0, "", ""),
+    )
     monkeypatch.setattr('subprocess.run', mock_subprocess)
 
     installer.create_launchd_service(binary_path)
@@ -418,8 +440,12 @@ def test_create_launchd_service_new(installer, monkeypatch, tmp_path):
         assert '--model-browser' in cmd_args
         assert '--debug' in cmd_args
 
-    # Verify launchctl was called
-    mock_subprocess.assert_called_once_with(['launchctl', 'load', service_path], check=True)
+    uid = os.getuid()
+    mock_subprocess.assert_called_once_with(
+        ['launchctl', 'bootstrap', f'gui/{uid}', str(service_path)],
+        capture_output=True,
+        text=True,
+    )
 
 def test_create_launchd_service_existing(installer, monkeypatch, tmp_path):
     """Test updating an existing launchd service."""
@@ -451,17 +477,18 @@ def test_create_launchd_service_existing(installer, monkeypatch, tmp_path):
     # Mock user input to confirm update
     monkeypatch.setattr('builtins.input', lambda _: 'y')
 
-    # Mock subprocess calls
-    mock_subprocess = MagicMock()
+    mock_subprocess = MagicMock(
+        return_value=subprocess.CompletedProcess([], 0, "", ""),
+    )
     monkeypatch.setattr('subprocess.run', mock_subprocess)
 
     installer.create_launchd_service(binary_path)
 
-    # Verify service was unloaded and reloaded
+    uid = os.getuid()
+    domain = f"gui/{uid}"
     assert mock_subprocess.call_args_list == [
-        call(['launchctl', 'unload', service_path], check=False),
-        call(['launchctl', 'remove', installer.SERVICE_NAME], check=False),
-        call(['launchctl', 'load', service_path], check=True)
+        call(['launchctl', 'bootout', domain, str(service_path)], capture_output=True, text=True),
+        call(['launchctl', 'bootstrap', domain, str(service_path)], capture_output=True, text=True),
     ]
 
 def test_create_launchd_service_existing_no_update(installer, monkeypatch, tmp_path):

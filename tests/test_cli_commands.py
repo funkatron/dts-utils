@@ -42,12 +42,16 @@ def mock_exit():
 def mock_installer_methods():
     """Mock installer methods to prevent real execution."""
     with patch.object(DTSServerInstaller, 'restart_service') as mock_restart, \
+         patch.object(DTSServerInstaller, 'start_service') as mock_start, \
+         patch.object(DTSServerInstaller, 'stop_service') as mock_stop, \
          patch.object(DTSServerInstaller, 'uninstall') as mock_uninstall, \
          patch('dts_util.installer.server_installer.is_server_running') as mock_is_running:
 
         mock_is_running.return_value = True  # Default to server running
         yield {
             'restart': mock_restart,
+            'start': mock_start,
+            'stop': mock_stop,
             'uninstall': mock_uninstall,
             'is_running': mock_is_running
         }
@@ -88,6 +92,28 @@ class TestCLICommands:
 
         assert exc_info.value.code == 0
         mock_installer_methods["uninstall"].assert_called_once()
+
+    def test_start_command(self, mock_installer_methods, monkeypatch, mock_exit):
+        """``server start`` loads the LaunchAgent job."""
+        _setup_server_argv(monkeypatch, "start")
+
+        installer = DTSServerInstaller()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
+
+        assert exc_info.value.code == 0
+        mock_installer_methods["start"].assert_called_once_with()
+
+    def test_stop_command(self, mock_installer_methods, monkeypatch, mock_exit):
+        """``server stop`` boots the job out of launchd."""
+        _setup_server_argv(monkeypatch, "stop")
+
+        installer = DTSServerInstaller()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
+
+        assert exc_info.value.code == 0
+        mock_installer_methods["stop"].assert_called_once_with()
 
     def test_restart_command(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the restart command."""

@@ -109,14 +109,14 @@ Details: [CLI.md](CLI.md) and [README.md](README.md).
 
 ## Server Management
 
-Use `dts-util` for installing and restarting the Draw Things server process:
+Use `dts-utils` (or `dts-util`) for installing and restarting the Draw Things server process:
 
 ```bash
-uv run dts-util server install --model-browser
-uv run dts-util server stop
-uv run dts-util server start
-uv run dts-util server restart --model-browser
-uv run dts-util server test
+uv run dts-utils server install --model-browser
+uv run dts-utils server stop
+uv run dts-utils server start
+uv run dts-utils server restart --model-browser
+uv run dts-utils server test
 ```
 
 For command details, see [CLI.md](CLI.md). For install, shorthand, and configuration files, see [README.md](README.md).

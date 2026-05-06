@@ -14,6 +14,7 @@ import socket
 from subprocess import PIPE
 import json
 from ..grpc.utils import is_server_running
+from ..cli_prog import cli_command_name
 
 
 class DTSServerInstaller:
@@ -182,6 +183,10 @@ Examples:
     dts-util server install -q
 """
 
+    def usage_help_body(self) -> str:
+        """Help epilog with ``dts-util`` placeholders replaced by the invoked CLI basename."""
+        return self.usage_text.replace("dts-util", cli_command_name())
+
     def validate_join_config(self, join_config_str):
         """Validate the join configuration string.
 
@@ -217,10 +222,13 @@ Examples:
             raise ValueError("Join configuration must be valid JSON")
 
     def parse_args(self):
+        prog = cli_command_name()
+        epilog = self.usage_help_body()
         parser = argparse.ArgumentParser(
+            prog=prog,
             description='Install Draw Things gRPCServerCLI',
             formatter_class=argparse.RawDescriptionHelpFormatter,
-            epilog=self.usage_text)
+            epilog=epilog)
 
         # Add actions as positional arguments
         parser.add_argument(
@@ -270,7 +278,7 @@ Examples:
             action='store_true',
             help=(
                 'After a successful install with TLS, write the presented server certificate '
-                'to a PEM file (default path: run ``dts-util tls path``).'
+                f'to a PEM file (default path: run `{prog} tls path`).'
             ),
         )
         parser.add_argument(
@@ -367,7 +375,7 @@ Examples:
             if path.lower() == 'q':
                 sys.exit(0)
             if path.lower() == 'h':
-                print(self.usage_text)
+                print(self.usage_help_body())
                 continue
             if Path(path).exists():
                 return Path(path)
@@ -836,7 +844,7 @@ Examples:
             )
             print("\nPresented server TLS certificate saved (pin with client --root-cert):")
             print(f"    {resolved}")
-            print(f"Example: uv run dts-util generate --root-cert {resolved} ...")
+            print(f"Example: uv run {cli_command_name()} generate --root-cert {resolved} ...")
         except Exception as exc:
             print(f"\nWARNING: Could not export TLS PEM: {exc}", file=sys.stderr)
 
@@ -845,7 +853,7 @@ Examples:
 
         # If no arguments provided, show usage
         if len(sys.argv) == 1:
-            print(self.usage_text)
+            print(self.usage_help_body())
             sys.exit(0)
 
         # At this point, only the 'install' action should reach here
@@ -882,8 +890,9 @@ Examples:
                     print("\nThe gRPCServerCLI service is running and will start automatically on login.")
                     print("You can manage it with:")
                     uid = os.getuid()
-                    print(f"    uv run dts-util server stop   # or: launchctl bootout gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
-                    print(f"    uv run dts-util server start  # or: launchctl bootstrap gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    p = cli_command_name()
+                    print(f"    uv run {p} server stop   # or: launchctl bootout gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
+                    print(f"    uv run {p} server start  # or: launchctl bootstrap gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
                     self.maybe_export_installed_tls_pem(args)
                 else:
                     print("\nWARNING: Installation completed but server may not be running correctly.")
@@ -892,7 +901,7 @@ Examples:
                     print("    log show --predicate 'process == \"gRPCServerCLI\"' --last 5m")
                     print("2. Restart the service:")
                     uid = os.getuid()
-                    print("    uv run dts-util server restart")
+                    print(f"    uv run {cli_command_name()} server restart")
                     print(f"    # launchctl bootout gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
                     print(f"    # launchctl bootstrap gui/{uid} ~/Library/LaunchAgents/{self.SERVICE_NAME}.plist")
                     print("3. Check if the models directory is accessible:")
@@ -905,12 +914,12 @@ Examples:
         elif args.action is None:
             # No action specified
             print("No action specified.")
-            print(self.usage_text)
+            print(self.usage_help_body())
             sys.exit(1)
         else:
             # This should never happen since parse_args() handles all actions
             print(f"Unknown action: {args.action}")
-            print(self.usage_text)
+            print(self.usage_help_body())
             sys.exit(1)
 
     def uninstall(self):

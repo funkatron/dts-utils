@@ -1,6 +1,6 @@
-# dts-util CLI reference
+# dts-utils CLI reference
 
-Reference for the `dts-util` command-line tool (flags, shorthand, environment variables). Install, TLS overview, and troubleshooting: [README.md](README.md).
+Reference for the **`dts-utils`** command-line tool (**`dts-util`** is an alternate executable name with identical behavior). Flags, shorthand, environment variables: Install, TLS overview, and troubleshooting: [README.md](README.md).
 
 ## How to use this doc
 
@@ -8,7 +8,7 @@ Reference for the `dts-util` command-line tool (flags, shorthand, environment va
 | --- | --- |
 | Run your first image from a prompt | [README.md § Quickstart](README.md#quickstart), then [Generate shorthand](#generate-shorthand-prompt-first) here |
 | Look up a flag or subcommand | [Available commands](#available-commands) |
-| Use the browser UI or HTTP API | [web (`dts-util web`)](#web-dts-util-web) |
+| Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-util-web) |
 | Copy example commands | [Examples](#examples) |
 | Script-friendly env vars | [Environment variables](#environment-variables) |
 
@@ -17,7 +17,7 @@ Reference for the `dts-util` command-line tool (flags, shorthand, environment va
 ## Command structure
 
 ```
-uv run dts-util <command> [options]
+uv run dts-utils <command> [options]
 ```
 
 Some invocations omit `<command>` and use [Generate shorthand](#generate-shorthand-prompt-first) instead.
@@ -26,18 +26,18 @@ Some invocations omit `<command>` and use [Generate shorthand](#generate-shortha
 
 These commands manage macOS LaunchAgent + `gRPCServerCLI` (not pytest, not Docker).
 
-Required spelling: `dts-util server <subcommand>` for `install`, `uninstall`, `start`, `stop`, `restart`, `test`, and `check`. Running `dts-util install` without `server` prints a usage error (stderr, exit code `2`).
+Required spelling: `dts-utils server <subcommand>` for `install`, `uninstall`, `start`, `stop`, `restart`, `test`, and `check`. Running `dts-utils install` without `server` prints a usage error (stderr, exit code `2`).
 
-Bare `dts-util server` prints a short summary.
+Bare `dts-utils server` prints a short summary.
 
 ## Available commands
 
-### install (`dts-util server install`)
+### install (`dts-utils server install`)
 
 Installs and configures the Draw Things gRPC server via the macOS LaunchAgent workflow.
 
 ```bash
-uv run dts-util server install [options]
+uv run dts-utils server install [options]
 ```
 
 Options:
@@ -57,7 +57,7 @@ Options:
 - `--debug`: Enable verbose logging
 - `--join JSON`: JSON configuration for proxy setup
 - `--export-tls-cert`: After a successful install with TLS, write the server's presented PEM (see tls export below)
-- `--export-tls-cert-path PATH`: Destination PEM for `--export-tls-cert` (default: `dts-util tls path`)
+- `--export-tls-cert-path PATH`: Destination PEM for `--export-tls-cert` (default: `dts-utils tls path`)
 - `--export-tls-cert-force`: Overwrite an existing PEM during `--export-tls-cert`
 
 ### uninstall
@@ -65,7 +65,7 @@ Options:
 Removes the Draw Things gRPC server and related files managed by this tool.
 
 ```bash
-uv run dts-util server uninstall
+uv run dts-utils server uninstall
 ```
 
 ### start
@@ -75,7 +75,7 @@ Loads `~/Library/LaunchAgents/com.drawthings.grpcserver.plist` into your per-use
 Uses `launchctl bootstrap`; if the job is already registered, runs `launchctl kickstart`; falls back to legacy `launchctl load` when needed.
 
 ```bash
-uv run dts-util server start
+uv run dts-utils server start
 ```
 
 ### stop
@@ -85,15 +85,15 @@ Boots the job out of launchd so `gRPCServerCLI` stops. The plist and binary rema
 Uses `launchctl bootout`; falls back to `unload`/`remove` on older or inconsistent registration states.
 
 ```bash
-uv run dts-util server stop
+uv run dts-utils server stop
 ```
 
 ### restart
 
-Stops then starts the Draw Things gRPC server service (same effect as `server stop` then `server start`; plist edits happen before the cycle when `--model-browser` is used).
+Stops then starts the Draw Things gRPC server service (same effect as `server stop` then `server start`). **Settings are whatever is already in** `~/Library/LaunchAgents/com.drawthings.grpcserver.plist` **`ProgramArguments`** — `restart` does not take install flags; only `--model-browser` mutates the plist (appends that flag) before the stop/start cycle.
 
 ```bash
-uv run dts-util server restart [--model-browser]
+uv run dts-utils server restart [--model-browser]
 ```
 
 Options:
@@ -105,8 +105,8 @@ Options:
 Probes localhost for a reachable gRPC listener (installer workflow; not the pytest test suite).
 
 ```bash
-uv run dts-util server test [--port PORT]
-uv run dts-util server check [--port PORT]
+uv run dts-utils server test [--port PORT]
+uv run dts-utils server check [--port PORT]
 ```
 
 Options:
@@ -123,7 +123,7 @@ On `localhost` / loopback, the default probe tries **TLS** with the server-prese
 Lists gRPC services and methods exposed through server reflection.
 
 ```bash
-uv run dts-util reflect --trust-server-cert
+uv run dts-utils reflect --trust-server-cert
 ```
 
 Options:
@@ -146,7 +146,7 @@ Draw Things often builds `gRPCServerCLI` without gRPC reflection. `reflect` may 
 Shows and lists saved Draw Things JSON generation configurations.
 
 ```bash
-uv run dts-util configs path
+uv run dts-utils configs path
 ```
 
 Options:
@@ -156,15 +156,15 @@ Options:
 - `configs list`: List saved JSON configuration names from the default directory.
 - `configs list --directory PATH`: List saved JSON configuration names from another directory.
 
-Save files such as `portrait.json` in this directory, then use `--configuration portrait` with `dts-util generate`.
+Save files such as `portrait.json` in this directory, then use `--configuration portrait` with `dts-utils generate`.
 
 ### tls
 
-Writes the server’s presented TLS certificate to a PEM file for `dts-util generate --root-cert …` / `dts-util reflect --root-cert …` (trust-on-fetch; same bytes Python’s `ssl.get_server_certificate` returns). `gRPCServerCLI` keystores are not modified.
+Writes the server’s presented TLS certificate to a PEM file for `dts-utils generate --root-cert …` / `dts-utils reflect --root-cert …` (trust-on-fetch; same bytes Python’s `ssl.get_server_certificate` returns). `gRPCServerCLI` keystores are not modified.
 
 ```bash
-uv run dts-util tls path
-uv run dts-util tls export
+uv run dts-utils tls path
+uv run dts-utils tls export
 ```
 
 Subcommands:
@@ -172,14 +172,16 @@ Subcommands:
 - `tls path`: Print default PEM destination (under the `dts-util` application support / config tree), creating parents unless `--no-create`.
 - `tls export`: Connect with TLS, capture the presented PEM; use `--output` / `-o` (defaults to `tls path`), `--force` to replace, `--host` / `--port`, `--retries` for post-install backoff.
 
-With `server install` (macOS): `uv run dts-util server install --export-tls-cert` runs export to the default PEM after `server test` passes (skipped when `--no-tls` is set).
+With `server install` (macOS): `uv run dts-utils server install --export-tls-cert` runs export to the default PEM after `server test` passes (skipped when `--no-tls` is set).
 
-### web (`dts-util web`)
+<a id="web-dts-util-web"></a>
 
-Loopback HTTP UI: the browser talks to `dts-util`; the tool calls Draw Things over gRPC (same idea as `dts-util generate`).
+### web (`dts-utils web`)
+
+Loopback HTTP UI: the browser talks to `dts-utils`; the tool calls Draw Things over gRPC (same idea as `dts-utils generate`).
 
 ```bash
-uv run dts-util web [--bind ADDR] [--port N] [--open]
+uv run dts-utils web [--bind ADDR] [--port N] [--open]
 ```
 
 #### Run / defaults
@@ -240,14 +242,14 @@ One line per event: `data: <json>\n\n`.
 - Busy panel shows the JSON sent to **`/api/generate/stream`** (`shared_secret` redacted in the preview).
 - **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs saved by the web server under the dts-util config directory, with download links and a **Reuse** action that restores the prompt to the composer. New history entries may also store `negative_prompt` and `generations`; Reuse applies those only when the current negative prompt is blank and runs is still `1`. Existing browser **`localStorage`** history is imported the first time you open History. Set **`DTS_WEB_HISTORY_DIR`** to override the image/history storage directory. **Clear all** wipes web history files.
 
-LaunchAgent lifecycle stays in Terminal (`dts-util server …`); the UI footer links to the README quickstart.
+LaunchAgent lifecycle stays in Terminal (`dts-utils server …`); the UI footer links to the README quickstart.
 
 ### generate
 
 Sends a prompt through the upstream Draw Things streaming gRPC API and writes PNG output.
 
 ```bash
-uv run dts-util generate \
+uv run dts-utils generate \
   --prompt "a small robot painting clouds" \
   --configuration portrait \
   --trust-server-cert \
@@ -265,7 +267,7 @@ Important options:
 - `--no-tls`: Plaintext gRPC when the server was installed with `--no-tls`.
 - `--max-message-mb N`: gRPC send/receive limits in MiB.
 - `--open`: Open written images with the platform default viewer.
-- **Prompt wildcards:** Write **`{option A | option B}`** (or **`{option A, option B}`** when the block has no `|`). Each time a prompt is sent to the server, every `{…}` block picks **one** branch at random—so multi-image runs (**`--generations N`** or **`generations`** in JSON) **re-roll** the whole template for **each** image. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP **400** from **`dts-util web`**). Use **`POST /api/prompt/expand`** in the web server to sample expansions without generating.
+- **Prompt wildcards:** Write **`{option A | option B}`** (or **`{option A, option B}`** when the block has no `|`). Each time a prompt is sent to the server, every `{…}` block picks **one** branch at random—so multi-image runs (**`--generations N`** or **`generations`** in JSON) **re-roll** the whole template for **each** image. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP **400** from **`dts-utils web`**). Use **`POST /api/prompt/expand`** in the web server to sample expansions without generating.
 
 Explicit `generate` requires **`--configuration`** or **`--configuration-json`** (unlike shorthand, which can materialize **`zit.json`**).
 
@@ -273,12 +275,12 @@ Explicit `generate` requires **`--configuration`** or **`--configuration-json`**
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Saved config | `uv run dts-util generate --prompt "…" --configuration portrait --trust-server-cert` | PNG under `./output` with default output naming |
-| Draw Things JSON file | `uv run dts-util generate --prompt "…" --configuration config.json --trust-server-cert` | PNG after JSON → FlatBuffer via [`flatc`](https://github.com/google/flatbuffers) |
-| Open result | `uv run dts-util generate --prompt "…" --configuration config.json --trust-server-cert --open` | PNG plus viewer launch |
-| Prebuilt FlatBuffer | `uv run dts-util generate --prompt "…" --configuration config.bin --trust-server-cert` | PNG without running `flatc` on JSON |
-| Pinned cert | `uv run dts-util generate --prompt "…" --configuration config.json --root-cert cert.pem` | TLS verified against a known PEM |
-| Remote diagnostic | `uv run dts-util generate --host gpu.local --prompt "…" --configuration config.json --force-trust-server-cert` | Trust-on-first-use for that host (MITM risk) |
+| Saved config | `uv run dts-utils generate --prompt "…" --configuration portrait --trust-server-cert` | PNG under `./output` with default output naming |
+| Draw Things JSON file | `uv run dts-utils generate --prompt "…" --configuration config.json --trust-server-cert` | PNG after JSON → FlatBuffer via [`flatc`](https://github.com/google/flatbuffers) |
+| Open result | `uv run dts-utils generate --prompt "…" --configuration config.json --trust-server-cert --open` | PNG plus viewer launch |
+| Prebuilt FlatBuffer | `uv run dts-utils generate --prompt "…" --configuration config.bin --trust-server-cert` | PNG without running `flatc` on JSON |
+| Pinned cert | `uv run dts-utils generate --prompt "…" --configuration config.json --root-cert cert.pem` | TLS verified against a known PEM |
+| Remote diagnostic | `uv run dts-utils generate --host gpu.local --prompt "…" --configuration config.json --force-trust-server-cert` | Trust-on-first-use for that host (MITM risk) |
 
 Prefer **`--root-cert`** off localhost. Use **`--force-trust-server-cert`** only when you cannot pin a cert and accept the risk for that connection.
 
@@ -289,14 +291,14 @@ When the first argument after the program name is not a known subcommand (`gener
 Syntax:
 
 ```text
-dts-util PROMPT [PROFILE] [flags…]
+dts-utils PROMPT [PROFILE] [flags…]
 ```
 
 Rules:
 
 1. `PROMPT` is one shell word unless you quote a multi-word prompt.
 2. Optional `PROFILE` is the second word before any flag; it uses the same resolution as `--configuration` (saved name, path to `.json`, or raw FlatBuffer path).
-3. Flags and their values must appear after `PROFILE` (if any). Example: `dts-util "hello" portrait --negative-prompt blur`.
+3. Flags and their values must appear after `PROFILE` (if any). Example: `dts-utils "hello" portrait --negative-prompt blur`.
 
 Expansion (conceptually): `generate --prompt PROMPT --configuration … --trust-server-cert --open` plus your trailing flags. `--trust-server-cert` and `--open` are always added for shorthand so local TLS and opening the PNG match the common interactive path.
 
@@ -310,11 +312,11 @@ Configuration when `PROFILE` is omitted:
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Single-line local generate | `uv run dts-util "a small robot"` | Same as `generate` with trust + open + implicit `zit` profile after first-run materialization |
-| Named saved profile | `uv run dts-util "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
-| Extra TLS flags | `uv run dts-util "…" --root-cert ./pem` | Adds your flags after the injected defaults |
+| Single-line local generate | `uv run dts-utils "a small robot"` | Same as `generate` with trust + open + implicit `zit` profile after first-run materialization |
+| Named saved profile | `uv run dts-utils "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
+| Extra TLS flags | `uv run dts-utils "…" --root-cert ./pem` | Adds your flags after the injected defaults |
 
-Explicit `dts-util generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `zit.json`.
+Explicit `dts-utils generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `zit.json`.
 
 ---
 
@@ -323,33 +325,33 @@ Explicit `dts-util generate` without `--configuration` / `--configuration-json` 
 ### Basic installation
 
 ```bash
-uv run dts-util server install
-uv run dts-util server install -m /path/to/models
+uv run dts-utils server install
+uv run dts-utils server install -m /path/to/models
 ```
 
 ### Advanced installation
 
 ```bash
-uv run dts-util server install -p 7860 -n "MyServer" -m /path/to/models
-uv run dts-util server install -s "your-secret-here"
-uv run dts-util server install --model-browser --debug --no-flash-attention
+uv run dts-utils server install -p 7860 -n "MyServer" -m /path/to/models
+uv run dts-utils server install -s "your-secret-here"
+uv run dts-utils server install --model-browser --debug --no-flash-attention
 ```
 
 ### Server management
 
 ```bash
-uv run dts-util server test
-uv run dts-util server test --port 7860
-uv run dts-util server stop
-uv run dts-util server start
-uv run dts-util reflect --trust-server-cert
-uv run dts-util configs path
-uv run dts-util tls path
-uv run dts-util tls export
-uv run dts-util web --open
-uv run dts-util server restart
-uv run dts-util server restart --model-browser
-uv run dts-util server uninstall
+uv run dts-utils server test
+uv run dts-utils server test --port 7860
+uv run dts-utils server stop
+uv run dts-utils server start
+uv run dts-utils reflect --trust-server-cert
+uv run dts-utils configs path
+uv run dts-utils tls path
+uv run dts-utils tls export
+uv run dts-utils web --open
+uv run dts-utils server restart
+uv run dts-utils server restart --model-browser
+uv run dts-utils server uninstall
 ```
 
 ## Environment variables
@@ -359,15 +361,15 @@ uv run dts-util server uninstall
 | `DRAW_THINGS_MODEL_PATH` | Default Draw Things models directory for `server install` (CLI `--model-path` overrides). Also used when guessing `model` in auto-created `zit.json`. |
 | `DTS_UTIL_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `zit` (via `setdefault`) when the tool materializes the implicit profile, unless you already exported another value. |
 | `DTS_UTIL_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `zit.json` the first time; overrides guessing from the models directory. |
-| `DTS_WEB_TOKEN` | When set, `dts-util web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
+| `DTS_WEB_TOKEN` | When set, `dts-utils web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
-| `DTS_WEB_HISTORY_DIR` | Override where `dts-util web` stores history metadata and PNG files (default: `web-history` under the dts-util config directory). |
+| `DTS_WEB_HISTORY_DIR` | Override where `dts-utils web` stores history metadata and PNG files (default: `web-history` under the on-disk `dts-util` config directory). |
 
 `DRAW_THINGS_MODEL_PATH` example:
 
 ```bash
 export DRAW_THINGS_MODEL_PATH=/path/to/your/models
-uv run dts-util server install
+uv run dts-utils server install
 ```
 
 If both the variable and `--model-path` are set, the CLI option wins.

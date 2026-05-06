@@ -55,6 +55,7 @@ omit = [
 ]
 
 [project.scripts]
+dts-utils = "dts_util.cli_router:main"
 dts-util = "dts_util.cli_router:main"
 
 [project.urls]

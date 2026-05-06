@@ -1,10 +1,11 @@
-"""Top-level ``dts-util`` dispatch: client subcommands vs macOS server lifecycle."""
+"""Top-level CLI dispatch: client subcommands vs macOS server lifecycle."""
 
 from __future__ import annotations
 
 import os
 import sys
 
+from dts_util.cli_prog import cli_command_name
 from dts_util.model_index.cli import main as models_main
 
 from dts_util.configs import (
@@ -23,17 +24,21 @@ SERVER_LIFECYCLE_SUBCOMMANDS = frozenset(
     {"install", "uninstall", "start", "stop", "restart", "test", "check"}
 )
 
-SERVER_SUBCOMMAND_HELP = """
+def server_subcommand_help_text() -> str:
+    p = cli_command_name()
+    return f"""
 Draw Things gRPC server (macOS LaunchAgent for gRPCServerCLI)
 
 Lifecycle commands require the ``server`` prefix so they stay distinct from client RPC tools:
 
-    dts-util server install [...]           Install binary + LaunchAgent
-    dts-util server uninstall              Remove LaunchAgent service + binary
-    dts-util server start                  Load plist into launchd (start job)
-    dts-util server stop                   Boot out job (plist stays on disk)
-    dts-util server restart [--model-browser]
-    dts-util server test|check [--port PORT]    Probe localhost listener (check = alias for test)
+    {p} server install [...]           Install binary + LaunchAgent
+    {p} server uninstall              Remove LaunchAgent service + binary
+    {p} server start                  Load plist into launchd (start job)
+    {p} server stop                   Boot out job (plist stays on disk)
+    {p} server restart [--model-browser]
+    {p} server test|check [--port PORT]    Probe localhost listener (check = alias for test)
+
+The same executable is also available as ``dts-util`` when both console scripts are installed.
 """.strip()
 
 
@@ -75,12 +80,13 @@ def _split_shorthand_argv(argv: list[str]) -> tuple[list[str], str | None]:
             flags.append(tok)
         else:
             positionals.append(tok)
+    prog = cli_command_name(argv)
     if len(positionals) == 0:
-        return [], "dts-util: expected a prompt after the command name."
+        return [], f"{prog}: expected a prompt after the command name."
     if len(positionals) > 2:
         return [], (
-            "dts-util: too many positional arguments (prompt and optional profile only). "
-            'Quote multi-word prompts, e.g. dts-util "a red house" portrait'
+            f"{prog}: too many positional arguments (prompt and optional profile only). "
+            f'Quote multi-word prompts, e.g. {prog} "a red house" portrait'
         )
     prompt = positionals[0]
     profile = positionals[1] if len(positionals) == 2 else None
@@ -110,28 +116,29 @@ def looks_like_generate_shorthand(argv: list[str]) -> bool:
 
 
 def prepare_argv_for_installer_dispatch(argv: list[str]) -> int | None:
-    """Strip ``dts-util server <cmd>`` to ``dts-util <cmd>``, or refuse bare lifecycle verbs.
+    """Strip ``<prog> server <cmd>`` to ``<prog> <cmd>``, or refuse bare lifecycle verbs.
 
     Return an exit status when argv should stop early (help text, misuse). Otherwise return
     ``None`` and mutate ``argv`` in place when ``server …`` was used.
     """
     if len(argv) < 2:
         return None
+    prog = cli_command_name(argv)
     if argv[1] == "server":
         if len(argv) == 2:
-            print(SERVER_SUBCOMMAND_HELP)
+            print(server_subcommand_help_text())
             return 0
         sub = argv[2]
         if sub not in SERVER_LIFECYCLE_SUBCOMMANDS:
             subs = ", ".join(sorted(SERVER_LIFECYCLE_SUBCOMMANDS))
-            print(f"dts-util: unknown server subcommand {sub!r}. Expected: {subs}.", file=sys.stderr)
+            print(f"{prog}: unknown server subcommand {sub!r}. Expected: {subs}.", file=sys.stderr)
             return 2
         argv[:] = [argv[0], argv[2], *argv[3:]]
         return None
     if argv[1] in SERVER_LIFECYCLE_SUBCOMMANDS:
         print(
-            "dts-util: LaunchAgent lifecycle commands must use `server`, e.g.\n"
-            f"    uv run dts-util server {argv[1]} [...]",
+            f"{prog}: LaunchAgent lifecycle commands must use `server`, e.g.\n"
+            f"    uv run {prog} server {argv[1]} [...]",
             file=sys.stderr,
         )
         return 2
@@ -139,7 +146,7 @@ def prepare_argv_for_installer_dispatch(argv: list[str]) -> int | None:
 
 
 def main() -> None:
-    """Entry point for the ``dts-util`` console script."""
+    """Entry point for ``dts-utils`` / ``dts-util`` console scripts."""
     argv = sys.argv
     code = prepare_argv_for_installer_dispatch(argv)
     if code is not None:

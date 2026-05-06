@@ -1,4 +1,4 @@
-"""CLI entry for ``dts-util web``."""
+"""CLI entry for ``dts-utils web`` / ``dts-util web``."""
 
 from __future__ import annotations
 
@@ -10,12 +10,14 @@ import webbrowser
 
 import uvicorn
 
+from dts_util.cli_prog import cli_command_name
 from dts_util.web.app import create_app
 
 
 def main(argv: list[str] | None = None) -> int:
+    prog_root = cli_command_name()
     parser = argparse.ArgumentParser(
-        prog="dts-util web",
+        prog=f"{prog_root} web",
         description="Run a loopback web UI for Draw Things image generation.",
     )
     parser.add_argument(
@@ -35,7 +37,7 @@ def main(argv: list[str] | None = None) -> int:
     loopback_hosts = {"127.0.0.1", "::1", "localhost"}
     if args.bind not in loopback_hosts and not os.environ.get("DTS_WEB_TOKEN", "").strip():
         print(
-            "dts-util web: warning — non-loopback bind without DTS_WEB_TOKEN exposes "
+            f"{prog_root} web: warning — non-loopback bind without DTS_WEB_TOKEN exposes "
             "mutating APIs. Set DTS_WEB_TOKEN (Authorization: Bearer).",
             file=sys.stderr,
         )

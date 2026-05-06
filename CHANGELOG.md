@@ -45,20 +45,14 @@ Example snippet for the next release:
 - **`dts-util web`:** result cards use a wider responsive grid, the composer is more compact, and expanded prompt details are shown as a slimmer scrollable log.
 - **`dts-util web`:** results area scrolls reliably (including Safari): `#resultPane` is the scroll container with a proper flex `min-height` chain instead of `#stage` scrolling a `height: 100%` pane that failed to extend scroll height.
 - **`dts-util server`:** `start` and `stop` subcommands manage the LaunchAgent without uninstalling; lifecycle prefers `launchctl bootstrap` / `bootout` (with `kickstart` and legacy `load`/`unload` fallbacks). `restart` is stop-then-start.
-
-### Tested with
-
-- **gRPCServerCLI:** not smoke-tested for this tag.
-- **pytest:** 205 passed, 6 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+- **`dts-utils` CLI:** Console scripts **`dts-utils`** and **`dts-util`** both call [`dts_util.cli_router:main`](src/dts_util/cli_router.py); stderr examples follow the basename you invoked. Primary docs examples use **`dts-utils`** (repository name). User config paths stay under the **`dts-util`** application slug (`configs.APP_NAME`).
+- **`dts-util server restart`:** Clarified in [CLI.md](CLI.md) — settings come from the existing LaunchAgent plist; `restart` does not accept fresh `install` flags, only optional `--model-browser` (mutates `ProgramArguments` before stop/start).
+- **`dts-util web`:** Results layout — fixed missing **`img`** constraints (CSS), card-style thumbnails, bounded image height; expanded prompts shown **per run** in a scrollable panel instead of one wall of text; idle/busy centering when no thumbnails yet; slightly taller prompt textarea.
+- **Docs:** [CLI.md](CLI.md) — removed redundant “If you only run one command…” lines before example blocks.
 
 ### Added
 
 - **`dts-util web`:** History rows include **Reuse** — restores prompt (and negative prompt / run count when stored) to the composer.
-
-### Changed
-
-- **`dts-util web`:** Results layout — fixed missing **`img`** constraints (CSS), card-style thumbnails, bounded image height; expanded prompts shown **per run** in a scrollable panel instead of one wall of text; idle/busy centering when no thumbnails yet; slightly taller prompt textarea.
-- **Docs:** [CLI.md](CLI.md) — removed redundant “If you only run one command…” lines before example blocks.
 
 ## [0.4.1] - 2026-05-05
 

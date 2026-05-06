@@ -1,6 +1,8 @@
-# dts-util — Draw Things gRPC helper
+# dts-utils — Draw Things gRPC helper
 
 A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRPCServerCLI`. It can install the server as a LaunchAgent, generate images over gRPC, and browse community model metadata.
+
+Install the **`dts-utils`** command (same entry point as legacy **`dts-util`**). Examples below use `dts-utils`; substitute `dts-util` if you prefer.
 
 This project is alpha (0.x). Expect breaking changes; pin a commit or version if you depend on it.
 
@@ -13,7 +15,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 ## Requirements
 
 - Python 3.12+ and [`uv`](https://github.com/astral-sh/uv).
-- macOS only if you use `dts-util server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, and `dts-util web` run anywhere Python can reach the server.
+- macOS only if you use `dts-utils server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, and `dts-utils web` run anywhere Python can reach the server.
 - [`flatc`](https://github.com/google/flatbuffers) on `PATH` when you pass JSON configuration (conversion uses the bundled `config.fbs`).
 
 ---
@@ -24,7 +26,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 git clone https://github.com/funkatron/dts-utils.git
 cd dts-utils
 uv sync
-uv run dts-util --help
+uv run dts-utils --help
 ```
 
 ---
@@ -34,20 +36,20 @@ uv run dts-util --help
 Three steps to a generated PNG on a fresh Mac: install the server, confirm it is listening, then run prompt-first shorthand (quotes keep multi-word prompts as one argument):
 
 ```bash
-uv run dts-util server install
-uv run dts-util server check
-uv run dts-util "a beautiful sunset over mountains"
+uv run dts-utils server install
+uv run dts-utils server check
+uv run dts-utils "a beautiful sunset over mountains"
 ```
 
 Example output below is the repo’s sample PNG ([`docs/assets/sample-output.png`](docs/assets/sample-output.png), 768×1024), produced with:
 
 ```bash
-uv run dts-util "an incredibly detailed mech from Mechwarrior, Depth of field, extreme zoom, tilt-shift, extreme angles, dramatic perspective"
+uv run dts-utils "an incredibly detailed mech from Mechwarrior, Depth of field, extreme zoom, tilt-shift, extreme angles, dramatic perspective"
 ```
 
 Your runs will vary with model, `zit.json`, and prompt.
 
-![Sample image written by dts-util generate](docs/assets/sample-output.png)
+![Sample image written by dts-utils generate](docs/assets/sample-output.png)
 
 What each step does:
 
@@ -57,10 +59,10 @@ What each step does:
    - First run may create `zit.json` in the saved-config directory and print a hint on stderr if it cannot guess a checkpoint name for `model`.
    - PNGs default to `./output` (`output/generated.png`). Each run gets a millisecond suffix before the extension so files are not overwritten.
 
-To call `generate` explicitly with a saved profile (for example `portrait.json` from `dts-util configs path`):
+To call `generate` explicitly with a saved profile (for example `portrait.json` from `dts-utils configs path`):
 
 ```bash
-uv run dts-util generate \
+uv run dts-utils generate \
   --prompt "a beautiful sunset over mountains" \
   --configuration portrait \
   --trust-server-cert
@@ -71,7 +73,7 @@ Skip `server install` / `server check` if the server already runs elsewhere; see
 Optional **browser UI** (same gRPC server; loopback HTTP only by default):
 
 ```bash
-uv run dts-util web --open
+uv run dts-utils web --open
 ```
 
 See [CLI.md — web](CLI.md#web-dts-util-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
@@ -80,13 +82,13 @@ See [CLI.md — web](CLI.md#web-dts-util-web) for bind address, `DTS_WEB_TOKEN`,
 
 ## Configuration files
 
-`dts-util generate` (explicit subcommand) requires a Draw Things configuration via `--configuration` or `--configuration-json`. Without one it exits before opening a stream.
+`dts-utils generate` (explicit subcommand) requires a Draw Things configuration via `--configuration` or `--configuration-json`. Without one it exits before opening a stream.
 
 `--configuration VALUE` accepts three forms:
 
 | You pass | Resolution |
 | --- | --- |
-| A name like `portrait` (no slashes, not an existing path) | `portrait.json` inside the directory printed by `dts-util configs path`. |
+| A name like `portrait` (no slashes, not an existing path) | `portrait.json` inside the directory printed by `dts-utils configs path`. |
 | A `.json` file path | Converted to FlatBuffer bytes with `flatc` and the bundled `config.fbs`. |
 | Any other existing file | Read as raw FlatBuffer bytes; extension may differ from `.bin`. |
 
@@ -95,17 +97,17 @@ See [CLI.md — web](CLI.md#web-dts-util-web) for bind address, `DTS_WEB_TOKEN`,
 Saved configs:
 
 ```bash
-uv run dts-util configs path     # print the directory (creates it)
-uv run dts-util configs list     # list saved JSON names (no `.json` suffix in the listing)
+uv run dts-utils configs path     # print the directory (creates it)
+uv run dts-utils configs list     # list saved JSON names (no `.json` suffix in the listing)
 ```
 
 ### Shorthand profile (zit)
 
-When you run prompt-first shorthand (`dts-util "prompt"`, optional profile as the second argument, optional flags after that), configuration is chosen in this order:
+When you run prompt-first shorthand (`dts-utils "prompt"`, optional profile as the second argument, optional flags after that), configuration is chosen in this order:
 
 1. Second positional argument, if present (same resolution as `--configuration`: saved name, path to `.json`, or raw FlatBuffer path).
 2. `DTS_UTIL_DEFAULT_CONFIGURATION`, if set and non-empty (name or path).
-3. Otherwise the saved profile `zit` (`zit.json` next to `dts-util configs path`).
+3. Otherwise the saved profile `zit` (`zit.json` next to `dts-utils configs path`).
    - If `zit.json` is missing, the tool creates it once: 512×512, typical sampling fields, and `model` chosen from (in order) the first `.ckpt` / `.safetensors` under your Draw Things models directory or `DRAW_THINGS_MODEL_PATH`, or `DTS_UTIL_DEFAULT_MODEL`, or left blank with a short stderr hint to edit the file.
 
 After that, the process calls `os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`, so an environment value you already exported keeps precedence.
@@ -127,8 +129,8 @@ Full rules and examples: [CLI.md § Generate shorthand](CLI.md#generate-shorthan
 Pin the server’s presented certificate:
 
 ```bash
-uv run dts-util tls path         # default PEM destination
-uv run dts-util tls export       # fetch and write PEM
+uv run dts-utils tls path         # default PEM destination
+uv run dts-utils tls export       # fetch and write PEM
 ```
 
 `server install --export-tls-cert` runs the export after a successful local check (not used with `--no-tls`). Only client-side files change; `gRPCServerCLI` keystores are not modified.
@@ -141,12 +143,12 @@ Commands assume the LaunchAgent layout and use local probes (`pgrep` / `lsof`). 
 
 | Goal | Command |
 | --- | --- |
-| Install with defaults | `uv run dts-util server install` |
-| Confirm process and port | `uv run dts-util server check` (or `server test`) |
-| Custom port, secret, or models path | `uv run dts-util server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
-| Enable model browsing on an existing install | `uv run dts-util server restart --model-browser` |
-| Stop / start without removing install | `uv run dts-util server stop` · `uv run dts-util server start` |
-| Restart or fully remove | `uv run dts-util server restart` · `uv run dts-util server uninstall` |
+| Install with defaults | `uv run dts-utils server install` |
+| Confirm process and port | `uv run dts-utils server check` (or `server test`) |
+| Custom port, secret, or models path | `uv run dts-utils server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
+| Enable model browsing on an existing install | `uv run dts-utils server restart --model-browser` |
+| Stop / start without removing install | `uv run dts-utils server stop` · `uv run dts-utils server start` |
+| Restart or fully remove | `uv run dts-utils server restart` · `uv run dts-utils server uninstall` |
 
 Flag-level detail: [CLI.md](CLI.md).
 
@@ -157,7 +159,7 @@ Flag-level detail: [CLI.md](CLI.md).
 If `gRPCServerCLI` runs elsewhere, point `generate` and `reflect` at the host:
 
 ```bash
-uv run dts-util generate \
+uv run dts-utils generate \
   --host gpu.local \
   --prompt "a beautiful sunset over mountains" \
   --configuration portrait \
@@ -167,8 +169,8 @@ uv run dts-util generate \
 `server check` only probes localhost. For reachability and API surface on a remote host, use `reflect`:
 
 ```bash
-uv run dts-util reflect --host gpu.local --root-cert ./gpu.pem
-uv run dts-util reflect --host gpu.local --root-cert ./gpu.pem --json
+uv run dts-utils reflect --host gpu.local --root-cert ./gpu.pem
+uv run dts-utils reflect --host gpu.local --root-cert ./gpu.pem --json
 ```
 
 ---
@@ -177,7 +179,7 @@ uv run dts-util reflect --host gpu.local --root-cert ./gpu.pem --json
 
 | Goal | Command pattern |
 | --- | --- |
-| Prompt-first with defaults (local TLS trust, open viewer) | `uv run dts-util "PROMPT"` (optional profile and flags; see [CLI.md](CLI.md#generate-shorthand-prompt-first)) |
+| Prompt-first with defaults (local TLS trust, open viewer) | `uv run dts-utils "PROMPT"` (optional profile and flags; see [CLI.md](CLI.md#generate-shorthand-prompt-first)) |
 | Saved config | `--configuration NAME --trust-server-cert` (add `--open` to open the PNG) |
 | Inline JSON path | `--configuration path/to/config.json --trust-server-cert` |
 | Pinned PEM | `--root-cert cert.pem` (often with `--host`) |
@@ -195,12 +197,12 @@ uv run dts-util reflect --host gpu.local --root-cert ./gpu.pem --json
 Local index over public Draw Things community-model metadata. No `GenerateImage` server required.
 
 ```bash
-uv run dts-util models build              # clone/update metadata, build local tables
-uv run dts-util models search flux
-uv run dts-util models search sdxl anime
-uv run dts-util models search --family Flux --has-hf
-uv run dts-util models show MODEL_ID
-uv run dts-util models report
+uv run dts-utils models build              # clone/update metadata, build local tables
+uv run dts-utils models search flux
+uv run dts-utils models search sdxl anime
+uv run dts-utils models search --family Flux --has-hf
+uv run dts-utils models show MODEL_ID
+uv run dts-utils models report
 ```
 
 Filters: `--family`, `--type`, `--author`, `--license`, `--has-source`, `--has-hf`, `--has-license`, `--has-downloads`, `--has-warnings`.
@@ -224,12 +226,12 @@ Output paths:
 
 | Symptom | Where to look |
 | --- | --- |
-| `server check` fails | Wrong port; or use `dts-util server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-util server restart`, or `server stop` then `server start` |
+| `server check` fails | Wrong port; or use `dts-utils server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-utils server restart`, or `server stop` then `server start` |
 | TLS error against `localhost` | Add `--trust-server-cert` for loopback on `generate`. See [TLS](#tls) |
 | `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Shorthand profile (zit)](#shorthand-profile-zit). Wrong or missing `model` in JSON often fails at the server |
 | `reflect` returns `UNIMPLEMENTED` | Draw Things `gRPCServerCLI` often omits gRPC reflection; generation can still work |
-| PNG looks like noise | Usually wrong `model` in `zit.json` (or your chosen profile) — basename must exist in the server model directory — or a bad tensor decode. Open the JSON from `dts-util configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
-| “Cannot resolve … config” | `dts-util configs path` and `dts-util configs list`; save the file there or pass an absolute path |
+| PNG looks like noise | Usually wrong `model` in `zit.json` (or your chosen profile) — basename must exist in the server model directory — or a bad tensor decode. Open the JSON from `dts-utils configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
+| “Cannot resolve … config” | `dts-utils configs path` and `dts-utils configs list`; save the file there or pass an absolute path |
 
 ---
 
@@ -239,13 +241,13 @@ Output paths:
 src/
 └── dts_util/
     ├── installer/       # LaunchAgent-backed install lifecycle (macOS)
-    ├── cli_router.py    # Top-level dispatch and prompt-first shorthand
+    ├── cli_router.py    # Top-level dispatch (`dts-utils` / `dts-util`) and prompt-first shorthand
     ├── configs.py       # Saved JSON configs and zit implicit profile materialization
     ├── generate.py      # Prompt → gRPC GenerateImage → PNG
-    ├── tls_export.py    # Pin/export server PEM (`dts-util tls`)
+    ├── tls_export.py    # Pin/export server PEM (`dts-utils tls`)
     ├── grpc/            # Channels, reflection, stubs, protobuf copies (`grpc/utils.py`, …)
-    ├── model_index/     # Community metadata index (`dts-util models`)
-    └── web/             # Loopback Starlette UI (`dts-util web`)
+    ├── model_index/     # Community metadata index (`dts-utils models`)
+    └── web/             # Loopback Starlette UI (`dts-utils web`)
 ```
 
 Per-flag behavior: [CLI.md](CLI.md).

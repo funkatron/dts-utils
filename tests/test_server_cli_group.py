@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dts_util.cli_router import SERVER_SUBCOMMAND_HELP, prepare_argv_for_installer_dispatch
+from dts_util.cli_router import server_subcommand_help_text, prepare_argv_for_installer_dispatch
 
 
 def test_prepare_server_help_only():
@@ -40,7 +40,8 @@ def test_prepare_rejects_unknown_server_subcommand():
 
 
 def test_server_help_text_documents_prefix():
-    assert "server install" in SERVER_SUBCOMMAND_HELP
-    assert "server start" in SERVER_SUBCOMMAND_HELP
-    assert "server stop" in SERVER_SUBCOMMAND_HELP
-    assert "check" in SERVER_SUBCOMMAND_HELP
+    text = server_subcommand_help_text()
+    assert "server install" in text
+    assert "server start" in text
+    assert "server stop" in text
+    assert "check" in text

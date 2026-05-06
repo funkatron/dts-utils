@@ -21,15 +21,15 @@ Integration-style gRPC tests may skip without a live server; see [tests/README.m
 
 CI (`.github/workflows/ci.yml`) runs **`uv run pytest`** with **no `-m` filter**, so default runs include marked tests; those tests should **skip** cleanly on Ubuntu when a server is absent rather than fail.
 
-## CLI dispatch (`dts-util`)
+## CLI dispatch (`dts-utils` / `dts-util`)
 
-Console entrypoint: [`dts_util.cli_router:main`](src/dts_util/cli_router.py). Named subcommands (after `dts-util`) route roughly as follows:
+Console entrypoints (same `main`): [`dts_util.cli_router:main`](src/dts_util/cli_router.py). Named subcommands (after `dts-utils` or `dts-util`) route roughly as follows:
 
 | Subcommand | Implementation |
 | --- | --- |
 | `server …` | [`installer/server_installer.py`](src/dts_util/installer/server_installer.py) (`install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`) |
 | `generate` | [`generate.py`](src/dts_util/generate.py) |
-| Prompt-first shorthand (`dts-util "…"`) | Same as `generate` after argv rewrite in `cli_router` |
+| Prompt-first shorthand (`dts-utils "…"`) | Same as `generate` after argv rewrite in `cli_router` |
 | `configs` | [`configs.py`](src/dts_util/configs.py) |
 | `reflect` | [`grpc/reflect.py`](src/dts_util/grpc/reflect.py) |
 | `tls` | [`tls_export.py`](src/dts_util/tls_export.py) |

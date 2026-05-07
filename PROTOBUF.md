@@ -115,7 +115,8 @@ The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grp
 ### Current behavior
 
 - **`tests/test_grpc_server.py`** uses the **legacy** `image_generation.proto` stack and assumes plaintext on **`localhost:7859`** (different message shapes than production). Some tests **skip** if nothing is listening, or are marked `@pytest.mark.skip` (models / TODO). Prefer treating this file as **historical** unless you are refreshing it onto upstream.
-- **`tests/test_grpc_live_cli.py`** (`@pytest.mark.integration`, `@pytest.mark.live_grpc_cli`) uses **`imageService.proto`** (same as `dts-utils generate`). By default these tests **skip**; opt in by spawning a subprocess server — see [tests/README.md § Ephemeral server](README.md#ephemeral-grpcservercli-pytest) and **Ephemeral subprocess** below.
+- **`tests/test_grpc_live_cli.py`** (`@pytest.mark.integration`, `@pytest.mark.live_grpc_cli`) uses **`imageService.proto`** (same as `dts-utils generate`). By default these tests **skip**; opt in by spawning a subprocess server — see [tests/README.md § Ephemeral server](tests/README.md#ephemeral-grpcservercli-pytest) and **Ephemeral subprocess** below.
+- **`tests/test_generate_functional_live.py`** runs **`dts_utils.generate.main`** against that same ephemeral server (**`--configuration-json`**, **`flatc`**, first checkpoint under the models tree); still **`live_grpc_cli`** / **`DTS_GRPC_TEST_SPAWN_SERVER`** opt-in.
 
 ### Intended direction (hermetic by default)
 
@@ -123,7 +124,7 @@ When implementing or refactoring these tests:
 
 1. **No fixed port by default.** Prefer binding an in-process test server to **127.0.0.1:0** and passing the resolved host/port into fixtures so local developers can run the real `gRPCServerCLI` on a well-known port (for example `7859`) without colliding with pytest.
 2. **In-process fake first.** Use `grpc.server()` plus a small servicer that implements only the RPCs the tests need (for example Echo / FilesExist) with canned responses. That keeps CI fast and independent of Draw Things binaries.
-3. **Optional real binary (no LaunchAgent).** Set **`DTS_GRPC_TEST_SPAWN_SERVER=1`** to run **`tests/test_grpc_live_cli.py`**, which starts **`gRPCServerCLI MODEL_DIR --port <ephemeral> --address 127.0.0.1 --no-tls`** via **`tests/ephemeral_grpc_server.py`**, probes readiness with **`is_server_running(..., prefer_plaintext=True)`**, then terminates the process. Requires the **`gRPCServerCLI`** binary (install path, **`PATH`**, or **`DTS_GRPC_TEST_SERVER_BINARY`**) and a **models directory** (Draw Things default container path or **`DTS_GRPC_TEST_MODEL_PATH`**). CI stays green without these; macOS maintainers use this to validate wire assumptions against a real server without **`server install`**.
+3. **Optional real binary (no LaunchAgent).** Set **`DTS_GRPC_TEST_SPAWN_SERVER=1`** to run **`tests/test_grpc_live_cli.py`** and **`tests/test_generate_functional_live.py`**, which share a session-scoped fixture that starts **`gRPCServerCLI MODEL_DIR --port <ephemeral> --address 127.0.0.1 --no-tls`** via **`tests/ephemeral_grpc_server.py`**, probes readiness with **`is_server_running(..., prefer_plaintext=True)`**, then terminates the process when the pytest session ends. Requires the **`gRPCServerCLI`** binary (install path, **`PATH`**, or **`DTS_GRPC_TEST_SERVER_BINARY`**) and a **models directory** (Draw Things default container path or **`DTS_GRPC_TEST_MODEL_PATH`**). CI stays green without these; macOS maintainers use this to validate wire assumptions and full **`generate`** without **`server install`**.
 
 ### Staying aligned when `gRPCServerCLI` changes
 

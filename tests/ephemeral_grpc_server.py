@@ -55,6 +55,17 @@ def resolve_models_directory() -> Path | None:
     return default if default.is_dir() else None
 
 
+def first_model_checkpoint_basename(models_dir: Path) -> str | None:
+    """Basename of the first ``*.safetensors`` or ``*.ckpt`` under *models_dir* (recursive)."""
+    if not models_dir.is_dir():
+        return None
+    for pattern in ("**/*.safetensors", "**/*.ckpt"):
+        found = sorted(models_dir.glob(pattern))
+        if found:
+            return found[0].name
+    return None
+
+
 def pick_free_loopback_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))

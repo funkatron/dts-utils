@@ -61,6 +61,7 @@ Example snippet for the next release:
 
 ### Fixed
 
+- **JSON → FlatBuffer:** **`fps`** in Draw Things JSON maps to **`fps_id`** so **`flatc`** does not fail with **`unknown field: fps`**.
 - **JSON → FlatBuffer:** **`compressionArtifacts": "disabled"`** (Draw Things export style) maps to enum **`Disabled`** so **`flatc`** accepts configs that previously failed with **`unknown enum value: disabled`**.
 - **`dts-util web`:** Closed image viewer `<dialog>` no longer covered the page and swallowed clicks (fullscreen flex layout is scoped to `[open]` only).
 - **`dts-util web`:** Image viewer **×** stacks above the wide “next” side tap strip so the close control receives clicks.

@@ -39,6 +39,7 @@ CONFIG_KEY_MAP = {
     "diffusionTileOverlap": "diffusion_tile_overlap",
     "diffusionTileWidth": "diffusion_tile_width",
     "faceRestoration": "face_restoration",
+    "fps": "fps_id",
     "fpsId": "fps_id",
     "guidanceEmbed": "guidance_embed",
     "guidanceScale": "guidance_scale",

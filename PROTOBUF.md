@@ -90,6 +90,7 @@ Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake
 | `hiresFix`           | `hires_fix`            | Boolean.                                       |
 | `zeroNegativePrompt` | `zero_negative_prompt` | Boolean.                                       |
 | `compressionArtifacts` | `compression_artifacts` | Enum `CompressionMethod`; lowercase aliases (`disabled` → `Disabled`, etc.) before flatc. |
+| `fps` | `fps_id` | App JSON sometimes uses `fps`; schema field is `fps_id`. |
 
 The script also drops empty `controls`, empty `loras`, and empty string values before conversion. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere.
 

@@ -12,21 +12,21 @@ import threading
 
 import grpc
 
-from dts_util.configuration_build import read_configuration_bytes
-from dts_util.exceptions import (
+from dts_utils.configuration_build import read_configuration_bytes
+from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
     GenerationCancelledError,
     GenerationEmptyError,
     GenerationRpcError,
 )
-from dts_util.prompt_wildcards import expand_prompt_wildcards
-from dts_util.generation_stream import collect_generated_images
-from dts_util.grpc.connection import create_channel
-from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
-from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
-from dts_util.image_output import unique_ms_timestamp_output_path, write_images
-from dts_util.tensor_png import decode_dt_tensor_to_png
+from dts_utils.prompt_wildcards import expand_prompt_wildcards
+from dts_utils.generation_stream import collect_generated_images
+from dts_utils.grpc.connection import create_channel
+from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
+from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
+from dts_utils.image_output import unique_ms_timestamp_output_path, write_images
+from dts_utils.tensor_png import decode_dt_tensor_to_png
 
 # Independent RPC runs per UI/API/CLI request (each run re-expands `{…}` wildcards).
 MAX_BATCH_GENERATIONS = 25
@@ -91,7 +91,7 @@ class ImageGenerationRequestOptions:
     negative_prompt: str = ""
     configuration: str | Path | None = None
     configuration_json: str | Path | None = None
-    user: str = "dts-util"
+    user: str = "dts-utils"
     shared_secret: str | None = None
     config_dir: Path | None = None
 

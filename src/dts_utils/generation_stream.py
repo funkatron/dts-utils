@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
-from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
+from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
+from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 
 
 def collect_generated_images(stub: up_grpc.ImageGenerationServiceStub, request: up_pb2.ImageGenerationRequest) -> list[bytes]:

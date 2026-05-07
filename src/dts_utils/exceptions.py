@@ -1,4 +1,4 @@
-"""Domain errors for programmatic use of dts-util."""
+"""Domain errors for programmatic use of dts-utils."""
 
 from __future__ import annotations
 

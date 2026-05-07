@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from dts_util.exceptions import ConfigurationError, PromptWildcardError
-from dts_util.generate_api import ImageGenerationRequestOptions, build_image_generation_request
-from dts_util.prompt_wildcards import expand_prompt_wildcards
+from dts_utils.exceptions import ConfigurationError, PromptWildcardError
+from dts_utils.generate_api import ImageGenerationRequestOptions, build_image_generation_request
+from dts_utils.prompt_wildcards import expand_prompt_wildcards
 
 
 class PickFirst:
@@ -139,7 +139,7 @@ def test_unclosed_open_brace_raises() -> None:
 
 
 def test_literal_then_unclosed_trailing_brace_raises(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("dts_util.prompt_wildcards.DEFAULT_MAX_PASSES", 8)
+    monkeypatch.setattr("dts_utils.prompt_wildcards.DEFAULT_MAX_PASSES", 8)
     with pytest.raises(PromptWildcardError, match="Unresolved"):
         expand_prompt_wildcards("xx{a|b}{yy", rng=PickFirst())
 
@@ -158,7 +158,7 @@ def test_max_passes_exceeded_when_still_has_braces() -> None:
 
 
 def test_default_max_passes_uses_live_module_constant(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("dts_util.prompt_wildcards.DEFAULT_MAX_PASSES", 1)
+    monkeypatch.setattr("dts_utils.prompt_wildcards.DEFAULT_MAX_PASSES", 1)
     with pytest.raises(PromptWildcardError, match="maximum passes"):
         expand_prompt_wildcards("{{a|b}|c}", rng=PickFirst())
 
@@ -173,7 +173,7 @@ def test_max_chars_exceeded_before_any_expand() -> None:
 
 
 def test_max_chars_exceeded_after_expand(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("dts_util.prompt_wildcards.DEFAULT_MAX_PASSES", 8)
+    monkeypatch.setattr("dts_utils.prompt_wildcards.DEFAULT_MAX_PASSES", 8)
     with pytest.raises(PromptWildcardError, match="maximum length"):
         expand_prompt_wildcards("{|bbbbbbbb}", rng=PickFirst(), max_chars=5)
 
@@ -188,7 +188,7 @@ def test_seeded_random_is_deterministic() -> None:
 def test_negative_prompt_empty_skipped_in_build(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"fb")
-    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
 
     req = build_image_generation_request(
         ImageGenerationRequestOptions(prompt="{z|y}", negative_prompt="   ", configuration=cfg),
@@ -200,7 +200,7 @@ def test_negative_prompt_empty_skipped_in_build(monkeypatch: pytest.MonkeyPatch,
 def test_build_expands_negative_prompt_wildcards(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"fb")
-    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
 
     req = build_image_generation_request(
         ImageGenerationRequestOptions(

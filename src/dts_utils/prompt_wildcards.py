@@ -5,7 +5,7 @@ from __future__ import annotations
 import random
 import unicodedata
 
-from dts_util.exceptions import PromptWildcardError
+from dts_utils.exceptions import PromptWildcardError
 
 # Tunables (tests may monkeypatch).
 DEFAULT_MAX_PASSES = 128

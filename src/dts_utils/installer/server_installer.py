@@ -60,20 +60,20 @@ Draw Things gRPCServerCLI Installer
 This script installs the Draw Things gRPCServerCLI and sets it up as a LaunchAgent service.
 
 Usage:
-    dts-util server install [-m MODEL_PATH] [gRPCServerCLI options]
-    dts-util server uninstall
-    dts-util server start
-    dts-util server stop
-    dts-util server restart [--model-browser]
-    dts-util server test|check [--port PORT]
-    dts-util generate --prompt PROMPT --configuration CONFIG [...]
-    dts-util \"PROMPT\" [PROFILE] [...]   Shorthand: same as generate with --trust-server-cert --open; PROFILE optional — missing zit.json is auto-created (model guessed from Draw Things Models dir) and $DTS_UTIL_DEFAULT_CONFIGURATION is set
-    dts-util reflect [--host HOST] [--port PORT] [--json] [TLS options]
-    dts-util configs <path|list> [...]
-    dts-util tls <path|export> [...]
-    dts-util models <build|search|show|report> [...]
+    dts-utils server install [-m MODEL_PATH] [gRPCServerCLI options]
+    dts-utils server uninstall
+    dts-utils server start
+    dts-utils server stop
+    dts-utils server restart [--model-browser]
+    dts-utils server test|check [--port PORT]
+    dts-utils generate --prompt PROMPT --configuration CONFIG [...]
+    dts-utils \"PROMPT\" [PROFILE] [...]   Shorthand: same as generate with --trust-server-cert --open; PROFILE optional — missing default.json is auto-created (legacy zit.json renamed if present; model guessed from Draw Things Models dir) and $DTS_UTILS_DEFAULT_CONFIGURATION is set
+    dts-utils reflect [--host HOST] [--port PORT] [--json] [TLS options]
+    dts-utils configs <path|list> [...]
+    dts-utils tls <path|export> [...]
+    dts-utils models <build|search|show|report> [...]
 
-Lifecycle commands apply only after ``dts-util server …`` — see Commands below.
+Lifecycle commands apply only after ``dts-utils server …`` — see Commands below.
 
 The installer will:
 1. Download the gRPCServerCLI binary
@@ -100,7 +100,7 @@ Installer Options:
 
 Install PEM export (requires TLS-enabled server install):
     --export-tls-cert      After successful install, write presented server PEM for ``--root-cert``
-    --export-tls-cert-path PATH   PEM destination (default: ``dts-util tls path`` output)
+    --export-tls-cert-path PATH   PEM destination (default: ``dts-utils tls path`` output)
     --export-tls-cert-force       Overwrite an existing PEM
 
 gRPCServerCLI Options:
@@ -132,60 +132,56 @@ Advanced Options:
 
 Examples:
     # Install with default settings
-    dts-util server install
+    dts-utils server install
 
     # Install and save the presented TLS certificate for ``--root-cert``
-    dts-util server install --export-tls-cert
+    dts-utils server install --export-tls-cert
 
     # Install with custom model path
-    dts-util server install -m /path/to/models
+    dts-utils server install -m /path/to/models
 
     # Install with custom port and server name
-    dts-util server install -p 7860 -n "MyServer"
+    dts-utils server install -p 7860 -n "MyServer"
 
     # Install with security options (recommended for public networks)
-    dts-util server install -s "mysecret"
+    dts-utils server install -s "mysecret"
 
     # Install with model browser enabled
-    dts-util server install --model-browser
+    dts-utils server install --model-browser
 
     # Install with proxy configuration
-    dts-util server install --join '{{"host":"proxy.local", "port":7859}}'
+    dts-utils server install --join '{{"host":"proxy.local", "port":7859}}'
 
     # Start / stop / restart (plist must exist — run ``server install`` first)
-    dts-util server start
-    dts-util server stop
-    dts-util server restart
+    dts-utils server start
+    dts-utils server stop
+    dts-utils server restart
 
     # Enable model browser for an existing service and restart
-    dts-util server restart --model-browser
+    dts-utils server restart --model-browser
 
     # Probe server connection
-    dts-util server test
+    dts-utils server test
 
     # Same probe on specific port / alternate verb
-    dts-util server test --port 7859
-    dts-util server check
+    dts-utils server test --port 7859
+    dts-utils server check
 
     # Generate an image using a saved JSON config
-    dts-util generate --prompt "a small robot painting clouds" --configuration portrait --trust-server-cert
+    dts-utils generate --prompt "a small robot painting clouds" --configuration portrait --trust-server-cert
 
     # List services exposed through gRPC reflection
-    dts-util reflect --trust-server-cert
+    dts-utils reflect --trust-server-cert
 
     # Show where named JSON generation configs are stored
-    dts-util configs path
+    dts-utils configs path
 
     # Pin the server's TLS certificate locally (PEM for ``--root-cert``):
-    dts-util tls export
+    dts-utils tls export
 
     # Quiet install with defaults
-    dts-util server install -q
+    dts-utils server install -q
 """
-
-    def usage_help_body(self) -> str:
-        """Help epilog with ``dts-util`` placeholders replaced by the invoked CLI basename."""
-        return self.usage_text.replace("dts-util", cli_command_name())
 
     def validate_join_config(self, join_config_str):
         """Validate the join configuration string.
@@ -223,7 +219,7 @@ Examples:
 
     def parse_args(self):
         prog = cli_command_name()
-        epilog = self.usage_help_body()
+        epilog = self.usage_text
         parser = argparse.ArgumentParser(
             prog=prog,
             description='Install Draw Things gRPCServerCLI',
@@ -375,7 +371,7 @@ Examples:
             if path.lower() == 'q':
                 sys.exit(0)
             if path.lower() == 'h':
-                print(self.usage_help_body())
+                print(self.usage_text)
                 continue
             if Path(path).exists():
                 return Path(path)
@@ -853,7 +849,7 @@ Examples:
 
         # If no arguments provided, show usage
         if len(sys.argv) == 1:
-            print(self.usage_help_body())
+            print(self.usage_text)
             sys.exit(0)
 
         # At this point, only the 'install' action should reach here
@@ -914,12 +910,12 @@ Examples:
         elif args.action is None:
             # No action specified
             print("No action specified.")
-            print(self.usage_help_body())
+            print(self.usage_text)
             sys.exit(1)
         else:
             # This should never happen since parse_args() handles all actions
             print(f"Unknown action: {args.action}")
-            print(self.usage_help_body())
+            print(self.usage_text)
             sys.exit(1)
 
     def uninstall(self):

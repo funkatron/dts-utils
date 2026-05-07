@@ -1,6 +1,6 @@
 /**
  * Visual contract aligned with shipped UI:
- *   src/dts_util/web/templates/index.html.j2
+ *   src/dts_utils/web/templates/index.html.j2
  *
  * DOM map: .sr-only product name, #btnOpenSetup / #btnOpenHistory FABs, #stage →
  * #resultPane (#resultPlaceholder | #resultBusy | #results), #err, footer .composer
@@ -125,7 +125,7 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
     <Stack gap={14} style={{ padding: 12, maxWidth: 720 }}>
       <Text tone="quaternary" size="small">
         Interactive mock — open in Cursor via Command Palette → Open Canvas → dts-util-web-humane-layout.
-        Shipped UI is <code style={{ fontSize: "0.9em" }}>src/dts_util/web/templates/index.html.j2</code>; keep
+        Shipped UI is <code style={{ fontSize: "0.9em" }}>src/dts_utils/web/templates/index.html.j2</code>; keep
         this canvas aligned when the template changes (stage-first, Setup + History FABs, composer).
       </Text>
 
@@ -343,10 +343,10 @@ export default function DtsUtilWebHumaneLayoutCanvas() {
               Profile
             </Text>
             <Select
-              value="zit"
+              value="default"
               disabled
               options={[
-                { value: "zit", label: "zit" },
+                { value: "default", label: "default" },
                 { value: "portrait", label: "portrait" },
               ]}
               style={{ maxWidth: 280 }}

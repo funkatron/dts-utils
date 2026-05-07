@@ -5,20 +5,20 @@ from __future__ import annotations
 import os
 import sys
 
-from dts_util.cli_prog import cli_command_name
-from dts_util.model_index.cli import main as models_main
+from dts_utils.cli_prog import cli_command_name
+from dts_utils.model_index.cli import main as models_main
 
-from dts_util.configs import (
+from dts_utils.configs import (
     DEFAULT_CONFIGURATION_ENV,
     DEFAULT_PROFILE_NAME,
     ensure_default_generation_json_config,
     main as configs_main,
 )
-from dts_util.generate import main as generate_main
-from dts_util.grpc.reflect import main as reflect_main
-from dts_util.web.cli import main as web_main
-from dts_util.installer.server_installer import DTSServerInstaller
-from dts_util.tls_export import main as tls_main
+from dts_utils.generate import main as generate_main
+from dts_utils.grpc.reflect import main as reflect_main
+from dts_utils.web.cli import main as web_main
+from dts_utils.installer.server_installer import DTSServerInstaller
+from dts_utils.tls_export import main as tls_main
 
 SERVER_LIFECYCLE_SUBCOMMANDS = frozenset(
     {"install", "uninstall", "start", "stop", "restart", "test", "check"}
@@ -37,8 +37,6 @@ Lifecycle commands require the ``server`` prefix so they stay distinct from clie
     {p} server stop                   Boot out job (plist stays on disk)
     {p} server restart [--model-browser]
     {p} server test|check [--port PORT]    Probe localhost listener (check = alias for test)
-
-The same executable is also available as ``dts-util`` when both console scripts are installed.
 """.strip()
 
 
@@ -146,7 +144,7 @@ def prepare_argv_for_installer_dispatch(argv: list[str]) -> int | None:
 
 
 def main() -> None:
-    """Entry point for ``dts-utils`` / ``dts-util`` console scripts."""
+    """Entry point for the ``dts-utils`` console script."""
     argv = sys.argv
     code = prepare_argv_for_installer_dispatch(argv)
     if code is not None:

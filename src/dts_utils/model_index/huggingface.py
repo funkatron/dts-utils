@@ -56,10 +56,13 @@ def _cache_paths(cache_dir: Path, repo_id: str) -> tuple[Path, Path]:
     return cache_dir / f"{prefix}.json", cache_dir / f"{prefix}-README.md"
 
 
+HF_USER_AGENT = "dts-utils/0.1.0"
+
+
 def _fetch_json(url: str, timeout: int = 20) -> dict[str, Any]:
     request = urllib.request.Request(
         url,
-        headers={"Accept": "application/json", "User-Agent": "dts-util/0.1.0"},
+        headers={"Accept": "application/json", "User-Agent": HF_USER_AGENT},
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
@@ -69,7 +72,7 @@ def _fetch_json(url: str, timeout: int = 20) -> dict[str, Any]:
 
 
 def _fetch_text(url: str, timeout: int = 20) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": "dts-util/0.1.0"})
+    request = urllib.request.Request(url, headers={"User-Agent": HF_USER_AGENT})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read().decode("utf-8", errors="replace")
 

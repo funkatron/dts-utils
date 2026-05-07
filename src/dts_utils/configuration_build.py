@@ -8,8 +8,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from dts_util.configs import resolve_configuration_value
-from dts_util.exceptions import ConfigurationError
+from dts_utils.configs import resolve_configuration_value
+from dts_utils.exceptions import ConfigurationError
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
 UPSTREAM_PROTO_PATH = PACKAGE_ROOT / "grpc" / "proto" / "upstream"
@@ -105,17 +105,41 @@ CONFIG_DIMENSION_KEYS = {
     "start_width",
 }
 
+# Draw Things JSON may use lowercase strings; flatc expects ``CompressionMethod`` PascalCase labels.
+_COMPRESSION_METHOD_JSON_ALIASES = {
+    "disabled": "Disabled",
+    "h264": "H264",
+    "h265": "H265",
+    "jpeg": "Jpeg",
+}
+
 
 def normalize_configuration_for_flatc(configuration: dict) -> dict:
     normalized = {}
     for key, value in configuration.items():
+        if isinstance(key, str) and key.startswith("_dts_utils"):
+            # UI-only metadata in saved JSON; not part of Draw Things schema / flatc input.
+            continue
         mapped_key = CONFIG_KEY_MAP.get(key, key)
         if value == "" or (mapped_key in {"controls", "loras"} and value == []):
             continue
         if mapped_key in CONFIG_DIMENSION_KEYS:
             value = max(int(value) // 64, 1)
+        if mapped_key == "compression_artifacts" and isinstance(value, str):
+            aliased = _COMPRESSION_METHOD_JSON_ALIASES.get(value.strip().lower())
+            if aliased is not None:
+                value = aliased
         normalized[mapped_key] = value
     return normalized
+
+
+def configurations_equivalent_for_flatbuffer(a: dict, b: dict) -> bool:
+    """True when ``a`` and ``b`` yield the same normalized dict passed to flatc.
+
+    Uses :func:`normalize_configuration_for_flatc` (key aliases, dropped empties,
+    dimension scaling, ``compression_artifacts`` enum aliases, skipped ``_dts_utils*``).
+    """
+    return normalize_configuration_for_flatc(a) == normalize_configuration_for_flatc(b)
 
 
 def json_configuration_to_flatbuffer(configuration: dict) -> bytes:

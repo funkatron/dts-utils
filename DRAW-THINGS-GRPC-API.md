@@ -1,15 +1,15 @@
 # Draw Things gRPC API Notes
 
-This document describes the Draw Things gRPC RPCs and messages that `dts-util` calls. It does not replace [CLI.md](CLI.md) for command-line usage or [README.md](README.md) for install and TLS.
+This document describes the Draw Things gRPC RPCs and messages that `dts-utils` calls. It does not replace [CLI.md](CLI.md) for command-line usage or [README.md](README.md) for install and TLS.
 
 The server binary is Draw Things `gRPCServerCLI`. This repo ships a client and installer, not the server implementation.
 
 Authoritative references in this repository:
 
-- Live upstream proto copy: `src/dts_util/grpc/proto/upstream/imageService.proto`
-- Python generated upstream stubs: `src/dts_util/grpc/proto/upstream/imageService_pb2.py` and `src/dts_util/grpc/proto/upstream/imageService_pb2_grpc.py`
-- Draw Things generation config schema: `src/dts_util/grpc/proto/upstream/config.fbs`
-- Legacy local proto kept for older tests/docs history: `src/dts_util/grpc/proto/image_generation.proto`
+- Live upstream proto copy: `src/dts_utils/grpc/proto/upstream/imageService.proto`
+- Python generated upstream stubs: `src/dts_utils/grpc/proto/upstream/imageService_pb2.py` and `src/dts_utils/grpc/proto/upstream/imageService_pb2_grpc.py`
+- Draw Things generation config schema: `src/dts_utils/grpc/proto/upstream/config.fbs`
+- Legacy local proto kept for older tests/docs history: `src/dts_utils/grpc/proto/image_generation.proto`
 
 ## Main Service
 
@@ -33,7 +33,7 @@ service ImageGenerationService {
 | `Echo` | Connectivity and server metadata | Handy when TLS or shared-secret setup is unclear. |
 | `FilesExist` | Model files present on the server | Paths are relative to the server model directory (for example `*.ckpt`). |
 | `GenerateImage` | Stream progress and image tensors | Request `configuration` must be FlatBuffer `GenerationConfiguration` bytes. |
-| `UploadFile` | Stream file chunks | Not used by the current `dts-util generate` path. |
+| `UploadFile` | Stream file chunks | Not used by the current `dts-utils generate` path. |
 | `Pubkey` / `Hours` | Other upstream RPCs | In the proto; not part of the usual CLI flow. |
 
 ## Image Generation Contract
@@ -59,7 +59,7 @@ message ImageGenerationRequest {
 }
 ```
 
-The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`. The `dts-util generate --configuration config.json` path accepts Draw Things JSON and converts it with [`flatc`](https://github.com/google/flatbuffers) before sending the RPC. For a prompt-first invocation without writing `generate`, see [CLI.md § Generate shorthand](CLI.md#generate-shorthand-prompt-first).
+The `configuration` field is not JSON. It is a FlatBuffer encoded from `GenerationConfiguration` in `src/dts_utils/grpc/proto/upstream/config.fbs`. The `dts-utils generate --configuration config.json` path accepts Draw Things JSON and converts it with [`flatc`](https://github.com/google/flatbuffers) before sending the RPC. For a prompt-first invocation without writing `generate`, see [CLI.md § Generate shorthand](CLI.md#generate-shorthand-prompt-first).
 
 Responses contain progress, previews, and generated image tensors:
 
@@ -77,14 +77,14 @@ message ImageGenerationResponse {
 }
 ```
 
-`generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-util generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
+`generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-utils generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
 
-## Examples (dts-util)
+## Examples (dts-utils)
 
 Explicit `generate` (local TLS trust, JSON on disk):
 
 ```bash
-uv run dts-util generate \
+uv run dts-utils generate \
   --prompt "a small robot painting clouds" \
   --configuration-json tmp_models/config.json \
   --output output/generated.png \
@@ -92,10 +92,10 @@ uv run dts-util generate \
   --open
 ```
 
-Prompt-first shorthand (uses or creates `zit.json` by default; opens the PNG):
+Prompt-first shorthand (uses or creates `default.json` by default; opens the PNG):
 
 ```bash
-uv run dts-util "a small robot painting clouds"
+uv run dts-utils "a small robot painting clouds"
 ```
 
 Details: [CLI.md](CLI.md) and [README.md](README.md).
@@ -109,7 +109,7 @@ Details: [CLI.md](CLI.md) and [README.md](README.md).
 
 ## Server Management
 
-Use `dts-utils` (or `dts-util`) for installing and restarting the Draw Things server process:
+Use `dts-utils` for installing and restarting the Draw Things server process:
 
 ```bash
 uv run dts-utils server install --model-browser

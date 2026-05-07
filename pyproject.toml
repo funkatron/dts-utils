@@ -3,7 +3,7 @@ requires = ["setuptools>=42"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "dts-util"
+name = "dts-utils"
 version = "0.4.2"
 description = "Utilities for installing and interacting with Draw Things gRPCServerCLI."
 readme = "README.md"
@@ -50,13 +50,12 @@ markers = [
 branch = true
 source = ["src"]
 omit = [
-    "src/dts_util/grpc/proto/*.py",
-    "src/dts_util/grpc/proto/upstream/*.py",
+    "src/dts_utils/grpc/proto/*.py",
+    "src/dts_utils/grpc/proto/upstream/*.py",
 ]
 
 [project.scripts]
-dts-utils = "dts_util.cli_router:main"
-dts-util = "dts_util.cli_router:main"
+dts-utils = "dts_utils.cli_router:main"
 
 [project.urls]
 Repository = "https://github.com/funkatron/dts-utils"
@@ -68,4 +67,4 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-"dts_util.web" = ["templates/*.j2"]
+"dts_utils.web" = ["templates/*.j2"]

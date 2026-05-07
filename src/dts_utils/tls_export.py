@@ -1,6 +1,6 @@
 """Fetch the TLS certificate gRPC presents and save it as a PEM for ``--root-cert``.
 
-``gRPCServerCLI`` terminates TLS internally; ``dts-util`` cannot change its keystores.
+``gRPCServerCLI`` terminates TLS internally; ``dts-utils`` cannot change its keystores.
 Clients can pin the **presented** certificate (trust-on-first-connect, written to disk)
 instead of repeating ``--trust-server-cert``.
 """
@@ -12,15 +12,15 @@ import sys
 import time
 from pathlib import Path
 
-from dts_util.configs import user_config_dir
-from dts_util.grpc.connection import fetch_server_certificate
+from dts_utils.configs import user_config_dir
+from dts_utils.grpc.connection import fetch_server_certificate
 
 TRUST_RELATIVE_DIR = Path("trusted")
 DEFAULT_SERVER_PEM_NAME = "drawthings-grpc-server.pem"
 
 
 def default_server_pem_path() -> Path:
-    """Stable path for exported server PEM alongside other ``dts-util`` config."""
+    """Stable path for exported server PEM alongside other ``dts-utils`` config."""
     return user_config_dir() / TRUST_RELATIVE_DIR / DEFAULT_SERVER_PEM_NAME
 
 
@@ -79,13 +79,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Export the gRPC server's presented TLS certificate as a PEM.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""Examples:
-  uv run dts-util tls path
-  uv run dts-util tls export
-  uv run dts-util tls export --output ./my-server.pem --force
+  uv run dts-utils tls path
+  uv run dts-utils tls export
+  uv run dts-utils tls export --output ./my-server.pem --force
 
 Default output: {DEFAULT_SERVER_PEM_NAME} under ${{APP_CONFIG}}/trusted (see tls path).
 
-Use the PEM with ``uv run dts-util generate --root-cert <file>``.
+Use the PEM with ``uv run dts-utils generate --root-cert <file>``.
 
 This stores **what the server presented** (pinning); it does not install CAs inside gRPCServerCLI.
 """,
@@ -148,7 +148,7 @@ def main(argv: list[str] | None = None) -> int:
             attempts=max(1, args.retries),
         )
         print(f"Wrote presented server certificate PEM to {destination.expanduser().resolve()}")
-        print(f"Try: uv run dts-util generate --root-cert {destination.expanduser().resolve()} ...")
+        print(f"Try: uv run dts-utils generate --root-cert {destination.expanduser().resolve()} ...")
         return 0
     except (FileExistsError, OSError, ValueError, RuntimeError) as e:
         print(f"tls export error: {e}", file=sys.stderr)

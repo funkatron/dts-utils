@@ -1,4 +1,4 @@
-"""Tests for the dts-util reflect command."""
+"""Tests for the dts-utils reflect command."""
 
 from __future__ import annotations
 
@@ -10,8 +10,8 @@ import pytest
 from google.protobuf import descriptor_pb2
 from grpc_reflection.v1alpha import reflection_pb2
 
-from dts_util.grpc import reflect
-from dts_util import cli_router
+from dts_utils.grpc import reflect
+from dts_utils import cli_router
 
 
 class FakeChannel:
@@ -139,8 +139,8 @@ def test_reflect_command_passes_force_trust_server_cert(monkeypatch, capsys):
 
 
 def test_dts_util_main_dispatches_reflect(monkeypatch):
-    """Verify dts-util reflect is routed before installer argument parsing."""
-    monkeypatch.setattr("sys.argv", ["dts-util", "reflect", "--json"])
+    """Verify dts-utils reflect is routed before installer argument parsing."""
+    monkeypatch.setattr("sys.argv", ["dts-utils", "reflect", "--json"])
     with patch.object(cli_router, "reflect_main", return_value=0) as reflect_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()

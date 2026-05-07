@@ -16,25 +16,25 @@ from pathlib import Path
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
-from dts_util.configs import (
+from dts_utils.configs import (
     DEFAULT_PROFILE_NAME,
     configurations_dir,
     ensure_default_generation_json_config,
     list_configuration_names,
     user_config_dir,
 )
-from dts_util.exceptions import (
+from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
     GenerationCancelledError,
     GenerationEmptyError,
     GenerationRpcError,
 )
-from dts_util.generate_api import (
+from dts_utils.generate_api import (
     GeneratePngBatchResult,
     GrpcClientOptions,
     ImageGenerationRequestOptions,
@@ -43,8 +43,8 @@ from dts_util.generate_api import (
     generate_png_batch,
     iter_generate_stream_dicts,
 )
-from dts_util.grpc.connection import is_loopback_host
-from dts_util.grpc.utils import is_server_running
+from dts_utils.grpc.connection import is_loopback_host
+from dts_utils.grpc.utils import is_server_running
 
 _templates_dir = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(_templates_dir))
@@ -273,21 +273,28 @@ async def server_status(request: Request) -> JSONResponse:
 async def api_configs(request: Request) -> JSONResponse:
     if err := _require_bearer(request):
         return err
-    ensure_default_generation_json_config()
-    directory = configurations_dir()
-    names = list_configuration_names(directory)
+    try:
+        ensure_default_generation_json_config()
+        directory = configurations_dir()
+        names = list_configuration_names(directory)
+    except OSError as exc:
+        return JSONResponse(
+            {"detail": f"Cannot read or create saved JSON configs directory: {exc}"},
+            status_code=500,
+        )
     return JSONResponse({"names": names, "default_profile": DEFAULT_PROFILE_NAME, "config_dir": str(directory)})
 
 
 async def index(request: Request) -> Response:
     api_token = _auth_token()
-    return templates.TemplateResponse(
-        request,
-        "index.html.j2",
-        {
-            "api_token": api_token,
-        },
+    # Serve HTML via Jinja render + HTMLResponse (not Jinja2Templates.TemplateResponse).
+    # Starlette's internal _TemplateResponse does ``if "http.response.debug" in extensions``
+    # after ``extensions = request.get("extensions", {})``; if the ASGI scope sets the
+    # ``extensions`` key to ``None``, ``.get`` returns ``None`` and membership raises → HTTP 500.
+    html = templates.get_template("index.html.j2").render(
+        {"request": request, "api_token": api_token},
     )
+    return HTMLResponse(html)
 
 
 def _parse_generate_payload(body: object) -> tuple[dict[str, object], JSONResponse | None]:
@@ -574,6 +581,12 @@ async def api_history(request: Request) -> JSONResponse:
     generations = _coerce_history_generations(body.get("generations"))
     if generations is not None:
         entry["generations"] = generations
+
+    configuration = body.get("configuration")
+    if isinstance(configuration, str):
+        ctrim = configuration.strip()
+        if ctrim:
+            entry["configuration"] = ctrim[:4096]
 
     state = _load_history_state()
     items = state.get("items") if isinstance(state.get("items"), list) else []

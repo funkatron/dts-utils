@@ -130,8 +130,8 @@ wheels = [
 ]
 
 [[package]]
-name = "dts-util"
-version = "0.3.3"
+name = "dts-utils"
+version = "0.4.2"
 source = { editable = "." }
 dependencies = [
     { name = "fpzip" },

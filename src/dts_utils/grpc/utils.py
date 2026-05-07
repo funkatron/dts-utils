@@ -1,7 +1,7 @@
 """Utility functions for working with the Draw Things gRPC server.
 
 This module provides helper functions for interacting with the Draw Things gRPC server.
-It can be used both by the dts-util tool and by client applications.
+It can be used both by the dts-utils CLI and by client applications.
 """
 
 import grpc
@@ -20,7 +20,7 @@ def is_server_running(
     Draw Things ``gRPCServerCLI`` uses TLS by default. On loopback addresses this function tries
     TLS using the server-presented certificate (same idea as ``--trust-server-cert``), then falls
     back to a plaintext channel. Use ``prefer_plaintext=True`` when the server runs with
-    ``--no-tls`` (matches ``dts-util server test --no-tls``).
+    ``--no-tls`` (matches ``dts-utils server test --no-tls``).
 
     Args:
         host: Server hostname (default: localhost)
@@ -32,11 +32,11 @@ def is_server_running(
         True if the server responds, False otherwise.
 
     Example:
-        >>> from dts_util.grpc.utils import is_server_running
+        >>> from dts_utils.grpc.utils import is_server_running
         >>> is_server_running(port=7859)
         True
     """
-    from dts_util.grpc.connection import create_channel, is_loopback_host
+    from dts_utils.grpc.connection import create_channel, is_loopback_host
 
     def _probe(channel: grpc.Channel) -> bool:
         try:
@@ -87,7 +87,7 @@ def handle_grpc_error():
         grpc.RpcError: If any other gRPC error occurs
 
     Example:
-        >>> from dts_util.grpc.utils import handle_grpc_error
+        >>> from dts_utils.grpc.utils import handle_grpc_error
         >>> with handle_grpc_error():
         ...     response = stub.GenerateImage(request)
     """
@@ -128,7 +128,7 @@ try:
             ConnectionError: If server is not running
 
         Example:
-            >>> from dts_util.grpc.utils import create_channel_and_stub
+            >>> from dts_utils.grpc.utils import create_channel_and_stub
             >>> channel, stub = create_channel_and_stub(port=7859)
             >>> response = stub.Echo(EchoRequest())
         """

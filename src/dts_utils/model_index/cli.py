@@ -68,7 +68,7 @@ def _report_output_path(data_dir: Path) -> Path:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="dts-util models",
+        prog="dts-utils models",
         description="Inspect and search Draw Things uncurated models locally.",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -136,7 +136,7 @@ def build_parser() -> argparse.ArgumentParser:
 def _load_index_or_exit(data_dir: Path):
     json_path = _json_output_path(data_dir)
     if not json_path.exists():
-        print(f"Index not found at {json_path}. Run `uv run dts-util models build` first.")
+        print(f"Index not found at {json_path}. Run `uv run dts-utils models build` first.")
         return None
     try:
         return load_records(json_path)

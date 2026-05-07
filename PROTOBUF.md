@@ -2,12 +2,12 @@
 
 This repository contains two protocol definitions:
 
-- `src/dts_util/grpc/proto/upstream/imageService.proto` is the live Draw Things gRPC API copy used by `dts-util generate`.
-- `src/dts_util/grpc/proto/image_generation.proto` is an older simplified local proto retained for legacy tests and documentation history. Do not use it for new Draw Things `gRPCServerCLI` client work.
+- `src/dts_utils/grpc/proto/upstream/imageService.proto` is the live Draw Things gRPC API copy used by `dts-utils generate`.
+- `src/dts_utils/grpc/proto/image_generation.proto` is an older simplified local proto retained for legacy tests and documentation history. Do not use it for new Draw Things `gRPCServerCLI` client work.
 
 The Draw Things generation configuration schema is separate from protobuf:
 
-- `src/dts_util/grpc/proto/upstream/config.fbs` defines the FlatBuffer `GenerationConfiguration` table.
+- `src/dts_utils/grpc/proto/upstream/config.fbs` defines the FlatBuffer `GenerationConfiguration` table.
 
 See also [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) for client-oriented notes (RPC summary, streaming behavior, example commands).
 
@@ -52,7 +52,7 @@ message ImageGenerationRequest {
 Important details:
 
 - `configuration` must contain `GenerationConfiguration` FlatBuffer bytes.
-- `--configuration` in `dts-util generate` converts Draw Things JSON to those FlatBuffer bytes using [`flatc`](https://github.com/google/flatbuffers).
+- `--configuration` in `dts-utils generate` converts Draw Things JSON to those FlatBuffer bytes using [`flatc`](https://github.com/google/flatbuffers).
 - `chunked = true` allows large generated image tensors to arrive in multiple streamed messages.
 - `contents` carries content-addressed tensor payloads for image, mask, and hints when those fields are used.
 
@@ -76,7 +76,7 @@ message ImageGenerationResponse {
 
 ## FlatBuffer Configuration
 
-The root FlatBuffer type is `GenerationConfiguration` in `src/dts_util/grpc/proto/upstream/config.fbs`.
+The root FlatBuffer type is `GenerationConfiguration` in `src/dts_utils/grpc/proto/upstream/config.fbs`.
 
 Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake_case. The helper script maps common fields before running [`flatc`](https://github.com/google/flatbuffers). Examples:
 
@@ -89,23 +89,23 @@ Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake
 | `guidanceScale`      | `guidance_scale`       | Float.                                         |
 | `hiresFix`           | `hires_fix`            | Boolean.                                       |
 | `zeroNegativePrompt` | `zero_negative_prompt` | Boolean.                                       |
+| `compressionArtifacts` | `compression_artifacts` | Enum `CompressionMethod`; lowercase aliases (`disabled` → `Disabled`, etc.) before flatc. |
 
-
-The script also drops empty `controls`, empty `loras`, and empty string values before conversion. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere.
+The script also drops empty `controls`, empty `loras`, and empty string values before conversion. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere.
 
 ## Regenerating Python gRPC Code
 
-Use this only when `src/dts_util/grpc/proto/upstream/imageService.proto` changes:
+Use this only when `src/dts_utils/grpc/proto/upstream/imageService.proto` changes:
 
 ```bash
 uv run python -m grpc_tools.protoc \
-  -Isrc/dts_util/grpc/proto/upstream \
-  --python_out=src/dts_util/grpc/proto/upstream \
-  --grpc_python_out=src/dts_util/grpc/proto/upstream \
-  src/dts_util/grpc/proto/upstream/imageService.proto
+  -Isrc/dts_utils/grpc/proto/upstream \
+  --python_out=src/dts_utils/grpc/proto/upstream \
+  --grpc_python_out=src/dts_utils/grpc/proto/upstream \
+  src/dts_utils/grpc/proto/upstream/imageService.proto
 ```
 
-The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grpc.py`. That only works if the upstream directory is on `sys.path`; this repo instead uses a **relative import** (`from . import imageService_pb2 as …`) so the package loads as part of `dts_util`. After regenerating, replace the top-level import line with that relative form (or adjust via proto `option` / tooling if you automate it).
+The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grpc.py`. That only works if the upstream directory is on `sys.path`; this repo instead uses a **relative import** (`from . import imageService_pb2 as …`) so the package loads as part of `dts_utils`. After regenerating, replace the top-level import line with that relative form (or adjust via proto `option` / tooling if you automate it).
 
 ## gRPC integration tests
 
@@ -113,7 +113,7 @@ The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grp
 
 ### Current behavior
 
-- Integration tests use the **legacy** `image_generation.proto` stack (`tests/test_grpc_server.py`), not the upstream `imageService.proto` used by `dts-util generate` (see the top of this file). Some tests **skip** if nothing is listening on the default local port, or are marked `@pytest.mark.skip` (models / TODO).
+- Integration tests use the **legacy** `image_generation.proto` stack (`tests/test_grpc_server.py`), not the upstream `imageService.proto` used by `dts-utils generate` (see the top of this file). Some tests **skip** if nothing is listening on the default local port, or are marked `@pytest.mark.skip` (models / TODO).
 - A long-term improvement is to exercise the **same** generated client code as production where practical, so tests and CLI do not drift on different protos.
 
 ### Intended direction (hermetic by default)
@@ -128,16 +128,16 @@ When implementing or refactoring these tests:
 
 The fake is a **mirror of a wire contract**, not the product. When Draw Things updates the server:
 
-- Refresh **`src/dts_util/grpc/proto/upstream/*.proto`**, **regenerate** Python stubs (`grpc_tools.protoc` as above), and fix any call sites (CLI, clients, tests).
+- Refresh **`src/dts_utils/grpc/proto/upstream/*.proto`**, **regenerate** Python stubs (`grpc_tools.protoc` as above), and fix any call sites (CLI, clients, tests).
 - Update the **test servicer** so its behavior and types still match the messages clients send. Otherwise tests can stay green while real usage breaks.
 - Use the **optional real-server** run occasionally or on release branches to catch drift the fake cannot see (timing, TLS, streaming quirks, etc.).
 - **Pin or note** the Draw Things / proto revision you copied from (in commit messages or this doc) so the next bump is a deliberate step, not guesswork.
-- **Shipping `dts-util`:** each versioned release should list the **gRPCServerCLI** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see [Maintainer release checklist](CHANGELOG.md#maintainer-release-checklist-grpcservercli)). A concrete **manual smoke** command list lives in [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
+- **Shipping `dts-utils`:** each versioned release should list the **gRPCServerCLI** tag used for manual smoke in [CHANGELOG.md](CHANGELOG.md) (see [Maintainer release checklist](CHANGELOG.md#maintainer-release-checklist-grpcservercli)). A concrete **manual smoke** command list lives in [tests/README.md § Manual release smoke](tests/README.md#manual-release-smoke).
 
 ## Practical Client Command
 
 ```bash
-uv run dts-util generate \
+uv run dts-utils generate \
   --prompt "a small robot painting clouds" \
   --configuration-json tmp_models/config.json \
   --output output/generated.png \
@@ -147,4 +147,4 @@ uv run dts-util generate \
 
 Use `uv run python` for project code so imports and dependencies come from the uv-managed environment. Use `python3` only for system-level one-off snippets that do not need the project environment.
 
-Prompt-first CLI shorthand (`dts-util "…"` with no `generate` subcommand) is documented in [CLI.md](CLI.md) and [README.md](README.md); it still sends the same `ImageGenerationRequest` shape over the wire.
+Prompt-first CLI shorthand (`dts-utils "…"` with no `generate` subcommand) is documented in [CLI.md](CLI.md) and [README.md](README.md); it still sends the same `ImageGenerationRequest` shape over the wire.

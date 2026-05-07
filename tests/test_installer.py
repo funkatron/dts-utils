@@ -12,7 +12,7 @@ import plistlib
 import subprocess
 from pathlib import Path
 from unittest.mock import patch, MagicMock, mock_open, call
-from dts_util.installer.server_installer import DTSServerInstaller
+from dts_utils.installer.server_installer import DTSServerInstaller
 
 @pytest.fixture
 def mock_home_dir():

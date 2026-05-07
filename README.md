@@ -2,8 +2,6 @@
 
 A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRPCServerCLI`. It can install the server as a LaunchAgent, generate images over gRPC, and browse community model metadata.
 
-Install the **`dts-utils`** command (same entry point as legacy **`dts-util`**). Examples below use `dts-utils`; substitute `dts-util` if you prefer.
-
 This project is alpha (0.x). Expect breaking changes; pin a commit or version if you depend on it.
 
 - **Command reference:** [CLI.md](CLI.md) — full flags plus a **How to use this doc** table at the top.
@@ -47,7 +45,7 @@ Example output below is the repo’s sample PNG ([`docs/assets/sample-output.png
 uv run dts-utils "an incredibly detailed mech from Mechwarrior, Depth of field, extreme zoom, tilt-shift, extreme angles, dramatic perspective"
 ```
 
-Your runs will vary with model, `zit.json`, and prompt.
+Your runs will vary with model, `default.json`, and prompt.
 
 ![Sample image written by dts-utils generate](docs/assets/sample-output.png)
 
@@ -55,8 +53,8 @@ What each step does:
 
 1. `server install` installs the LaunchAgent and starts `gRPCServerCLI` with default settings.
 2. `server check` probes the local port to confirm a listener. (`server test` is the same probe with a different name.)
-3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and the configuration described under [Shorthand profile (zit)](#shorthand-profile-zit).
-   - First run may create `zit.json` in the saved-config directory and print a hint on stderr if it cannot guess a checkpoint name for `model`.
+3. Shorthand runs `generate` with `--trust-server-cert`, `--open`, and the configuration described under [Shorthand profile (default)](#shorthand-profile-default).
+   - First run may create `default.json` in the saved-config directory and print a hint on stderr if it cannot guess a checkpoint name for `model`.
    - PNGs default to `./output` (`output/generated.png`). Each run gets a millisecond suffix before the extension so files are not overwritten.
 
 To call `generate` explicitly with a saved profile (for example `portrait.json` from `dts-utils configs path`):
@@ -76,7 +74,7 @@ Optional **browser UI** (same gRPC server; loopback HTTP only by default):
 uv run dts-utils web --open
 ```
 
-See [CLI.md — web](CLI.md#web-dts-util-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
+See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
 
 ---
 
@@ -99,18 +97,22 @@ Saved configs:
 ```bash
 uv run dts-utils configs path     # print the directory (creates it)
 uv run dts-utils configs list     # list saved JSON names (no `.json` suffix in the listing)
+uv run dts-utils configs scaffold-from-metadata --scan ~/.cache/community-models/models --limit 50 --dry-run   # batch starter profiles from cloned community metadata (see CLI.md)
 ```
 
-### Shorthand profile (zit)
+Default locations: **macOS**, **Linux**, and other Unix-like systems use **`~/.config/dts-utils`** when **`XDG_CONFIG_HOME`** is unset (**`$XDG_CONFIG_HOME/dts-utils`** otherwise). **Windows** uses **`%APPDATA%\dts-utils`**.
+
+### Shorthand profile (default)
 
 When you run prompt-first shorthand (`dts-utils "prompt"`, optional profile as the second argument, optional flags after that), configuration is chosen in this order:
 
 1. Second positional argument, if present (same resolution as `--configuration`: saved name, path to `.json`, or raw FlatBuffer path).
-2. `DTS_UTIL_DEFAULT_CONFIGURATION`, if set and non-empty (name or path).
-3. Otherwise the saved profile `zit` (`zit.json` next to `dts-utils configs path`).
-   - If `zit.json` is missing, the tool creates it once: 512×512, typical sampling fields, and `model` chosen from (in order) the first `.ckpt` / `.safetensors` under your Draw Things models directory or `DRAW_THINGS_MODEL_PATH`, or `DTS_UTIL_DEFAULT_MODEL`, or left blank with a short stderr hint to edit the file.
+2. `DTS_UTILS_DEFAULT_CONFIGURATION`, if set and non-empty (name or path).
+3. Otherwise the saved profile `default` (`default.json` next to `dts-utils configs path`).
+   - If `default.json` is missing but `zit.json` exists there (older installs), the tool renames `zit.json` → `default.json` once.
+   - If neither exists, the tool creates `default.json` once: 512×512, typical sampling fields, and `model` chosen from (in order) the first `.ckpt` / `.safetensors` under your Draw Things models directory or `DRAW_THINGS_MODEL_PATH`, or `DTS_UTILS_DEFAULT_MODEL`, or left blank with a short stderr hint to edit the file.
 
-After that, the process calls `os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")`, so an environment value you already exported keeps precedence.
+After that, the process calls `os.environ.setdefault("DTS_UTILS_DEFAULT_CONFIGURATION", "default")`, so an environment value you already exported keeps precedence.
 
 Full rules and examples: [CLI.md § Generate shorthand](CLI.md#generate-shorthand-prompt-first).
 
@@ -228,9 +230,9 @@ Output paths:
 | --- | --- |
 | `server check` fails | Wrong port; or use `dts-utils server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-utils server restart`, or `server stop` then `server start` |
 | TLS error against `localhost` | Add `--trust-server-cert` for loopback on `generate`. See [TLS](#tls) |
-| `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Shorthand profile (zit)](#shorthand-profile-zit). Wrong or missing `model` in JSON often fails at the server |
+| `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Shorthand profile (default)](#shorthand-profile-default). Wrong or missing `model` in JSON often fails at the server |
 | `reflect` returns `UNIMPLEMENTED` | Draw Things `gRPCServerCLI` often omits gRPC reflection; generation can still work |
-| PNG looks like noise | Usually wrong `model` in `zit.json` (or your chosen profile) — basename must exist in the server model directory — or a bad tensor decode. Open the JSON from `dts-utils configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
+| PNG looks like noise | Usually wrong `model` in `default.json` (or your chosen profile) — basename must exist in the server model directory — or a bad tensor decode. Open the JSON from `dts-utils configs path` and fix `model` / width / height. Trim accidental spaces in quoted prompts |
 | “Cannot resolve … config” | `dts-utils configs path` and `dts-utils configs list`; save the file there or pass an absolute path |
 
 ---
@@ -239,10 +241,10 @@ Output paths:
 
 ```
 src/
-└── dts_util/
+└── dts_utils/
     ├── installer/       # LaunchAgent-backed install lifecycle (macOS)
-    ├── cli_router.py    # Top-level dispatch (`dts-utils` / `dts-util`) and prompt-first shorthand
-    ├── configs.py       # Saved JSON configs and zit implicit profile materialization
+    ├── cli_router.py    # Top-level dispatch (`dts-utils`) and prompt-first shorthand
+    ├── configs.py       # Saved JSON configs and default implicit profile materialization
     ├── generate.py      # Prompt → gRPC GenerateImage → PNG
     ├── tls_export.py    # Pin/export server PEM (`dts-utils tls`)
     ├── grpc/            # Channels, reflection, stubs, protobuf copies (`grpc/utils.py`, …)

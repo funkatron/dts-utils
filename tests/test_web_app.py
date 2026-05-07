@@ -8,9 +8,9 @@ import json
 import pytest
 from starlette.testclient import TestClient
 
-from dts_util.exceptions import ConfigurationError, GenerationCancelledError
-from dts_util.generate_api import GeneratePngBatchResult
-from dts_util.web.app import create_app
+from dts_utils.exceptions import ConfigurationError, GenerationCancelledError
+from dts_utils.generate_api import GeneratePngBatchResult
+from dts_utils.web.app import create_app
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def test_health_never_requires_token(monkeypatch: pytest.MonkeyPatch, client: Te
 def test_index_loads(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert "dts-util web" in r.text
+    assert "dts-utils web" in r.text
     assert 'id="historyDialog"' in r.text
     assert "Ctrl+Enter" in r.text
     assert 'id="btnStop"' in r.text
@@ -37,14 +37,15 @@ def test_index_loads(client: TestClient) -> None:
     assert 'id="expandedPromptsNote"' in r.text
     assert "Generate request JSON" in r.text
     assert "/api/generate/stream" in r.text
+    assert 'id="dtsLightbox"' in r.text
 
 
-def test_index_history_rows_can_reuse_prompt(client: TestClient) -> None:
+def test_index_history_rows_can_reuse_prompt_and_profile(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
     assert "Reuse" in r.text
     assert "restoreHistoryEntryToComposer(entry)" in r.text
-    assert 'reuse.setAttribute("aria-label", "Reuse prompt from history")' in r.text
+    assert 'reuse.setAttribute("aria-label", "Reuse prompt and profile from history")' in r.text
     assert 'promptEl.value = String(entry.prompt || "")' in r.text
 
 
@@ -54,9 +55,10 @@ def test_index_history_contract_stores_optional_reuse_metadata(client: TestClien
     assert 'var HISTORY_KEY = "dts_web_gen_history_v1"' in r.text
     assert 'fetch("/api/history"' in r.text
     assert "migrateLegacyHistoryToServer" in r.text
-    assert 'negEl.value.trim() === ""' in r.text
-    assert 'runsEl.value === "1"' in r.text
-    assert 'await historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers)' in r.text
+    assert "applyHistoryConfiguration" in r.text
+    assert "payload.configuration" in r.text
+    assert 'await historyAppend(' in r.text
+    assert "body.configuration" in r.text
 
 
 def test_history_api_persists_png_files(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
@@ -71,6 +73,7 @@ def test_history_api_persists_png_files(monkeypatch: pytest.MonkeyPatch, tmp_pat
             "prompt": "a saved prompt",
             "negative_prompt": "blur",
             "generations": 2,
+            "configuration": "default",
             "images": [png_b64],
         },
     )
@@ -79,12 +82,14 @@ def test_history_api_persists_png_files(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert item["prompt"] == "a saved prompt"
     assert item["negative_prompt"] == "blur"
     assert item["generations"] == 2
+    assert item["configuration"] == "default"
     assert item["image_count"] == 1
     assert item["images"][0]["url"].startswith("/history/")
 
     listed = client.get("/api/history")
     assert listed.status_code == 200
     assert listed.json()["items"][0]["prompt"] == "a saved prompt"
+    assert listed.json()["items"][0]["configuration"] == "default"
 
     image = client.get(item["images"][0]["url"])
     assert image.status_code == 200
@@ -132,7 +137,7 @@ def test_configs_with_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
     assert r.status_code == 200
     data = r.json()
     assert "names" in data
-    assert data["default_profile"] == "zit"
+    assert data["default_profile"] == "default"
 
 
 def test_generate_missing_prompt(client: TestClient) -> None:
@@ -157,7 +162,7 @@ def test_generate_stream_returns_sse(monkeypatch: pytest.MonkeyPatch, client: Te
             "total_images": 1,
         }
 
-    monkeypatch.setattr("dts_util.web.app.iter_generate_stream_dicts", fake_iter)
+    monkeypatch.setattr("dts_utils.web.app.iter_generate_stream_dicts", fake_iter)
     with client.stream(
         "POST",
         "/api/generate/stream",
@@ -182,7 +187,7 @@ def test_generate_stream_sse_maps_worker_exception(monkeypatch: pytest.MonkeyPat
     def fake_iter(*_a: object, **_k: object):
         raise ConfigurationError("bad cfg")
 
-    monkeypatch.setattr("dts_util.web.app.iter_generate_stream_dicts", fake_iter)
+    monkeypatch.setattr("dts_utils.web.app.iter_generate_stream_dicts", fake_iter)
     with client.stream(
         "POST",
         "/api/generate/stream",
@@ -209,7 +214,7 @@ def test_generate_stream_wall_clock_timeout_emits_sse_error(
 ) -> None:
     """Expired deadline yields SSE error; drain path must unblock the worker (bounded queue)."""
 
-    monkeypatch.setattr("dts_util.web.app._generate_timeout_seconds", lambda: -1.0)
+    monkeypatch.setattr("dts_utils.web.app._generate_timeout_seconds", lambda: -1.0)
 
     def fake_iter(*_a: object, **_k: object):
         yield {"type": "meta", "total_runs": 1}
@@ -220,7 +225,7 @@ def test_generate_stream_wall_clock_timeout_emits_sse_error(
             "total_images": 0,
         }
 
-    monkeypatch.setattr("dts_util.web.app.iter_generate_stream_dicts", fake_iter)
+    monkeypatch.setattr("dts_utils.web.app.iter_generate_stream_dicts", fake_iter)
     with client.stream(
         "POST",
         "/api/generate/stream",
@@ -281,7 +286,7 @@ def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: 
             expanded_negative_prompts=[""],
         )
 
-    monkeypatch.setattr("dts_util.web.app.generate_png_batch", fake_batch)
+    monkeypatch.setattr("dts_utils.web.app.generate_png_batch", fake_batch)
     r = client.post(
         "/api/generate",
         json={
@@ -319,7 +324,7 @@ def test_generate_multipart_includes_expanded_wildcards_header(
             expanded_negative_prompts=["bad"],
         )
 
-    monkeypatch.setattr("dts_util.web.app.generate_png_batch", fake_batch)
+    monkeypatch.setattr("dts_utils.web.app.generate_png_batch", fake_batch)
     r = client.post(
         "/api/generate",
         json={
@@ -352,7 +357,7 @@ def test_generate_multipart_respects_generations(monkeypatch: pytest.MonkeyPatch
             expanded_negative_prompts=["", ""],
         )
 
-    monkeypatch.setattr("dts_util.web.app.generate_png_batch", fake_batch)
+    monkeypatch.setattr("dts_utils.web.app.generate_png_batch", fake_batch)
     r = client.post(
         "/api/generate",
         json={
@@ -496,7 +501,7 @@ def test_generate_accepts_prompts_array(monkeypatch: pytest.MonkeyPatch, client:
             expanded_negative_prompts=["", "blur"],
         )
 
-    monkeypatch.setattr("dts_util.web.app.generate_png_batch", fake_batch)
+    monkeypatch.setattr("dts_utils.web.app.generate_png_batch", fake_batch)
     r = client.post(
         "/api/generate",
         json={
@@ -552,7 +557,7 @@ def test_generate_returns_499_when_generation_cancelled(monkeypatch: pytest.Monk
     def boom(*_a: object, **_k: object) -> None:
         raise GenerationCancelledError("Generation cancelled.")
 
-    monkeypatch.setattr("dts_util.web.app.generate_png_batch", boom)
+    monkeypatch.setattr("dts_utils.web.app.generate_png_batch", boom)
     r = client.post(
         "/api/generate",
         json={
@@ -568,9 +573,9 @@ def test_generate_returns_499_when_generation_cancelled(monkeypatch: pytest.Monk
 
 
 def test_web_cli_router_passes_argv_to_web_main(monkeypatch: pytest.MonkeyPatch) -> None:
-    import dts_util.cli_router as cr
+    import dts_utils.cli_router as cr
 
-    monkeypatch.setattr("sys.argv", ["dts-util", "web", "--port", "19999"])
+    monkeypatch.setattr("sys.argv", ["dts-utils", "web", "--port", "19999"])
     called: dict[str, object] = {}
 
     def fake_main(argv: list[str] | None) -> int:

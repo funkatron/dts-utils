@@ -1,4 +1,4 @@
-"""CLI entry for ``dts-utils web`` / ``dts-util web``."""
+"""CLI entry for ``dts-utils web``."""
 
 from __future__ import annotations
 
@@ -9,9 +9,10 @@ import threading
 import webbrowser
 
 import uvicorn
+from uvicorn.config import LOG_LEVELS
 
-from dts_util.cli_prog import cli_command_name
-from dts_util.web.app import create_app
+from dts_utils.cli_prog import cli_command_name
+from dts_utils.web.app import create_app
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -27,6 +28,18 @@ def main(argv: list[str] | None = None) -> int:
         help="Bind address (default: 127.0.0.1). Use DTS_WEB_TOKEN when not loopback-only.",
     )
     parser.add_argument("--port", type=int, default=8765, metavar="N", help="HTTP port (default: 8765).")
+    parser.add_argument(
+        "--log-level",
+        default="info",
+        choices=sorted(LOG_LEVELS.keys()),
+        metavar="LEVEL",
+        help=f"Uvicorn log level (default: info). Choices: {', '.join(sorted(LOG_LEVELS.keys()))}.",
+    )
+    parser.add_argument(
+        "--no-access-log",
+        action="store_true",
+        help="Disable HTTP access logs (startup and errors still go to stderr).",
+    )
     parser.add_argument(
         "--open",
         action="store_true",
@@ -47,7 +60,8 @@ def main(argv: list[str] | None = None) -> int:
         host=args.bind,
         port=args.port,
         factory=True,
-        log_level="info",
+        log_level=args.log_level,
+        access_log=not args.no_access_log,
     )
     server = uvicorn.Server(config)
 

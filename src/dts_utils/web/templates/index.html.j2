@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>dts-util — generate</title>
+  <title>dts-utils — generate</title>
   <style>
     :root {
       --bg: #1a1b1e;
@@ -14,6 +14,8 @@
       --bad: #c45c5c;
       --border: #3a3d45;
       --panel: #222328;
+      /* Classic CRT / compact Mac–style gentle rounding (viewport + viewer) */
+      --dts-display-radius: clamp(12px, 2.2vmin, 20px);
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -84,6 +86,8 @@
       justify-content: flex-start;
       padding: 0.75rem 1rem 0.85rem;
       overflow: hidden;
+      border-radius: var(--dts-display-radius);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.045);
     }
     #resultPane {
       width: 100%;
@@ -199,7 +203,7 @@
       padding: 0.5rem;
       background: rgba(34, 35, 40, 0.36);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: max(6px, calc(var(--dts-display-radius) * 0.55));
     }
     .results img {
       display: block;
@@ -208,8 +212,9 @@
       height: auto;
       max-height: min(58vh, 620px);
       object-fit: contain;
-      border-radius: 4px;
+      border-radius: max(5px, calc(var(--dts-display-radius) * 0.45));
       border: 1px solid var(--border);
+      cursor: zoom-in;
     }
     .results img.result-inflight {
       outline: 2px dashed var(--accent);
@@ -558,6 +563,7 @@
       align-items: flex-end;
     }
     .history-thumbs img {
+      cursor: zoom-in;
       max-height: 72px;
       max-width: 120px;
       object-fit: contain;
@@ -610,6 +616,159 @@
       font-size: 0.85rem;
       cursor: pointer;
     }
+    /* Minimal fullscreen image viewer. IMPORTANT: never set display:flex on closed <dialog>
+       — it overrides the UA display:none and blocks the whole page. */
+    dialog.dts-lightbox {
+      margin: 0;
+      padding: 0;
+      border: none;
+      box-sizing: border-box;
+      background: transparent;
+    }
+    dialog.dts-lightbox:not([open]) {
+      display: none !important;
+    }
+    dialog.dts-lightbox[open] {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      max-width: 100vw;
+      height: 100vh;
+      max-height: 100vh;
+      height: 100dvh;
+      max-height: 100dvh;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+        env(safe-area-inset-left);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    dialog.dts-lightbox::backdrop {
+      background: rgba(8, 8, 10, 0.97);
+    }
+    .dts-lightbox-close {
+      position: absolute;
+      z-index: 2;
+      top: max(0.35rem, env(safe-area-inset-top));
+      right: max(0.35rem, env(safe-area-inset-right));
+      width: 2.75rem;
+      height: 2.75rem;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.85);
+      font-size: 1.65rem;
+      line-height: 1;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dts-lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+    .dts-lightbox-close:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .dts-lightbox-nav {
+      position: absolute;
+      z-index: 1;
+      top: 0;
+      bottom: 0;
+      width: min(28vw, 10rem);
+      border: none;
+      padding: 0;
+      margin: 0;
+      background: transparent;
+      color: rgba(255, 255, 255, 0.3);
+      font-size: clamp(2rem, 11vw, 3rem);
+      line-height: 1;
+      font-weight: 300;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s ease, background 0.15s ease;
+    }
+    @media (hover: hover) {
+      .dts-lightbox-nav:hover {
+        color: rgba(255, 255, 255, 0.72);
+        background: rgba(255, 255, 255, 0.05);
+      }
+    }
+    .dts-lightbox-prev {
+      left: 0;
+      justify-content: flex-start;
+      padding-left: max(0.35rem, env(safe-area-inset-left));
+    }
+    .dts-lightbox-next {
+      right: 0;
+      justify-content: flex-end;
+      padding-right: max(0.35rem, env(safe-area-inset-right));
+    }
+    .dts-lightbox-nav:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: -4px;
+    }
+    .dts-lightbox-stage {
+      position: relative;
+      box-sizing: border-box;
+      flex: 1 1 auto;
+      width: 100%;
+      min-width: 0;
+      min-height: 0;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--dts-display-radius);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    }
+    .dts-lightbox-stage img {
+      max-width: 100%;
+      max-height: 100%;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+      border-radius: var(--dts-display-radius);
+      box-shadow: 0 6px 48px rgba(0, 0, 0, 0.5);
+    }
+    /* F toggles fill: crop to viewport box so more source pixels fill the frame */
+    .dts-lightbox-stage.dts-lightbox-stage--fill {
+      overflow: hidden;
+    }
+    .dts-lightbox-stage.dts-lightbox-stage--fill img {
+      width: 100%;
+      height: 100%;
+      max-width: none;
+      max-height: none;
+      object-fit: cover;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .dts-lightbox-counter {
+      position: absolute;
+      bottom: max(0.5rem, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      margin: 0;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      color: rgba(255, 255, 255, 0.42);
+      text-transform: uppercase;
+      pointer-events: none;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dts-lightbox-nav {
+        transition: none;
+      }
+    }
+
     .sr-only {
       position: absolute;
       width: 1px;
@@ -624,7 +783,7 @@
   </style>
 </head>
 <body>
-  <span class="sr-only">dts-util web</span>
+  <span class="sr-only">dts-utils web</span>
 
   <button type="button" class="fab-setup" id="btnOpenSetup" aria-label="Setup: connection and profile" aria-haspopup="dialog" aria-controls="toolsDialog" aria-expanded="false">
     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -698,6 +857,20 @@
     </div>
   </footer>
 
+  <dialog id="dtsLightbox" class="dts-lightbox" aria-label="Image viewer">
+    <button type="button" id="dtsLightboxClose" class="dts-lightbox-close" aria-label="Close">&times;</button>
+    <button type="button" id="dtsLightboxPrev" class="dts-lightbox-nav dts-lightbox-prev" aria-label="Previous image">
+      <span aria-hidden="true">&#8249;</span>
+    </button>
+    <button type="button" id="dtsLightboxNext" class="dts-lightbox-nav dts-lightbox-next" aria-label="Next image">
+      <span aria-hidden="true">&#8250;</span>
+    </button>
+    <div id="dtsLightboxStage" class="dts-lightbox-stage">
+      <img id="dtsLightboxImg" alt="" decoding="async" />
+    </div>
+    <p id="dtsLightboxCounter" class="dts-lightbox-counter"></p>
+  </dialog>
+
   <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title" inert>
     <div class="tools-dialog-inner">
       <h2 id="tools-dialog-title">Connection &amp; profile</h2>
@@ -751,7 +924,7 @@
         </div>
         <div style="margin-top:0.5rem">
           <label for="configDir">Config directory override</label><br/>
-          <input id="configDir" type="text" style="width:100%" placeholder="Default: dts-util configs path" autocomplete="off" class="field" />
+          <input id="configDir" type="text" style="width:100%" placeholder="Default: dts-utils configs path" autocomplete="off" class="field" />
         </div>
       </details>
 
@@ -759,8 +932,8 @@
         <p><a href="https://github.com/funkatron/dts-utils/blob/main/CLI.md" target="_blank" rel="noopener">CLI reference</a></p>
         <details>
           <summary>Server not installed?</summary>
-          <pre style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.35rem">uv run dts-util server install
-uv run dts-util server check</pre>
+          <pre style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.35rem">uv run dts-utils server install
+uv run dts-utils server check</pre>
         </details>
       </div>
     </div>
@@ -924,20 +1097,42 @@ uv run dts-util server check</pre>
   async function loadConfigs() {
     const sel = document.getElementById("profile");
     sel.innerHTML = "";
+    function appendDefaultProfileFallback(label) {
+      const o = document.createElement("option");
+      o.value = "default";
+      o.textContent = label;
+      o.selected = true;
+      sel.appendChild(o);
+    }
     try {
       const r = await fetch("/api/configs", { headers: authHeaders() });
       if (r.status === 401) {
-        const o = document.createElement("option");
-        o.value = "zit";
-        o.textContent = "zit (set DTS_WEB_TOKEN to list profiles)";
-        o.selected = true;
-        sel.appendChild(o);
+        appendDefaultProfileFallback("default (set DTS_WEB_TOKEN to list profiles)");
         return;
       }
-      const j = await r.json();
-      if (!r.ok) return;
-      const defaultProfile = j.default_profile || "zit";
-      const names = [...new Set([...(j.names || []), defaultProfile])].sort();
+      let j = {};
+      try {
+        j = await r.json();
+      } catch (parseErr) {
+        console.error("loadConfigs: response was not JSON", r.status, parseErr);
+        appendDefaultProfileFallback("default — configs response invalid (see console)");
+        return;
+      }
+      if (!r.ok) {
+        const detail = j && typeof j.detail === "string" ? j.detail : "";
+        console.error("loadConfigs failed", r.status, detail || j);
+        appendDefaultProfileFallback(
+          detail ? "default — configs error (see console)" : "default — configs HTTP " + r.status,
+        );
+        return;
+      }
+      const defaultProfile = j.default_profile || "default";
+      const rawNames = j.names;
+      const nameList = Array.isArray(rawNames) ? rawNames : [];
+      if (rawNames != null && !Array.isArray(rawNames)) {
+        console.warn("loadConfigs: expected names array, got", typeof rawNames, rawNames);
+      }
+      const names = [...new Set([...nameList, defaultProfile])].sort();
       for (const n of names) {
         const o = document.createElement("option");
         o.value = n;
@@ -947,18 +1142,14 @@ uv run dts-util server check</pre>
       }
     } catch (e) {
       console.error("loadConfigs:", e);
-      const o = document.createElement("option");
-      o.value = "zit";
-      o.textContent = "zit";
-      o.selected = true;
-      sel.appendChild(o);
+      appendDefaultProfileFallback("default — network error (see console)");
     }
   }
 
   function effectiveProfile() {
     const c = document.getElementById("profileCustom").value.trim();
     if (c) return c;
-    return document.getElementById("profile").value || "zit";
+    return document.getElementById("profile").value || "default";
   }
 
   function connectionPayload() {
@@ -1045,16 +1236,20 @@ uv run dts-util server check</pre>
     for (var i = legacy.items.length - 1; i >= 0; i--) {
       var entry = legacy.items[i];
       if (!entry || !Array.isArray(entry.images) || !entry.images.length) continue;
+      var migBody = {
+        ts: entry.ts,
+        prompt: String(entry.prompt || ""),
+        negative_prompt: entry.negative_prompt || "",
+        generations: entry.generations || entry.image_count || entry.images.length,
+        images: entry.images,
+      };
+      if (typeof entry.configuration === "string" && entry.configuration.trim()) {
+        migBody.configuration = entry.configuration.trim().slice(0, 4096);
+      }
       await fetch("/api/history", {
         method: "POST",
         headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify({
-          ts: entry.ts,
-          prompt: String(entry.prompt || ""),
-          negative_prompt: entry.negative_prompt || "",
-          generations: entry.generations || entry.image_count || entry.images.length,
-          images: entry.images,
-        }),
+        body: JSON.stringify(migBody),
       });
     }
     try {
@@ -1071,21 +1266,47 @@ uv run dts-util server check</pre>
     return state;
   }
 
-  async function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers) {
+  async function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers, configuration) {
     if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
     var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
+    var payload = {
+      ts: Date.now(),
+      prompt: promptText.slice(0, 4000),
+      negative_prompt: String(negativePromptText || "").trim().slice(0, 4000),
+      generations: coerceHistoryGenerations(generations) || images.length,
+      images: images,
+    };
+    var cfg =
+      typeof configuration === "string" && configuration.trim()
+        ? configuration.trim().slice(0, 4096)
+        : "";
+    if (cfg) payload.configuration = cfg;
     await fetch("/api/history", {
       method: "POST",
       headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify({
-        ts: Date.now(),
-        prompt: promptText.slice(0, 4000),
-        negative_prompt: String(negativePromptText || "").trim().slice(0, 4000),
-        generations: coerceHistoryGenerations(generations) || images.length,
-        images: images,
-      }),
+      body: JSON.stringify(payload),
     });
     await renderHistoryList();
+  }
+
+  /** Match saved profile name to #profile or set #profileCustom (same rules as effectiveProfile). */
+  function applyHistoryConfiguration(configStr) {
+    var raw = String(configStr || "").trim();
+    if (!raw) return false;
+    var sel = document.getElementById("profile");
+    var custom = document.getElementById("profileCustom");
+    var matched = false;
+    if (sel && sel.options && sel.options.length) {
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === raw) {
+          sel.selectedIndex = i;
+          matched = true;
+          break;
+        }
+      }
+    }
+    if (custom) custom.value = matched ? "" : raw;
+    return true;
   }
 
   function restoreHistoryEntryToComposer(entry) {
@@ -1097,20 +1318,20 @@ uv run dts-util server check</pre>
 
     promptEl.value = String(entry.prompt || "");
 
-    if (
-      negEl &&
-      typeof entry.negative_prompt === "string" &&
-      entry.negative_prompt.trim() &&
-      negEl.value.trim() === ""
-    ) {
+    if (negEl && typeof entry.negative_prompt === "string") {
       negEl.value = entry.negative_prompt;
-      restoredOptional.push("negative prompt");
+      if (entry.negative_prompt.trim()) restoredOptional.push("negative prompt");
     }
 
     var entryGenerations = coerceHistoryGenerations(entry.generations);
-    if (runsEl && entryGenerations && runsEl.value === "1") {
+    if (runsEl && entryGenerations) {
       runsEl.value = String(entryGenerations);
       restoredOptional.push("runs");
+    }
+
+    if (typeof entry.configuration === "string" && entry.configuration.trim()) {
+      applyHistoryConfiguration(entry.configuration);
+      restoredOptional.push("profile");
     }
 
     if (statusEl) {
@@ -1160,7 +1381,12 @@ uv run dts-util server check</pre>
       var images = Array.isArray(entry.images) ? entry.images : [];
       var d = new Date(entry.ts);
       var imageCount = coerceHistoryGenerations(entry.image_count) || images.length;
-      meta.textContent = d.toLocaleString() + " · " + imageCount + " image(s)";
+      var cfg =
+        typeof entry.configuration === "string" && entry.configuration.trim()
+          ? entry.configuration.trim()
+          : "";
+      meta.textContent =
+        d.toLocaleString() + " · " + imageCount + " image(s)" + (cfg ? " · " + cfg : "");
       row.appendChild(meta);
       var pr = document.createElement("p");
       pr.className = "history-row-prompt";
@@ -1190,7 +1416,7 @@ uv run dts-util server check</pre>
       var reuse = document.createElement("button");
       reuse.type = "button";
       reuse.textContent = "Reuse";
-      reuse.setAttribute("aria-label", "Reuse prompt from history");
+      reuse.setAttribute("aria-label", "Reuse prompt and profile from history");
       reuse.addEventListener("click", function () {
         restoreHistoryEntryToComposer(entry);
       });
@@ -1463,7 +1689,13 @@ uv run dts-util server check</pre>
       });
 
       if (historyBuffers.length) {
-        await historyAppend(prompt, document.getElementById("neg").value, generations, historyBuffers);
+        await historyAppend(
+          prompt,
+          document.getElementById("neg").value,
+          generations,
+          historyBuffers,
+          body.configuration,
+        );
       }
 
       var expNote = document.getElementById("expandedPromptsNote");
@@ -1500,6 +1732,174 @@ uv run dts-util server check</pre>
       btnGen.disabled = false;
     }
   }
+
+  var __dtsLightboxState = { urls: [], index: 0, onKey: null, touchX: null, fitFill: false };
+
+  function syncLightboxFitFillUi() {
+    var stage = document.getElementById("dtsLightboxStage");
+    if (stage) {
+      if (__dtsLightboxState.fitFill) stage.classList.add("dts-lightbox-stage--fill");
+      else stage.classList.remove("dts-lightbox-stage--fill");
+    }
+    var c = document.getElementById("dtsLightboxCounter");
+    var n = __dtsLightboxState.urls.length;
+    var i = __dtsLightboxState.index;
+    var multi = n > 1;
+    var mode = __dtsLightboxState.fitFill ? "Fill" : "Fit";
+    if (!c) return;
+    c.textContent = multi ? i + 1 + " / " + n + " · " + mode : mode;
+  }
+
+  function toggleLightboxFitFill() {
+    __dtsLightboxState.fitFill = !__dtsLightboxState.fitFill;
+    syncLightboxFitFillUi();
+  }
+
+  function updateLightboxView() {
+    var img = document.getElementById("dtsLightboxImg");
+    var prev = document.getElementById("dtsLightboxPrev");
+    var next = document.getElementById("dtsLightboxNext");
+    var n = __dtsLightboxState.urls.length;
+    var i = __dtsLightboxState.index;
+    img.src = __dtsLightboxState.urls[i];
+    img.alt = "Image " + (i + 1) + " of " + n;
+    var multi = n > 1;
+    prev.hidden = !multi;
+    next.hidden = !multi;
+    prev.setAttribute("aria-hidden", multi ? "false" : "true");
+    next.setAttribute("aria-hidden", multi ? "false" : "true");
+    syncLightboxFitFillUi();
+  }
+
+  function stepLightbox(delta) {
+    var n = __dtsLightboxState.urls.length;
+    if (n <= 1) return;
+    __dtsLightboxState.index = (__dtsLightboxState.index + delta + n) % n;
+    updateLightboxView();
+  }
+
+  function closeImageLightbox() {
+    var box = document.getElementById("dtsLightbox");
+    if (!box || !box.open) return;
+    if (typeof box.close === "function") box.close();
+  }
+
+  function openImageLightbox(urls, startIndex) {
+    if (!urls || !urls.length) return;
+    var clean = [];
+    for (var k = 0; k < urls.length; k++) {
+      if (urls[k]) clean.push(urls[k]);
+    }
+    if (!clean.length) return;
+    var box = document.getElementById("dtsLightbox");
+    __dtsLightboxState.fitFill = false;
+    __dtsLightboxState.urls = clean;
+    var si = typeof startIndex === "number" && !isNaN(startIndex) ? startIndex | 0 : 0;
+    __dtsLightboxState.index = Math.max(0, Math.min(si, clean.length - 1));
+    updateLightboxView();
+    if (typeof box.showModal === "function") box.showModal();
+    if (__dtsLightboxState.onKey) {
+      document.removeEventListener("keydown", __dtsLightboxState.onKey, true);
+    }
+    __dtsLightboxState.onKey = function (ev) {
+      if (ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        stepLightbox(-1);
+      } else if (ev.key === "ArrowRight") {
+        ev.preventDefault();
+        stepLightbox(1);
+      } else if (ev.key === "f" || ev.key === "F") {
+        ev.preventDefault();
+        toggleLightboxFitFill();
+      }
+    };
+    document.addEventListener("keydown", __dtsLightboxState.onKey, true);
+    document.getElementById("dtsLightboxClose").focus();
+  }
+
+  (function setupImageLightbox() {
+    var box = document.getElementById("dtsLightbox");
+    if (!box) return;
+    box.addEventListener("close", function () {
+      var img = document.getElementById("dtsLightboxImg");
+      if (img) img.removeAttribute("src");
+      if (__dtsLightboxState.onKey) {
+        document.removeEventListener("keydown", __dtsLightboxState.onKey, true);
+        __dtsLightboxState.onKey = null;
+      }
+      __dtsLightboxState.urls = [];
+      __dtsLightboxState.touchX = null;
+      __dtsLightboxState.fitFill = false;
+      var st = document.getElementById("dtsLightboxStage");
+      if (st) st.classList.remove("dts-lightbox-stage--fill");
+    });
+    document.getElementById("dtsLightboxClose").addEventListener("click", function (e) {
+      e.stopPropagation();
+      closeImageLightbox();
+    });
+    document.getElementById("dtsLightboxPrev").addEventListener("click", function (e) {
+      e.stopPropagation();
+      stepLightbox(-1);
+    });
+    document.getElementById("dtsLightboxNext").addEventListener("click", function (e) {
+      e.stopPropagation();
+      stepLightbox(1);
+    });
+    box.addEventListener(
+      "touchstart",
+      function (e) {
+        if (e.touches && e.touches[0]) __dtsLightboxState.touchX = e.touches[0].clientX;
+      },
+      { passive: true },
+    );
+    box.addEventListener(
+      "touchend",
+      function (e) {
+        var start = __dtsLightboxState.touchX;
+        __dtsLightboxState.touchX = null;
+        if (start === null || !e.changedTouches || !e.changedTouches[0]) return;
+        var dx = e.changedTouches[0].clientX - start;
+        if (Math.abs(dx) < 44) return;
+        if (dx > 0) stepLightbox(-1);
+        else stepLightbox(1);
+      },
+      { passive: true },
+    );
+
+    document.getElementById("results").addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || t.tagName !== "IMG") return;
+      var list = document.querySelectorAll("#results .result-slot img");
+      if (!list.length) return;
+      var urls = [];
+      var idx = 0;
+      for (var i = 0; i < list.length; i++) {
+        urls.push(list[i].src);
+        if (list[i] === t) idx = i;
+      }
+      ev.preventDefault();
+      openImageLightbox(urls, idx);
+    });
+
+    var historyRoot = document.getElementById("historyList");
+    if (historyRoot) {
+      historyRoot.addEventListener("click", function (ev) {
+        var t = ev.target;
+        if (!t || t.tagName !== "IMG") return;
+        var thumbs = t.closest(".history-thumbs");
+        if (!thumbs) return;
+        var imgs = thumbs.querySelectorAll("img");
+        var urls = [];
+        var idx = 0;
+        for (var j = 0; j < imgs.length; j++) {
+          urls.push(imgs[j].src);
+          if (imgs[j] === t) idx = j;
+        }
+        ev.preventDefault();
+        openImageLightbox(urls, idx);
+      });
+    }
+  })();
 
   (function setupHistoryDialog() {
     var dlg = document.getElementById("historyDialog");

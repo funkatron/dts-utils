@@ -1,8 +1,8 @@
 import pytest
 import grpc
 from unittest.mock import patch, MagicMock
-from dts_util.grpc.utils import is_server_running, handle_grpc_error, create_channel_and_stub
-from dts_util.grpc.proto.image_generation_pb2_grpc import ImageGenerationServiceStub
+from dts_utils.grpc.utils import is_server_running, handle_grpc_error, create_channel_and_stub
+from dts_utils.grpc.proto.image_generation_pb2_grpc import ImageGenerationServiceStub
 
 
 class _FakeRpcError(grpc.RpcError):
@@ -50,7 +50,7 @@ def test_handle_grpc_error_other():
 def test_create_channel_and_stub_insecure():
     """Test that create_channel_and_stub creates insecure channels correctly."""
     with patch("grpc.insecure_channel") as mock_channel, patch(
-        "dts_util.grpc.utils.is_server_running", return_value=True
+        "dts_utils.grpc.utils.is_server_running", return_value=True
     ):
         mock_channel.return_value = MagicMock()
         channel, stub = create_channel_and_stub(use_tls=False)
@@ -61,7 +61,7 @@ def test_create_channel_and_stub_insecure():
 def test_create_channel_and_stub_shared_secret():
     """Test that create_channel_and_stub adds shared secret to options."""
     with patch("grpc.insecure_channel") as mock_channel, patch(
-        "dts_util.grpc.utils.is_server_running", return_value=True
+        "dts_utils.grpc.utils.is_server_running", return_value=True
     ):
         mock_channel.return_value = MagicMock()
         create_channel_and_stub(use_tls=False, shared_secret="test_secret")
@@ -72,6 +72,6 @@ def test_create_channel_and_stub_shared_secret():
 
 def test_create_channel_and_stub_server_not_running():
     """Test that create_channel_and_stub raises ConnectionError when server is not running."""
-    with patch("dts_util.grpc.utils.is_server_running", return_value=False):
+    with patch("dts_utils.grpc.utils.is_server_running", return_value=False):
         with pytest.raises(ConnectionError, match="Unable to connect to server"):
             create_channel_and_stub(port=65432)  # Use a port that's not running

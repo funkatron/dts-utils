@@ -1,4 +1,4 @@
-"""Tests for ``dts-util tls`` and PEM export helpers."""
+"""Tests for ``dts-utils tls`` and PEM export helpers."""
 
 from __future__ import annotations
 
@@ -7,12 +7,12 @@ from unittest.mock import patch
 
 import pytest
 
-from dts_util import cli_router
-from dts_util import tls_export
+from dts_utils import cli_router
+from dts_utils import tls_export
 
 
 def test_default_server_pem_path_inside_user_config(monkeypatch, tmp_path):
-    monkeypatch.setattr(tls_export, "user_config_dir", lambda: tmp_path / "dts-util")
+    monkeypatch.setattr(tls_export, "user_config_dir", lambda: tmp_path / "dts-utils")
     p = tls_export.default_server_pem_path()
     assert "trusted" in p.parent.parts
     assert p.name == tls_export.DEFAULT_SERVER_PEM_NAME
@@ -67,7 +67,7 @@ def test_tls_main_export_writes_file(monkeypatch, tmp_path, capsys):
 
 
 def test_dts_util_main_dispatches_tls(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["dts-util", "tls", "path", "--no-create"])
+    monkeypatch.setattr("sys.argv", ["dts-utils", "tls", "path", "--no-create"])
     with patch.object(cli_router, "tls_main", return_value=0) as tls_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()

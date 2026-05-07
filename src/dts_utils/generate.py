@@ -7,17 +7,18 @@ import subprocess
 import sys
 from pathlib import Path
 
-from dts_util.configuration_build import (
+from dts_utils.configuration_build import (
+    configurations_equivalent_for_flatbuffer,
     json_configuration_to_flatbuffer,
     normalize_configuration_for_flatc,
 )
-from dts_util.exceptions import (
+from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
     GenerationEmptyError,
     GenerationRpcError,
 )
-from dts_util.generate_api import (
+from dts_utils.generate_api import (
     GrpcClientOptions,
     ImageGenerationRequestOptions,
     MAX_BATCH_GENERATIONS,
@@ -25,10 +26,10 @@ from dts_util.generate_api import (
     generate_to_paths,
     validate_batch_generations,
 )
-from dts_util.generation_stream import collect_generated_images
-from dts_util.image_output import unique_ms_timestamp_output_path
-from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
-from dts_util.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
+from dts_utils.generation_stream import collect_generated_images
+from dts_utils.image_output import unique_ms_timestamp_output_path
+from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
+from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 
 # Legacy layout constants (some callers/tests expect these on this module).
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -64,7 +65,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=7859, help="gRPC server port.")
     parser.add_argument("--negative-prompt", default="", help="Negative prompt.")
     parser.add_argument("--open", action="store_true", help="Open generated image files in the default viewer.")
-    parser.add_argument("--user", default="dts-util", help="Client name sent to the server.")
+    parser.add_argument("--user", default="dts-utils", help="Client name sent to the server.")
     parser.add_argument("--shared-secret", help="Shared secret, if the server requires one.")
     parser.add_argument(
         "--max-message-mb",

@@ -49,10 +49,21 @@ Example snippet for the next release:
 - **`dts-util server restart`:** Clarified in [CLI.md](CLI.md) — settings come from the existing LaunchAgent plist; `restart` does not accept fresh `install` flags, only optional `--model-browser` (mutates `ProgramArguments` before stop/start).
 - **`dts-util web`:** Results layout — fixed missing **`img`** constraints (CSS), card-style thumbnails, bounded image height; expanded prompts shown **per run** in a scrollable panel instead of one wall of text; idle/busy centering when no thumbnails yet; slightly taller prompt textarea.
 - **Docs:** [CLI.md](CLI.md) — removed redundant “If you only run one command…” lines before example blocks.
+- **`dts-util web`:** Generation **history** persists **`configuration`** (same saved-profile value as **`POST /api/generate`**) with each PNG batch; History rows show it in the subtitle, and **Reuse** restores profile (dropdown or custom field), **runs**, and **negative prompt** with the prompt for a consistent redo.
+- **`dts-utils` shorthand / web:** Implicit saved profile is **`default`** (**`default.json`** under `configs path`). Legacy **`zit.json`** there is renamed to **`default.json`** when **`default.json`** is missing. **`os.environ.setdefault("DTS_UTILS_DEFAULT_CONFIGURATION", "default")`** after materialization.
 
 ### Added
 
-- **`dts-util web`:** History rows include **Reuse** — restores prompt (and negative prompt / run count when stored) to the composer.
+- **`dts_utils.configuration_build.configurations_equivalent_for_flatbuffer`:** returns whether two JSON configs normalize to the same **`flatc`** input (aliases, dropped empties, dimensions, `_dts_utils*` stripping); also bound on **`dts_utils.generate`** for callers/tests.
+- **`dts-utils configs import-draw-things`:** Import Draw Things **Local** presets (`custom_configs.json` → **`NAME.json`** for **`generate --configuration`**, copied as-is — validate if **`flatc`** rejects fields). **`--mirror-app-json`** copies **`Models/custom*.json`** and related app JSON into **`draw-things-app/`** only (not **`--configuration`** targets).
+- **`dts-utils configs scaffold-from-metadata`:** Create starter saved profile JSON from **`community-models`** **`metadata.json`** (checkpoint name plus optional **note**-based size/step guesses). **`--scan DIR`** walks the tree and writes one profile per eligible local model (`apis/` skipped). Skips remote/API-only models. **`--limit`**, **`--verbose`**, **`--dry-run`**, **`--force`** apply to batch mode as documented in [CLI.md](CLI.md).
+- **`dts-utils web`:** Fullscreen minimalist image viewer — click a thumbnail in the results grid or History; **Escape** or backdrop closes; **←** / **→**, side strips, or swipe within that batch; **F** toggles **Fit** (whole image, letterboxed) vs **Fill** (fills the frame, crops edges — sharper on-screen detail); caption shows **Fit** / **Fill**.
+
+### Fixed
+
+- **JSON → FlatBuffer:** **`compressionArtifacts": "disabled"`** (Draw Things export style) maps to enum **`Disabled`** so **`flatc`** accepts configs that previously failed with **`unknown enum value: disabled`**.
+- **`dts-util web`:** Closed image viewer `<dialog>` no longer covered the page and swallowed clicks (fullscreen flex layout is scoped to `[open]` only).
+- **`dts-util web`:** Image viewer **×** stacks above the wide “next” side tap strip so the close control receives clicks.
 
 ## [0.4.1] - 2026-05-05
 
@@ -109,7 +120,7 @@ Example snippet for the next release:
 ### Added
 
 - **Generate shorthand:** `dts-util "PROMPT" [PROFILE] [flags…]` runs `generate` with `--trust-server-cert` and `--open` (flags after optional profile).
-- **Default profile bootstrap:** first shorthand use without `DTS_UTIL_DEFAULT_CONFIGURATION` creates **`default.json`** in the saved-config directory (starter 512² JSON; **`model`** from first `.ckpt` / `.safetensors` in Draw Things Models, **`DTS_UTIL_DEFAULT_MODEL`**, or empty with a stderr hint). **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "default")`** documents the default for the process unless already exported. *(0.3.3 file name; current `main` uses **`zit.json`** / profile **`zit`** only—see [Unreleased].)*
+- **Default profile bootstrap:** first shorthand use without `DTS_UTIL_DEFAULT_CONFIGURATION` creates **`default.json`** in the saved-config directory (starter 512² JSON; **`model`** from first `.ckpt` / `.safetensors` in Draw Things Models, **`DTS_UTIL_DEFAULT_MODEL`**, or empty with a stderr hint). **`os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "default")`** documents the default for the process unless already exported. *(Later releases used **`zit`** / **`zit.json`**; current **`main`** uses **`default`** again with rename migration from **`zit.json`** — see [Unreleased].)*
 
 ## [0.3.2] - 2026-05-03
 

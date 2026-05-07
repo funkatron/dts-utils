@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Functional tests for the dts-util CLI commands."""
+"""Functional tests for the dts-utils CLI commands."""
 import os
 import sys
 import pytest
@@ -10,12 +10,12 @@ from pathlib import Path
 project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(project_root, "src"))
 
-from dts_util.cli_router import prepare_argv_for_installer_dispatch
-from dts_util.installer.server_installer import DTSServerInstaller
+from dts_utils.cli_router import prepare_argv_for_installer_dispatch
+from dts_utils.installer.server_installer import DTSServerInstaller
 
 
 def _setup_server_argv(monkeypatch: pytest.MonkeyPatch, *tokens: str) -> None:
-    monkeypatch.setattr("sys.argv", ["dts-util", "server", *tokens])
+    monkeypatch.setattr("sys.argv", ["dts-utils", "server", *tokens])
     assert prepare_argv_for_installer_dispatch(sys.argv) is None
 
 
@@ -45,7 +45,7 @@ def mock_installer_methods():
          patch.object(DTSServerInstaller, 'start_service') as mock_start, \
          patch.object(DTSServerInstaller, 'stop_service') as mock_stop, \
          patch.object(DTSServerInstaller, 'uninstall') as mock_uninstall, \
-         patch('dts_util.installer.server_installer.is_server_running') as mock_is_running:
+         patch('dts_utils.installer.server_installer.is_server_running') as mock_is_running:
 
         mock_is_running.return_value = True  # Default to server running
         yield {
@@ -178,7 +178,7 @@ class TestCLICommands:
 
     def test_no_arguments_shows_usage(self, monkeypatch, mock_exit):
         """Test that running with no arguments shows usage."""
-        monkeypatch.setattr("sys.argv", ["dts-util"])
+        monkeypatch.setattr("sys.argv", ["dts-utils"])
 
         with patch("builtins.print") as mock_print:
             installer = DTSServerInstaller()

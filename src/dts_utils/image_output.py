@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from dts_util.tensor_png import decode_dt_tensor_to_png
+from dts_utils.tensor_png import decode_dt_tensor_to_png
 
 
 def unique_ms_timestamp_output_path(output_path: Path) -> Path:

@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from dts_util.model_index.cli import main as models_main
-from dts_util.model_index.export import write_html_report
-from dts_util.model_index.huggingface import _cache_paths
-from dts_util.model_index.local import compute_index_status, doctor_local_models, scan_local_models, summarize_installed_models
-from dts_util.model_index.parse import ModelRecord, build_records, enrich_huggingface_records
-from dts_util.model_index.search import filter_records, format_record_detail, format_summary, search_records
+from dts_utils.model_index.cli import main as models_main
+from dts_utils.model_index.export import write_html_report
+from dts_utils.model_index.huggingface import _cache_paths
+from dts_utils.model_index.local import compute_index_status, doctor_local_models, scan_local_models, summarize_installed_models
+from dts_utils.model_index.parse import ModelRecord, build_records, enrich_huggingface_records
+from dts_utils.model_index.search import filter_records, format_record_detail, format_summary, search_records
 
 
 def _write_text(path: Path, content: str) -> None:

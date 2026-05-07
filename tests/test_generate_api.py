@@ -1,4 +1,4 @@
-"""Tests for `dts_util.generate_api` and stable package exports."""
+"""Tests for `dts_utils.generate_api` and stable package exports."""
 
 from __future__ import annotations
 
@@ -10,9 +10,9 @@ from unittest.mock import Mock
 import grpc
 import pytest
 
-import dts_util
-from dts_util.configuration_build import read_configuration_bytes
-from dts_util.exceptions import (
+import dts_utils
+from dts_utils.configuration_build import read_configuration_bytes
+from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
     DTSUtilError,
@@ -21,7 +21,7 @@ from dts_util.exceptions import (
     GenerationRpcError,
     PromptWildcardError,
 )
-from dts_util.generate_api import (
+from dts_utils.generate_api import (
     GrpcClientOptions,
     ImageGenerationRequestOptions,
     build_image_generation_request,
@@ -59,8 +59,8 @@ def test_dts_util_public_exports():
         "generate_to_paths",
     )
     for name in expected:
-        assert hasattr(dts_util, name), f"missing dts_util.{name}"
-    assert set(expected).issubset(set(dts_util.__all__))
+        assert hasattr(dts_utils, name), f"missing dts_utils.{name}"
+    assert set(expected).issubset(set(dts_utils.__all__))
 
 
 def test_read_configuration_bytes_requires_source():
@@ -72,7 +72,7 @@ def test_build_image_generation_request(monkeypatch, tmp_path):
     config_path = tmp_path / "c.fb"
     config_path.write_bytes(b"fb-bytes")
     monkeypatch.setattr(
-        "dts_util.generate_api.read_configuration_bytes",
+        "dts_utils.generate_api.read_configuration_bytes",
         lambda **kwargs: b"resolved",
     )
     req = build_image_generation_request(
@@ -94,7 +94,7 @@ def test_prepare_image_generation_request_matches_proto_fields(monkeypatch, tmp_
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
     monkeypatch.setattr(
-        "dts_util.generate_api.read_configuration_bytes",
+        "dts_utils.generate_api.read_configuration_bytes",
         lambda **kwargs: b"resolved",
     )
     req, ep, en = prepare_image_generation_request(
@@ -113,15 +113,15 @@ def test_prepare_image_generation_request_matches_proto_fields(monkeypatch, tmp_
 def test_generate_png_batch_returns_expanded_prompts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
-    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
     seen: list[str] = []
 
     def fake_collect(_client: object, request: object) -> list[bytes]:
         seen.append(request.prompt)
         return [b"tensor"]
 
-    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
-    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
 
     batch = generate_png_batch(
         GrpcClientOptions(no_tls=True),
@@ -135,7 +135,7 @@ def test_generate_png_batch_returns_expanded_prompts(monkeypatch: pytest.MonkeyP
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
     monkeypatch.setattr(
-        "dts_util.generate_api.read_configuration_bytes",
+        "dts_utils.generate_api.read_configuration_bytes",
         lambda **kwargs: b"resolved",
     )
     with pytest.raises(PromptWildcardError, match="Unresolved"):
@@ -148,7 +148,7 @@ def test_build_image_generation_request_invalid_wildcard_negative(monkeypatch, t
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
     monkeypatch.setattr(
-        "dts_util.generate_api.read_configuration_bytes",
+        "dts_utils.generate_api.read_configuration_bytes",
         lambda **kwargs: b"resolved",
     )
     with pytest.raises(PromptWildcardError, match="Unresolved"):
@@ -170,14 +170,14 @@ def test_collect_raw_generation_tensors_rpc_error(monkeypatch):
     def bad_collect(*_a, **_k):
         raise FakeRpc()
 
-    monkeypatch.setattr("dts_util.generate_api.collect_generated_images", bad_collect)
-    monkeypatch.setattr("dts_util.generate_api._open_channel", lambda _c: FakeChannel())
+    monkeypatch.setattr("dts_utils.generate_api.collect_generated_images", bad_collect)
+    monkeypatch.setattr("dts_utils.generate_api._open_channel", lambda _c: FakeChannel())
 
     class PassStub:
         pass
 
     monkeypatch.setattr(
-        "dts_util.generate_api.up_grpc.ImageGenerationServiceStub",
+        "dts_utils.generate_api.up_grpc.ImageGenerationServiceStub",
         lambda _ch: PassStub(),
     )
 
@@ -205,7 +205,7 @@ def test_channel_setup_error_from_bad_tls_options(tmp_path):
 def test_generate_png_bytes_empty_raises(monkeypatch, tmp_path):
     (tmp_path / "x.fb").write_bytes(b"cfg")
     monkeypatch.setattr(
-        "dts_util.generate_api.collect_raw_generation_tensors",
+        "dts_utils.generate_api.collect_raw_generation_tensors",
         lambda *_a, **_k: [],
     )
     with pytest.raises(GenerationEmptyError, match="No generated images"):
@@ -220,9 +220,9 @@ def test_generate_png_bytes_returns_png_magic(monkeypatch, tmp_path):
 
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     ch = FakeChannel()
-    monkeypatch.setattr("dts_util.generate_api._open_channel", lambda _c: ch)
+    monkeypatch.setattr("dts_utils.generate_api._open_channel", lambda _c: ch)
     monkeypatch.setattr(
-        "dts_util.generate_api.up_grpc.ImageGenerationServiceStub",
+        "dts_utils.generate_api.up_grpc.ImageGenerationServiceStub",
         lambda _c: stub,
     )
     config_path = tmp_path / "c.fb"
@@ -241,14 +241,14 @@ def test_generate_to_paths_writes_files(monkeypatch, tmp_path):
 
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     ch = FakeChannel()
-    monkeypatch.setattr("dts_util.generate_api._open_channel", lambda _c: ch)
+    monkeypatch.setattr("dts_utils.generate_api._open_channel", lambda _c: ch)
     monkeypatch.setattr(
-        "dts_util.generate_api.up_grpc.ImageGenerationServiceStub",
+        "dts_utils.generate_api.up_grpc.ImageGenerationServiceStub",
         lambda _c: stub,
     )
     config_path = tmp_path / "c.fb"
     config_path.write_bytes(b"x")
-    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: 1_700_000_000_000_000)
+    monkeypatch.setattr("dts_utils.image_output.time.time_ns", lambda: 1_700_000_000_000_000)
     out = tmp_path / "out.png"
     paths = generate_to_paths(
         GrpcClientOptions(no_tls=True),
@@ -291,8 +291,8 @@ def test_generate_png_bytes_cancel_between_batch_iterations(
         cancel.set()
         return [b"tensor"]
 
-    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
-    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
 
     with pytest.raises(GenerationCancelledError, match="cancelled"):
         generate_png_bytes(
@@ -314,8 +314,8 @@ def test_generate_png_bytes_cancel_before_first_rpc(monkeypatch: pytest.MonkeyPa
         calls.append(1)
         return [b"tensor"]
 
-    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
-    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
 
     with pytest.raises(GenerationCancelledError, match="cancelled"):
         generate_png_bytes(
@@ -330,15 +330,15 @@ def test_generate_png_bytes_cancel_before_first_rpc(monkeypatch: pytest.MonkeyPa
 def test_generate_png_bytes_three_generations_rerolls_wildcards(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
-    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
     prompts_seen: list[str] = []
 
     def fake_collect(_client: object, request: object) -> list[bytes]:
         prompts_seen.append(request.prompt)
         return [b"tensor"]
 
-    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
-    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
 
     pngs = generate_png_bytes(
         GrpcClientOptions(no_tls=True),
@@ -355,16 +355,16 @@ def test_generate_to_paths_two_generations(monkeypatch: pytest.MonkeyPatch, tmp_
 
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     ch = FakeChannel()
-    monkeypatch.setattr("dts_util.generate_api._open_channel", lambda _c: ch)
+    monkeypatch.setattr("dts_utils.generate_api._open_channel", lambda _c: ch)
     monkeypatch.setattr(
-        "dts_util.generate_api.up_grpc.ImageGenerationServiceStub",
+        "dts_utils.generate_api.up_grpc.ImageGenerationServiceStub",
         lambda _c: stub,
     )
     config_path = tmp_path / "c.fb"
     config_path.write_bytes(b"x")
-    monkeypatch.setattr("dts_util.generate_api.time.time_ns", lambda: 42_000_000_000_000)
+    monkeypatch.setattr("dts_utils.generate_api.time.time_ns", lambda: 42_000_000_000_000)
     seq = iter(range(1_700_000_000_000_001, 1_700_000_000_000_099))
-    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: next(seq))
+    monkeypatch.setattr("dts_utils.image_output.time.time_ns", lambda: next(seq))
 
     out = tmp_path / "batch.png"
     paths = generate_to_paths(
@@ -390,15 +390,15 @@ def test_generate_png_batch_prompts_per_run(
 ) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
-    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
     prompts_seen: list[str] = []
 
     def fake_collect(_client: object, request: object) -> list[bytes]:
         prompts_seen.append(request.prompt)
         return [b"tensor"]
 
-    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", fake_collect)
-    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", fake_collect)
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
 
     gen = ImageGenerationRequestOptions(prompt="unused", configuration=cfg)
     batch = generate_png_batch(
@@ -416,9 +416,9 @@ def test_generate_png_batch_prompts_per_run(
 def test_iter_generate_stream_dicts_sequence(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
-    monkeypatch.setattr("dts_util.generate_api.read_configuration_bytes", lambda **k: b"x")
-    monkeypatch.setattr("dts_util.generate_api.collect_raw_generation_tensors", lambda _c, _r: [b"t"])
-    monkeypatch.setattr("dts_util.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
+    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", lambda _c, _r: [b"t"])
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
 
     gen = ImageGenerationRequestOptions(prompt="{a|b}", configuration=cfg)
     events = list(

@@ -17,7 +17,7 @@
 | Pytest and release smoke | [tests/README.md](../tests/README.md) |
 | Release history | [CHANGELOG.md](../CHANGELOG.md) |
 | Contributing or agent automation | [AGENTS.md](../AGENTS.md) |
-| **`dts-util web` layout (wireframe, Canvas)** | [web-ui-layout.md](web-ui-layout.md) |
+| **`dts-utils web` layout (wireframe, Canvas)** | [web-ui-layout.md](web-ui-layout.md) |
 
 ---
 
@@ -25,8 +25,8 @@
 
 | Topic | What to know |
 | --- | --- |
-| Implicit profile | Shorthand (`dts-util "…"`) uses `zit` / `zit.json` when you omit a second positional profile and leave `DTS_UTIL_DEFAULT_CONFIGURATION` unset. First run may create that file and print a hint if it could not infer `model`. |
+| Implicit profile | Shorthand (`dts-utils "…"`) uses `default` / `default.json` when you omit a second positional profile and leave `DTS_UTILS_DEFAULT_CONFIGURATION` unset. First run may create that file (or rename legacy `zit.json`) and print a hint if it could not infer `model`. |
 | TLS | Default installs use TLS. Clients use `--trust-server-cert` (shorthand adds it) unless you pinned a PEM with `--root-cert`. If the server was installed with `--no-tls`, use `--no-tls` on clients and `server check --no-tls` / `server test --no-tls`. |
 | Reflection | `reflect` may return `UNIMPLEMENTED` while `generate` still works; see README troubleshooting. |
-| Web UI | `dts-util web` serves a loopback HTTP UI; optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`). Details in [CLI.md § web](../CLI.md#web-dts-util-web). |
+| Web UI | `dts-utils web` serves a loopback HTTP UI; optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`). Details in [CLI.md § web](../CLI.md#web-dts-utils-web). |
 | Stability | 0.x: expect breaking changes; pin a version or commit when depending on this repo ([README.md](../README.md)). |

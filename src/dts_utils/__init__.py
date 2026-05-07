@@ -1,13 +1,13 @@
 """Draw Things gRPC server utility package."""
 
-from dts_util.exceptions import (
+from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
     DTSUtilError,
     GenerationEmptyError,
     GenerationRpcError,
 )
-from dts_util.generate_api import (
+from dts_utils.generate_api import (
     GrpcClientOptions,
     ImageGenerationRequestOptions,
     generate_png_bytes,

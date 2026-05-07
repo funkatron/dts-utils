@@ -2,7 +2,7 @@
 
 ## Trigger
 
-Single-user repo: drop `dt_model_index` compatibility package; use `dts_util.model_index` / `dts-util models` only.
+Single-user repo: drop `dt_model_index` compatibility package; use `dts_utils.model_index` / `dts-utils models` only.
 
 ## Changes
 

@@ -1,6 +1,6 @@
 # dts-utils CLI reference
 
-Reference for the **`dts-utils`** command-line tool (**`dts-util`** is an alternate executable name with identical behavior). Flags, shorthand, environment variables: Install, TLS overview, and troubleshooting: [README.md](README.md).
+Reference for the **`dts-utils`** command-line tool (flags, shorthand, environment variables). Install, TLS overview, and troubleshooting: [README.md](README.md).
 
 ## How to use this doc
 
@@ -8,7 +8,7 @@ Reference for the **`dts-utils`** command-line tool (**`dts-util`** is an altern
 | --- | --- |
 | Run your first image from a prompt | [README.md § Quickstart](README.md#quickstart), then [Generate shorthand](#generate-shorthand-prompt-first) here |
 | Look up a flag or subcommand | [Available commands](#available-commands) |
-| Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-util-web) |
+| Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-utils-web) |
 | Copy example commands | [Examples](#examples) |
 | Script-friendly env vars | [Environment variables](#environment-variables) |
 
@@ -147,6 +147,9 @@ Shows and lists saved Draw Things JSON generation configurations.
 
 ```bash
 uv run dts-utils configs path
+uv run dts-utils configs import-draw-things --dry-run
+uv run dts-utils configs scaffold-from-metadata ~/.cache/community-models/models/flux-2-klein-base-9b/metadata.json --dry-run
+uv run dts-utils configs scaffold-from-metadata --scan ~/.cache/community-models/models --limit 50 --dry-run
 ```
 
 Options:
@@ -155,6 +158,12 @@ Options:
 - `configs path --no-create`: Print the directory without creating it.
 - `configs list`: List saved JSON configuration names from the default directory.
 - `configs list --directory PATH`: List saved JSON configuration names from another directory.
+- **`configs import-draw-things`:** macOS only — reads **`~/Library/Containers/com.liuliu.draw-things/Data/Documents/Models/custom_configs.json`** (Draw Things **Local** configurations), splits each preset into **`NAME.json`** under **`configs path`** using only the inner **`configuration`** object (usual **`dts-utils generate --configuration NAME`** path — copied **as-is** from Draw Things, so validate; simplify JSON if **`flatc`** complains). **`--source`** overrides that JSON path; **`--directory`** sets the output folder; **`--dry-run`** lists targets without writing; **`--force`** overwrites clashes. **`--mirror-app-json`** copies **`Models/custom*.json`**, **`Documents/advanced_sections.json`**, and **`Scripts/custom_scripts.json`** into **`configs path/draw-things-app/`** only — those files are **not** generation configs for **`generate`** (grant Terminal **Full Disk Access** if macOS blocks the container path).
+- `configs scaffold-from-metadata METADATA.json`: Create a **starter** saved profile next to your other configs, using one `metadata.json` file from a cloned **`drawthingsai/community-models`** tree (see **`dts-utils models build`**). Only models that ship a local checkpoint (`file`) are supported; cloud/API-only entries are skipped.
+  - **Writes:** `NAME.json` where **`NAME`** defaults to the folder that holds `metadata.json` (for example `flux-2-klein-base-9b`). Override with **`--name`**, choose the directory with **`--directory`**, **`--dry-run`** prints JSON without saving, **`--force`** replaces an existing file.
+  - **Fills in:** the checkpoint name from **`file`**. If the **`note`** field mentions common resolution or step wording (same rough ideas as the model index), **width**, **height**, and **steps** may be prefilled too.
+  - **Otherwise:** you still get the right **model** filename; **width**, **height**, and **steps** stay at the usual starter values until you edit the JSON yourself.
+- **`configs scaffold-from-metadata --scan DIR`:** Same starter profiles as above, but walk **`DIR`** recursively for every **`metadata.json`** (skips **`apis/`** trees — those entries are cloud/API). Writes **one `.json` file per local model folder** into **`configs path`** or **`--directory`**. Use **`--dry-run`** to print **`would write …`** lines without saving; a short summary goes to **stderr**. **`--limit N`** processes only the first **`N`** files after sorting paths (sanity check before a full run). **`--verbose`** prints each profile path written and reasons for skips. **`--force`** overwrites existing **`NAME.json`** files. Do not combine **`--scan`** with a positional **`METADATA.json`** or **`--name`**.
 
 Save files such as `portrait.json` in this directory, then use `--configuration portrait` with `dts-utils generate`.
 
@@ -169,19 +178,19 @@ uv run dts-utils tls export
 
 Subcommands:
 
-- `tls path`: Print default PEM destination (under the `dts-util` application support / config tree), creating parents unless `--no-create`.
+- `tls path`: Print default PEM destination next to other **`dts-utils`** config (macOS and Linux: **`~/.config/dts-utils`** when **`XDG_CONFIG_HOME`** is unset; Windows: **`%APPDATA%\\dts-utils`**), creating parents unless `--no-create`.
 - `tls export`: Connect with TLS, capture the presented PEM; use `--output` / `-o` (defaults to `tls path`), `--force` to replace, `--host` / `--port`, `--retries` for post-install backoff.
 
 With `server install` (macOS): `uv run dts-utils server install --export-tls-cert` runs export to the default PEM after `server test` passes (skipped when `--no-tls` is set).
 
-<a id="web-dts-util-web"></a>
+<a id="web-dts-utils-web"></a>
 
 ### web (`dts-utils web`)
 
 Loopback HTTP UI: the browser talks to `dts-utils`; the tool calls Draw Things over gRPC (same idea as `dts-utils generate`).
 
 ```bash
-uv run dts-utils web [--bind ADDR] [--port N] [--open]
+uv run dts-utils web [--bind ADDR] [--port N] [--log-level LEVEL] [--no-access-log] [--open]
 ```
 
 #### Run / defaults
@@ -190,6 +199,8 @@ uv run dts-utils web [--bind ADDR] [--port N] [--open]
 | --- | --- |
 | Bind | `127.0.0.1` by default |
 | HTTP port | `8765` |
+| `--log-level` | Uvicorn verbosity: `critical`, `error`, `warning`, `info`, `debug`, `trace` (default **`info`**) |
+| `--no-access-log` | Turn off per-request access lines; errors still print |
 | `--open` | Open the default browser after startup (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`) |
 
 #### Auth and limits
@@ -240,7 +251,8 @@ One line per event: `data: <json>\n\n`.
 - **⌘↵** (macOS) or **Ctrl+Enter**: Generate from the prompt.
 - **Stop**: **`POST /api/generate/cancel`** + abort fetch; cancel applies between runs (see above).
 - Busy panel shows the JSON sent to **`/api/generate/stream`** (`shared_secret` redacted in the preview).
-- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs saved by the web server under the dts-util config directory, with download links and a **Reuse** action that restores the prompt to the composer. New history entries may also store `negative_prompt` and `generations`; Reuse applies those only when the current negative prompt is blank and runs is still `1`. Existing browser **`localStorage`** history is imported the first time you open History. Set **`DTS_WEB_HISTORY_DIR`** to override the image/history storage directory. **Clear all** wipes web history files.
+- **Fullscreen viewer:** Click any PNG thumbnail in the main **results** grid or in **History** for a near-black fullscreen view. **Escape** or tap the dim backdrop (outside the picture) closes it. **Arrow Left / Right**, the **‹ ›** side zones, or a **horizontal swipe** moves between images **in that batch only** (same generation row or the same History entry). **F** toggles **Fit** (whole image, letterboxed) vs **Fill** (crop to the frame so the picture uses the full viewer box — useful for inspecting detail); the bottom caption shows which mode is active.
+- **Setup** FAB (top-right): connection / profile. **History** FAB: recent PNGs saved by the web server under the resolved **`dts-utils`** config directory (see **`dts-utils configs path`**), with download links and a **Reuse** action that restores the prompt, saved JSON **profile** (`configuration`, same value sent to generate), **runs**, and **negative prompt** to match that batch. Each row’s subtitle shows the profile name when it was stored. Older entries without a stored profile behave as before on Reuse (prompt only unless other fields were saved). Existing browser **`localStorage`** history is imported the first time you open History (`configuration` is forwarded when present on legacy rows). Set **`DTS_WEB_HISTORY_DIR`** to override the image/history storage directory. **Clear all** wipes web history files.
 
 LaunchAgent lifecycle stays in Terminal (`dts-utils server …`); the UI footer links to the README quickstart.
 
@@ -269,7 +281,7 @@ Important options:
 - `--open`: Open written images with the platform default viewer.
 - **Prompt wildcards:** Write **`{option A | option B}`** (or **`{option A, option B}`** when the block has no `|`). Each time a prompt is sent to the server, every `{…}` block picks **one** branch at random—so multi-image runs (**`--generations N`** or **`generations`** in JSON) **re-roll** the whole template for **each** image. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP **400** from **`dts-utils web`**). Use **`POST /api/prompt/expand`** in the web server to sample expansions without generating.
 
-Explicit `generate` requires **`--configuration`** or **`--configuration-json`** (unlike shorthand, which can materialize **`zit.json`**).
+Explicit `generate` requires **`--configuration`** or **`--configuration-json`** (unlike shorthand, which can materialize **`default.json`**).
 
 **Common tasks (explicit `generate`):**
 
@@ -304,19 +316,19 @@ Expansion (conceptually): `generate --prompt PROMPT --configuration … --trust-
 
 Configuration when `PROFILE` is omitted:
 
-1. `DTS_UTIL_DEFAULT_CONFIGURATION` if set (non-empty) in the environment.
-2. Otherwise saved profile `zit` (`zit.json` under `configs path`). If `zit.json` is missing, the tool creates a starter JSON once (512×512, default sampling fields, `model` guessed like `generate`, or empty with stderr).
-3. After materializing the implicit profile, the process runs `os.environ.setdefault("DTS_UTIL_DEFAULT_CONFIGURATION", "zit")` so child processes can see the profile name if you did not already export something else.
+1. `DTS_UTILS_DEFAULT_CONFIGURATION` if set (non-empty) in the environment.
+2. Otherwise saved profile `default` (`default.json` under `configs path`). If only legacy `zit.json` exists there, it is renamed to `default.json` once. If neither exists, the tool creates `default.json` as a starter JSON once (512×512, default sampling fields, `model` guessed like `generate`, or empty with stderr).
+3. After materializing the implicit profile, the process runs `os.environ.setdefault("DTS_UTILS_DEFAULT_CONFIGURATION", "default")` so child processes can see the profile name if you did not already export something else.
 
 **Common tasks (shorthand)**
 
 | Goal | Command | What you get |
 | --- | --- | --- |
-| Single-line local generate | `uv run dts-utils "a small robot"` | Same as `generate` with trust + open + implicit `zit` profile after first-run materialization |
+| Single-line local generate | `uv run dts-utils "a small robot"` | Same as `generate` with trust + open + implicit `default` profile after first-run materialization |
 | Named saved profile | `uv run dts-utils "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
 | Extra TLS flags | `uv run dts-utils "…" --root-cert ./pem` | Adds your flags after the injected defaults |
 
-Explicit `dts-utils generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `zit.json`.
+Explicit `dts-utils generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `default.json`.
 
 ---
 
@@ -358,12 +370,12 @@ uv run dts-utils server uninstall
 
 | Variable | Used for |
 | --- | --- |
-| `DRAW_THINGS_MODEL_PATH` | Default Draw Things models directory for `server install` (CLI `--model-path` overrides). Also used when guessing `model` in auto-created `zit.json`. |
-| `DTS_UTIL_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `zit` (via `setdefault`) when the tool materializes the implicit profile, unless you already exported another value. |
-| `DTS_UTIL_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `zit.json` the first time; overrides guessing from the models directory. |
+| `DRAW_THINGS_MODEL_PATH` | Default Draw Things models directory for `server install` (CLI `--model-path` overrides). Also used when guessing `model` in auto-created `default.json`. |
+| `DTS_UTILS_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `default` (via `setdefault`) when the tool materializes the implicit profile, unless you already exported another value. |
+| `DTS_UTILS_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `default.json` the first time; overrides guessing from the models directory. |
 | `DTS_WEB_TOKEN` | When set, `dts-utils web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
-| `DTS_WEB_HISTORY_DIR` | Override where `dts-utils web` stores history metadata and PNG files (default: `web-history` under the on-disk `dts-util` config directory). |
+| `DTS_WEB_HISTORY_DIR` | Override where `dts-utils web` stores history metadata and PNG files (default: `web-history` under the resolved config directory — see **`dts-utils configs path`**). |
 
 `DRAW_THINGS_MODEL_PATH` example:
 

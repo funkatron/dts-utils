@@ -2,11 +2,11 @@
 
 ## Trigger
 
-User asked to add millisecond timestamps to output filenames so repeated `dts-util generate` runs do not collide / overwrite prior PNGs.
+User asked to add millisecond timestamps to output filenames so repeated `dts-utils generate` runs do not collide / overwrite prior PNGs.
 
 ## Implementation
 
-- `src/dts_util/generate.py`: `unique_ms_timestamp_output_path()` uses `time.time_ns() // 1_000_000` and rewrites the stem to `{stem}-{ms}` before `write_images()`.
+- `src/dts_utils/generate.py`: `unique_ms_timestamp_output_path()` uses `time.time_ns() // 1_000_000` and rewrites the stem to `{stem}-{ms}` before `write_images()`.
 - Multi-image responses keep existing indexing: first file `{stem}-{ms}.png`, then `{stem}-{ms}-2.png`, etc.
 - `--help` text documents the suffix behavior.
 

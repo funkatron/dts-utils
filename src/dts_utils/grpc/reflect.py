@@ -18,10 +18,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="List services and methods exposed through gRPC server reflection.",
         epilog="""Examples:
-  dts-util reflect --trust-server-cert
-  dts-util reflect --no-tls
-  dts-util reflect --json --root-cert cert.pem
-  dts-util reflect --host gpu.local --force-trust-server-cert
+  dts-utils reflect --trust-server-cert
+  dts-utils reflect --no-tls
+  dts-utils reflect --json --root-cert cert.pem
+  dts-utils reflect --host gpu.local --force-trust-server-cert
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

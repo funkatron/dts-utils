@@ -1,4 +1,4 @@
-"""Functional tests for `dts_util.generate` (`dts-util generate`)."""
+"""Functional tests for `dts_utils.generate` (`dts-utils generate`)."""
 
 from __future__ import annotations
 
@@ -13,15 +13,15 @@ from unittest.mock import patch
 import numpy as np
 import pytest
 
-from dts_util import cli_router
-from dts_util.configs import DEFAULT_CONFIGURATION_ENV, DEFAULT_PROFILE_NAME
+from dts_utils import cli_router
+from dts_utils.configs import DEFAULT_CONFIGURATION_ENV, DEFAULT_PROFILE_NAME
 
 _FIXED_MS = 1_735_123_456_789
 _FIXED_NS = _FIXED_MS * 1_000_000
 
 
 def load_generate_image_module():
-    return reload(import_module("dts_util.generate"))
+    return reload(import_module("dts_utils.generate"))
 
 
 class FakeChannel:
@@ -57,10 +57,10 @@ def make_uncompressed_dt_tensor(width=1, height=1, channels=3, values=None):
 
 
 def _patch_generate_client(monkeypatch, channel, stub):
-    """Route generate_api gRPC calls to fakes (implementation is no longer on dts_util.generate)."""
-    monkeypatch.setattr("dts_util.generate_api.create_channel", lambda *args, **kwargs: channel)
+    """Route generate_api gRPC calls to fakes (implementation is no longer on dts_utils.generate)."""
+    monkeypatch.setattr("dts_utils.generate_api.create_channel", lambda *args, **kwargs: channel)
     monkeypatch.setattr(
-        "dts_util.generate_api.up_grpc.ImageGenerationServiceStub",
+        "dts_utils.generate_api.up_grpc.ImageGenerationServiceStub",
         lambda created_channel: stub,
     )
 
@@ -68,7 +68,7 @@ def _patch_generate_client(monkeypatch, channel, stub):
 def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
     """Exercise the script from CLI args through streamed response image writes."""
     module = load_generate_image_module()
-    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: _FIXED_NS)
+    monkeypatch.setattr("dts_utils.image_output.time.time_ns", lambda: _FIXED_NS)
     channel = FakeChannel()
     stub = FakeImageGenerationStub(
         [
@@ -112,7 +112,7 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
 def test_generate_image_script_can_open_generated_images(monkeypatch, tmp_path):
     """Verify --open launches the default viewer after successful writes."""
     module = load_generate_image_module()
-    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: _FIXED_NS)
+    monkeypatch.setattr("dts_utils.image_output.time.time_ns", lambda: _FIXED_NS)
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     opened_paths = []
     output_path = tmp_path / "result.png"
@@ -179,7 +179,7 @@ def test_generate_image_script_auto_converts_json_configuration(monkeypatch, tmp
         return b"flatbuffer-json"
 
     monkeypatch.setattr(
-        "dts_util.configuration_build.json_configuration_to_flatbuffer",
+        "dts_utils.configuration_build.json_configuration_to_flatbuffer",
         fake_json_configuration_to_flatbuffer,
     )
 
@@ -209,11 +209,11 @@ def test_generate_image_script_resolves_named_json_configuration(monkeypatch, tm
 
     _patch_generate_client(monkeypatch, FakeChannel(), stub)
     monkeypatch.setattr(
-        "dts_util.configuration_build.resolve_configuration_value",
+        "dts_utils.configuration_build.resolve_configuration_value",
         lambda value, config_dir=None: saved_dir / f"{value}.json",
     )
     monkeypatch.setattr(
-        "dts_util.configuration_build.json_configuration_to_flatbuffer",
+        "dts_utils.configuration_build.json_configuration_to_flatbuffer",
         lambda config: b"named-config",
     )
 
@@ -256,7 +256,7 @@ def test_generate_image_script_sends_flatbuffer_from_json_configuration(monkeypa
         return b"flatbuffer-json"
 
     monkeypatch.setattr(
-        "dts_util.configuration_build.json_configuration_to_flatbuffer",
+        "dts_utils.configuration_build.json_configuration_to_flatbuffer",
         fake_json_configuration_to_flatbuffer,
     )
 
@@ -305,6 +305,56 @@ def test_normalize_configuration_for_flatc_maps_draw_things_json():
         "hires_fix": False,
         "model": "pikon_realism_v2_alt_q6p_q8p.ckpt",
     }
+
+
+def test_normalize_compression_artifacts_enum_lowercase():
+    """Draw Things exports compressionArtifacts as lowercase; flatc expects CompressionMethod labels."""
+    module = load_generate_image_module()
+    out = module.normalize_configuration_for_flatc(
+        {"model": "x.ckpt", "compressionArtifacts": "disabled"},
+    )
+    assert out["compression_artifacts"] == "Disabled"
+    out2 = module.normalize_configuration_for_flatc(
+        {"compression_artifacts": "h265"},
+    )
+    assert out2["compression_artifacts"] == "H265"
+
+
+def test_configurations_equivalent_for_flatbuffer_aliases_and_metadata():
+    """Same flatc input after normalization → equivalent; real differences → not."""
+    module = load_generate_image_module()
+    eq = module.configurations_equivalent_for_flatbuffer
+
+    # Dimension keys are always divided by 64 (pixel counts), same as width/height aliases.
+    base_snake = {
+        "start_width": 768,
+        "start_height": 1024,
+        "batch_count": 1,
+        "guidance_scale": 3,
+        "hires_fix": False,
+        "model": "pikon_realism_v2_alt_q6p_q8p.ckpt",
+    }
+    base_camel = {
+        "width": 768,
+        "height": 1024,
+        "batchCount": 1,
+        "guidanceScale": 3,
+        "hiresFix": False,
+        "model": "pikon_realism_v2_alt_q6p_q8p.ckpt",
+        "controls": [],
+        "faceRestoration": "",
+    }
+    assert eq(base_snake, base_camel) is True
+
+    low_ca = {"model": "x.ckpt", "compressionArtifacts": "disabled"}
+    pascal_ca = {"model": "x.ckpt", "compression_artifacts": "Disabled"}
+    assert eq(low_ca, pascal_ca) is True
+
+    with_meta = {**base_camel, "_dts_utils_saved_from": "web"}
+    assert eq(base_camel, with_meta) is True
+
+    tweaked = {**base_camel, "guidanceScale": 4}
+    assert eq(base_camel, tweaked) is False
 
 
 def test_generate_image_script_rejects_non_object_json_configuration(tmp_path, capsys):
@@ -358,7 +408,7 @@ def test_generate_image_script_fails_when_no_images_returned(monkeypatch, tmp_pa
 def test_unique_ms_timestamp_output_path(monkeypatch):
     """Unix milliseconds are inserted before the extension."""
     module = load_generate_image_module()
-    monkeypatch.setattr("dts_util.image_output.time.time_ns", lambda: _FIXED_NS)
+    monkeypatch.setattr("dts_utils.image_output.time.time_ns", lambda: _FIXED_NS)
     assert module.unique_ms_timestamp_output_path(Path("generated.png")) == Path(f"generated-{_FIXED_MS}.png")
     assert module.unique_ms_timestamp_output_path(Path("out/foo.bar.webp")) == Path(f"out/foo.bar-{_FIXED_MS}.webp")
 
@@ -383,12 +433,12 @@ def test_generate_image_script_reports_missing_named_configuration(capsys):
     captured = capsys.readouterr()
     assert result == 1
     assert "Could not resolve generation configuration" in captured.err
-    assert "dts-util configs path" in captured.err
+    assert "uv run dts-utils configs path" in captured.err
 
 
 def test_dts_util_main_dispatches_generate(monkeypatch):
-    """Verify dts-util generate is routed before installer argument parsing."""
-    monkeypatch.setattr("sys.argv", ["dts-util", "generate", "--prompt", "test", "--configuration", "portrait"])
+    """Verify dts-utils generate is routed before installer argument parsing."""
+    monkeypatch.setattr("sys.argv", ["dts-utils", "generate", "--prompt", "test", "--configuration", "portrait"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -398,8 +448,8 @@ def test_dts_util_main_dispatches_generate(monkeypatch):
 
 
 def test_dts_util_main_generate_shorthand_prompt_and_profile(monkeypatch):
-    """``dts-util PROMPT PROFILE`` expands to generate with trust + open defaults."""
-    monkeypatch.setattr("sys.argv", ["dts-util", "hello", "portrait"])
+    """``dts-utils PROMPT PROFILE`` expands to generate with trust + open defaults."""
+    monkeypatch.setattr("sys.argv", ["dts-utils", "hello", "portrait"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -412,7 +462,7 @@ def test_dts_util_main_generate_shorthand_prompt_and_profile(monkeypatch):
 
 def test_dts_util_main_generate_shorthand_default_from_env(monkeypatch):
     monkeypatch.setenv(DEFAULT_CONFIGURATION_ENV, "landscape")
-    monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
+    monkeypatch.setattr("sys.argv", ["dts-utils", "hello"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -425,9 +475,9 @@ def test_dts_util_main_generate_shorthand_default_from_env(monkeypatch):
 
 def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
     monkeypatch.delenv(DEFAULT_CONFIGURATION_ENV, raising=False)
-    monkeypatch.setattr("dts_util.configs.configurations_dir", lambda: tmp_path)
-    (tmp_path / "zit.json").write_text("{}", encoding="utf-8")
-    monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
+    monkeypatch.setattr("dts_utils.configs.configurations_dir", lambda: tmp_path)
+    (tmp_path / "default.json").write_text("{}", encoding="utf-8")
+    monkeypatch.setattr("sys.argv", ["dts-utils", "hello"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -447,11 +497,11 @@ def test_dts_util_main_generate_shorthand_default_json(monkeypatch, tmp_path):
 
 def test_dts_util_main_generate_shorthand_auto_creates_default_json(monkeypatch, tmp_path, capsys):
     monkeypatch.delenv(DEFAULT_CONFIGURATION_ENV, raising=False)
-    monkeypatch.delenv("DTS_UTIL_DEFAULT_MODEL", raising=False)
+    monkeypatch.delenv("DTS_UTILS_DEFAULT_MODEL", raising=False)
     monkeypatch.delenv("DRAW_THINGS_MODEL_PATH", raising=False)
-    monkeypatch.setattr("dts_util.configs.configurations_dir", lambda: tmp_path)
-    monkeypatch.setattr("dts_util.configs.guess_default_model_basename", lambda: "")
-    monkeypatch.setattr("sys.argv", ["dts-util", "hello"])
+    monkeypatch.setattr("dts_utils.configs.configurations_dir", lambda: tmp_path)
+    monkeypatch.setattr("dts_utils.configs.guess_default_model_basename", lambda: "")
+    monkeypatch.setattr("sys.argv", ["dts-utils", "hello"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -474,11 +524,11 @@ def test_dts_util_main_generate_shorthand_auto_creates_default_json(monkeypatch,
     )
     assert os.environ.get(DEFAULT_CONFIGURATION_ENV) == DEFAULT_PROFILE_NAME
     err = capsys.readouterr().err
-    assert "created zit.json" in err
+    assert "created default.json" in err
 
 
 def test_dts_util_main_generate_shorthand_too_many_positionals(monkeypatch, capsys):
-    monkeypatch.setattr("sys.argv", ["dts-util", "a", "b", "c"])
+    monkeypatch.setattr("sys.argv", ["dts-utils", "a", "b", "c"])
     with patch.object(cli_router, "generate_main") as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -489,7 +539,7 @@ def test_dts_util_main_generate_shorthand_too_many_positionals(monkeypatch, caps
 
 
 def test_dts_util_main_generate_shorthand_passes_trailing_flags(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["dts-util", "hello", "portrait", "--negative-prompt", "blur"])
+    monkeypatch.setattr("sys.argv", ["dts-utils", "hello", "portrait", "--negative-prompt", "blur"])
     with patch.object(cli_router, "generate_main", return_value=0) as generate_main:
         with pytest.raises(SystemExit) as exc_info:
             cli_router.main()
@@ -511,7 +561,7 @@ def test_dts_util_main_generate_shorthand_passes_trailing_flags(monkeypatch):
 
 def test_create_channel_can_trust_presented_server_certificate(monkeypatch):
     """Verify TLS credentials can be built from the server's presented certificate."""
-    from dts_util.grpc import connection as grpc_connection
+    from dts_utils.grpc import connection as grpc_connection
 
     calls = {}
 
@@ -546,7 +596,7 @@ def test_create_channel_can_trust_presented_server_certificate(monkeypatch):
 
 def test_create_channel_rejects_conflicting_cert_options(tmp_path):
     """Verify callers cannot combine trust-on-first-use and a pinned root certificate."""
-    from dts_util.grpc import connection as grpc_connection
+    from dts_utils.grpc import connection as grpc_connection
 
     root_cert = tmp_path / "root.pem"
     root_cert.write_bytes(b"root")
@@ -561,7 +611,7 @@ def test_create_channel_rejects_conflicting_cert_options(tmp_path):
 
 def test_create_channel_rejects_trusting_remote_presented_certificate():
     """Verify trust-on-first-use is restricted to explicit loopback hosts."""
-    from dts_util.grpc import connection as grpc_connection
+    from dts_utils.grpc import connection as grpc_connection
 
     try:
         grpc_connection.create_channel("drawthings.example.com", 7859, insecure=False, trust_server_cert=True)
@@ -574,7 +624,7 @@ def test_create_channel_rejects_trusting_remote_presented_certificate():
 
 def test_create_channel_can_force_trust_remote_presented_certificate(monkeypatch):
     """Verify the explicit unsafe escape hatch trusts remote presented certificates."""
-    from dts_util.grpc import connection as grpc_connection
+    from dts_utils.grpc import connection as grpc_connection
 
     calls = {}
     monkeypatch.setattr(grpc_connection, "fetch_server_certificate", lambda host, port: b"remote-cert")
@@ -606,9 +656,9 @@ def test_create_channel_can_force_trust_remote_presented_certificate(monkeypatch
 
 def test_collect_generated_images_reassembles_chunks():
     """Verify chunked Draw Things image responses are reassembled."""
-    from dts_util.grpc.proto.upstream import imageService_pb2 as up_pb2
+    from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
 
-    from dts_util.generation_stream import collect_generated_images
+    from dts_utils.generation_stream import collect_generated_images
 
     stub = FakeImageGenerationStub(
         [

@@ -1,8 +1,8 @@
-# `dts-util web` UI layout (humane / Raskin)
+# `dts-utils web` UI layout (humane / Raskin)
 
-This document is the **human-readable layout contract** for the loopback web UI. The shipped page is [`src/dts_util/web/templates/index.html.j2`](../src/dts_util/web/templates/index.html.j2).
+This document is the **human-readable layout contract** for the loopback web UI. The shipped page is [`src/dts_utils/web/templates/index.html.j2`](../src/dts_utils/web/templates/index.html.j2).
 
-**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else lives behind a **floating Setup control** (fixed top-right, building icon) that opens a modal `<dialog>`. The string `dts-util web` remains in a screen-reader-only span for tests and assistive tech.
+**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else lives behind a **floating Setup control** (fixed top-right, building icon) that opens a modal `<dialog>`. The string `dts-utils web` remains in a screen-reader-only span for tests and assistive tech.
 
 ---
 
@@ -37,7 +37,7 @@ History → modal dialog #historyDialog (#historyList, Clear all / Close):
 
 ## Interactive mock (Cursor Canvas)
 
-The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is the **interactive mock** (Cursor Canvas): same structure as the shipped template ([`index.html.j2`](../src/dts_util/web/templates/index.html.j2)) — stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: `#generations` 1–25, hammer `#btnGen` / stop `#btnStop` when busy, stretched to match `#prompt` height; **`#elapsed`** on the row below, right-aligned). Collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
+The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is the **interactive mock** (Cursor Canvas): same structure as the shipped template ([`index.html.j2`](../src/dts_utils/web/templates/index.html.j2)) — stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: `#generations` 1–25, hammer `#btnGen` / stop `#btnStop` when busy, stretched to match `#prompt` height; **`#elapsed`** on the row below, right-aligned). Collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
 
 Cursor can render it beside the chat:
 
@@ -66,7 +66,7 @@ Cursor can render it beside the chat:
 
 ## History storage
 
-History is stored by the web server under `web-history` in the dts-util user config directory. Set `DTS_WEB_HISTORY_DIR` to override that location. The browser imports legacy `localStorage` entries from `dts_web_gen_history_v1` the first time History opens, then clears that old browser-only key. Server entries include prompt metadata plus PNG filenames exposed through `/history/{item_id}/{filename}`. Reuse restores optional fields only when the current composer values are still clean (`#neg` blank and `#generations` still `1`).
+History is stored by the web server under `web-history` in the **`dts-utils`** config directory. Set `DTS_WEB_HISTORY_DIR` to override that location. The browser imports legacy `localStorage` entries from `dts_web_gen_history_v1` the first time History opens, then clears that old browser-only key. Server entries include prompt metadata plus PNG filenames exposed through `/history/{item_id}/{filename}`. Reuse restores optional fields only when the current composer values are still clean (`#neg` blank and `#generations` still `1`).
 
 ---
 
@@ -86,4 +86,4 @@ Probe success **does not** guarantee generation succeeds (config, `flatc`, model
 ## Related
 
 - Product intent: humane single-screen plan (Raskin-style) — internal planning doc if present on your machine: `.cursor/plans/humane_web_ui_50e7e05c.plan.md`
-- Flags and security: [CLI.md § web](../CLI.md#web-dts-util-web)
+- Flags and security: [CLI.md § web](../CLI.md#web-dts-utils-web)

@@ -11,6 +11,27 @@ Some tests are **skipped** (integration / optional): see [gRPC integration tests
 
 ---
 
+## Ephemeral `gRPCServerCLI` (pytest)
+
+Upstream-aligned smoke (**same proto as `generate`**) without LaunchAgent:
+
+1. Install or locate **`gRPCServerCLI`** (e.g. `dts-utils server install`, or ensure `/usr/local/bin/gRPCServerCLI` / `~/.local/bin/gRPCServerCLI` is on `PATH`).
+2. Ensure a **models root directory** exists — typically Draw Things’ **`Models`** folder. Override with **`DTS_GRPC_TEST_MODEL_PATH`** if needed.
+3. Run:
+
+```bash
+export DTS_GRPC_TEST_SPAWN_SERVER=1
+uv run pytest tests/test_grpc_server.py tests/test_generate_functional_live.py -v
+```
+
+Optional: **`DTS_GRPC_TEST_SERVER_BINARY=/path/to/gRPCServerCLI`** if the binary is not on `PATH`.
+
+The **`spawned_live_cli`** fixture lives in **`conftest.py`** (session scope): **one** subprocess per **`pytest` invocation**, shared by **`tests/test_grpc_server.py`** (RPC smoke via **`live_upstream_stub`**) and **`tests/test_generate_functional_live.py`** (runs **`dts_utils.generate.main`** with **`--configuration default`** and **`--no-tls`** — requires **`flatc`** on `PATH`; **`ensure_default_generation_json_config()`** ensures **`default.json`** like shorthand).
+
+This listens on **`127.0.0.1:<free port>`** with **`--no-tls`**, then tears down when the session finishes. It does not load or modify your LaunchAgent plist.
+
+---
+
 ## Manual release smoke
 
 Exercise the CLI against a **live** Draw Things **`gRPCServerCLI`** (not only `pytest`). Record the server release **tag** you used under **Tested with** in [CHANGELOG.md](../CHANGELOG.md) for that version.

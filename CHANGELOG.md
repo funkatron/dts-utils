@@ -58,9 +58,11 @@ Example snippet for the next release:
 - **`dts-utils configs import-draw-things`:** Import Draw Things **Local** presets (`custom_configs.json` → **`NAME.json`** for **`generate --configuration`**, copied as-is — validate if **`flatc`** rejects fields). **`--mirror-app-json`** copies **`Models/custom*.json`** and related app JSON into **`draw-things-app/`** only (not **`--configuration`** targets).
 - **`dts-utils configs scaffold-from-metadata`:** Create starter saved profile JSON from **`community-models`** **`metadata.json`** (checkpoint name plus optional **note**-based size/step guesses). **`--scan DIR`** walks the tree and writes one profile per eligible local model (`apis/` skipped). Skips remote/API-only models. **`--limit`**, **`--verbose`**, **`--dry-run`**, **`--force`** apply to batch mode as documented in [CLI.md](CLI.md).
 - **`dts-utils web`:** Fullscreen minimalist image viewer — click a thumbnail in the results grid or History; **Escape** or backdrop closes; **←** / **→**, side strips, or swipe within that batch; **F** toggles **Fit** (whole image, letterboxed) vs **Fill** (fills the frame, crops edges — sharper on-screen detail); caption shows **Fit** / **Fill**.
+- **Docs:** [docs/setup-clean-install-z-image-turbo.md](docs/setup-clean-install-z-image-turbo.md) — operator walkthrough for a clean Mac: Draw Things Community **Z Image Turbo 1.0 (Exact)** weights, **`dts-utils`**, **`models build`**, **`configs scaffold-from-metadata`**, **`server install`**, first **`generate`** (cross-linked from [README.md](README.md) and [docs/README.md](docs/README.md)).
 
 ### Fixed
 
+- **JSON → FlatBuffer:** **`fps`** in Draw Things JSON maps to **`fps_id`** so **`flatc`** does not fail with **`unknown field: fps`**.
 - **JSON → FlatBuffer:** **`compressionArtifacts": "disabled"`** (Draw Things export style) maps to enum **`Disabled`** so **`flatc`** accepts configs that previously failed with **`unknown enum value: disabled`**.
 - **`dts-util web`:** Closed image viewer `<dialog>` no longer covered the page and swallowed clicks (fullscreen flex layout is scoped to `[open]` only).
 - **`dts-util web`:** Image viewer **×** stacks above the wide “next” side tap strip so the close control receives clicks.

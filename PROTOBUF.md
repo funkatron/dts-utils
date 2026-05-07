@@ -90,6 +90,7 @@ Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake
 | `hiresFix`           | `hires_fix`            | Boolean.                                       |
 | `zeroNegativePrompt` | `zero_negative_prompt` | Boolean.                                       |
 | `compressionArtifacts` | `compression_artifacts` | Enum `CompressionMethod`; lowercase aliases (`disabled` → `Disabled`, etc.) before flatc. |
+| `fps` | `fps_id` | App JSON sometimes uses `fps`; schema field is `fps_id`. |
 
 The script also drops empty `controls`, empty `loras`, and empty string values before conversion. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere. This matches how Draw Things treats omitted optional fields more closely than serializing empty strings everywhere.
 
@@ -113,16 +114,17 @@ The `grpc_tools` plugin emits `import imageService_pb2` in `imageService_pb2_grp
 
 ### Current behavior
 
-- Integration tests use the **legacy** `image_generation.proto` stack (`tests/test_grpc_server.py`), not the upstream `imageService.proto` used by `dts-utils generate` (see the top of this file). Some tests **skip** if nothing is listening on the default local port, or are marked `@pytest.mark.skip` (models / TODO).
-- A long-term improvement is to exercise the **same** generated client code as production where practical, so tests and CLI do not drift on different protos.
+- **`tests/test_grpc_server.py`** (`@pytest.mark.integration`, `@pytest.mark.live_grpc_cli`) exercises **upstream** ``imageService.proto`` (Echo, FilesExist, placeholder UploadFile skip) against the ephemeral server — see [tests/README.md § Ephemeral server](tests/README.md#ephemeral-grpcservercli-pytest). By default these tests **skip** unless ``DTS_GRPC_TEST_SPAWN_SERVER=1``.
+- **`tests/test_generate_functional_live.py`** runs **`dts_utils.generate.main`** with **`--configuration default`** (after **`ensure_default_generation_json_config()`**, matching shorthand bootstrap) against the ephemeral server; still **`live_grpc_cli`** / **`DTS_GRPC_TEST_SPAWN_SERVER`** opt-in (**`flatc`** required).
+- Legacy **`image_generation.proto`** client tests were removed from **`test_grpc_server.py`**; that proto does not match the live Draw Things wire shape for generation.
 
 ### Intended direction (hermetic by default)
 
 When implementing or refactoring these tests:
 
 1. **No fixed port by default.** Prefer binding an in-process test server to **127.0.0.1:0** and passing the resolved host/port into fixtures so local developers can run the real `gRPCServerCLI` on a well-known port (for example `7859`) without colliding with pytest.
-2. **In-process fake first.** Use `grpc.server()` plus a small `ImageGenerationServiceServicer` that implements only the RPCs the tests need (for example Echo / FilesExist) with canned responses. That keeps CI fast and independent of Draw Things binaries.
-3. **Optional real server.** Support an **opt-in** path (for example an environment variable and/or explicit pytest marker) that skips starting the fake and instead targets a running server when you want to validate against the real binary.
+2. **In-process fake first.** Use `grpc.server()` plus a small servicer that implements only the RPCs the tests need (for example Echo / FilesExist) with canned responses. That keeps CI fast and independent of Draw Things binaries.
+3. **Optional real binary (no LaunchAgent).** Set **`DTS_GRPC_TEST_SPAWN_SERVER=1`** to run **`tests/test_grpc_server.py`** (RPC smoke) and **`tests/test_generate_functional_live.py`** (full **`generate`**), which share a session-scoped fixture that starts **`gRPCServerCLI MODEL_DIR --port <ephemeral> --address 127.0.0.1 --no-tls`** via **`tests/ephemeral_grpc_server.py`**, probes readiness with **`is_server_running(..., prefer_plaintext=True)`**, then terminates the process when the pytest session ends. Requires the **`gRPCServerCLI`** binary (install path, **`PATH`**, or **`DTS_GRPC_TEST_SERVER_BINARY`**) and a **models directory** (Draw Things default container path or **`DTS_GRPC_TEST_MODEL_PATH`**). The functional test uses the saved **`default`** profile (**`ensure_default_generation_json_config()`**). CI stays green without these; macOS maintainers use this to validate wire assumptions and full **`generate`** without **`server install`**.
 
 ### Staying aligned when `gRPCServerCLI` changes
 

@@ -1,149 +1,94 @@
-import pytest
-import grpc
-import os
-import sys
+"""gRPC integration tests against Draw Things (upstream ``imageService.proto``).
+
+Opt-in subprocess server: set ``DTS_GRPC_TEST_SPAWN_SERVER=1`` — see ``tests/README.md``
+§ Ephemeral server. Uses :fixture:`live_upstream_stub` (plaintext to ephemeral port).
+
+Legacy ``image_generation.proto`` coverage was removed here; unary ``GenerateImage`` in that
+proto does not match the live server. Full-stack generation is in
+``tests/test_generate_functional_live.py``.
+"""
+
+from __future__ import annotations
+
 from contextlib import contextmanager
 
-# Add the src directory to the Python path
-src_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'src')
-sys.path.insert(0, src_dir)
+import grpc
+import pytest
 
-from dts_utils.grpc.proto.image_generation_pb2 import (
-    EchoRequest,
-    EchoResponse,
-    FilesExistRequest,
-    FilesExistResponse,
-    ImageGenerationRequest,
-    ImageGenerationResponse,
-    UploadFileRequest,
-    UploadFileResponse,
-)
-from dts_utils.grpc.proto.image_generation_pb2_grpc import ImageGenerationServiceStub
+from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
+from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 
-def is_server_running(host='localhost', port=7859, timeout=1):
-    """Check if the gRPC server is running."""
-    try:
-        with grpc.insecure_channel(f'{host}:{port}') as channel:
-            try:
-                grpc.channel_ready_future(channel).result(timeout=timeout)
-                return True
-            except grpc.FutureTimeoutError:
-                return False
-    except Exception:
-        return False
+from ephemeral_grpc_server import resolve_models_directory
 
-@pytest.fixture(scope="session")
-def server_check():
-    """Check if the server is running before running tests."""
-    if not is_server_running():
-        pytest.skip("gRPC server is not running. Please start the server first.")
-
-@pytest.fixture
-def grpc_channel(server_check):
-    """Create a gRPC channel for testing; close cleanly to avoid background poll thread noise."""
-    with grpc.insecure_channel("localhost:7859") as channel:
-        yield channel
-
-@pytest.fixture
-def grpc_stub(grpc_channel):
-    """Create a gRPC stub for testing."""
-    return ImageGenerationServiceStub(grpc_channel)
 
 @contextmanager
 def handle_grpc_error():
-    """Context manager to handle gRPC errors gracefully."""
     try:
         yield
     except grpc.RpcError as e:
         if isinstance(e, grpc._channel._InactiveRpcError):
             if e.code() == grpc.StatusCode.UNAVAILABLE:
                 pytest.skip("Server became unavailable during test")
-            else:
-                raise
-        else:
             raise
+        raise
+
 
 @pytest.mark.integration
-def test_echo(grpc_stub):
-    """Test the Echo endpoint."""
+@pytest.mark.live_grpc_cli
+def test_upstream_echo(live_upstream_stub):
     with handle_grpc_error():
-        request = EchoRequest()
-        response = grpc_stub.Echo(request)
-        assert response.message == "HELLO"
+        reply = live_upstream_stub.Echo(up_pb2.EchoRequest(name="dts-utils-integration"))
+        assert isinstance(reply.message, str)
+
 
 @pytest.mark.integration
-def test_files_exist_empty(grpc_stub):
-    """Test FilesExist endpoint with empty request."""
+@pytest.mark.live_grpc_cli
+def test_upstream_files_exist_empty(live_upstream_stub):
     with handle_grpc_error():
-        request = FilesExistRequest(files=[])
-        response = grpc_stub.FilesExist(request)
-        assert len(response.files) == 0
-        assert len(response.exists) == 0
-        assert len(response.errors) == 0
+        reply = live_upstream_stub.FilesExist(up_pb2.FileListRequest())
+        assert list(reply.files) == []
+        assert list(reply.existences) == []
+
 
 @pytest.mark.integration
-def test_files_exist_nonexistent(grpc_stub):
-    """Test FilesExist endpoint with nonexistent files."""
+@pytest.mark.live_grpc_cli
+def test_upstream_files_exist_nonexistent(live_upstream_stub):
     with handle_grpc_error():
-        test_files = ["nonexistent1.safetensors", "nonexistent2.safetensors"]
-        request = FilesExistRequest(files=test_files)
-        response = grpc_stub.FilesExist(request)
-        assert len(response.files) == len(test_files)
-        assert len(response.exists) == len(test_files)
-        assert all(not exists for exists in response.exists)
-        assert len(response.errors) == len(test_files)
+        names = ["nonexistent1.safetensors", "nonexistent2.safetensors"]
+        reply = live_upstream_stub.FilesExist(up_pb2.FileListRequest(files=names))
+        assert list(reply.files) == names
+        assert len(reply.existences) == len(names)
+        assert all(not x for x in reply.existences)
+
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="Requires model files to be installed")
-def test_files_exist_real(grpc_stub):
-    """Test FilesExist endpoint with real model files (requires installation)."""
+@pytest.mark.live_grpc_cli
+def test_upstream_files_exist_local_checkpoint(live_upstream_stub):
+    """Resolve at least one real checkpoint path under the spawned server's models root."""
+    models = resolve_models_directory()
+    assert models is not None
+    found = sorted(models.glob("**/*.safetensors")) + sorted(models.glob("**/*.ckpt"))
+    if not found:
+        pytest.skip("No checkpoints under models directory")
+
+    rel = found[0].relative_to(models).as_posix()
     with handle_grpc_error():
-        test_files = [
-            "models/Stable-diffusion/v1-5-pruned-emaonly.safetensors",
-            "models/VAE/vae-ft-mse-840000-ema-pruned.safetensors"
-        ]
-        request = FilesExistRequest(files=test_files)
-        response = grpc_stub.FilesExist(request)
-        assert len(response.files) == len(test_files)
-        assert len(response.exists) == len(test_files)
-        assert len(response.errors) == len(test_files)
+        reply = live_upstream_stub.FilesExist(up_pb2.FileListRequest(files=[rel]))
+    assert list(reply.files) == [rel]
+    assert list(reply.existences) == [True]
+
 
 @pytest.mark.integration
-@pytest.mark.skip(reason="Requires model files to be installed")
-def test_generate_image(grpc_stub):
-    """Test GenerateImage endpoint (requires model installation)."""
-    with handle_grpc_error():
-        request = ImageGenerationRequest(
-            prompt="a beautiful landscape",
-            negative_prompt="",
-            width=512,
-            height=512,
-            steps=20,
-            cfg_scale=7.0,
-            seed=-1,
-            sampler="Euler a",
-            restore_faces=False,
-            enable_hr=False,
-            denoising_strength=0.7,
-            batch_size=1,
-            batch_count=1
-        )
-        response = grpc_stub.GenerateImage(request)
-        assert len(response.images) > 0
-        assert len(response.info) > 0
-        assert len(response.events) > 0
+@pytest.mark.live_grpc_cli
+@pytest.mark.skip(reason="UploadFile streaming test not implemented")
+def test_upload_file():
+    """Placeholder — implement against upstream ``UploadFile`` when needed."""
+    pass  # pragma: no cover
 
-@pytest.mark.integration
-@pytest.mark.skip(reason="Implementation pending")
-def test_upload_file(grpc_stub):
-    """Test UploadFile endpoint."""
-    # TODO: Implement file upload test
-    pass
 
 def test_connection_error():
-    """Test connection to wrong port."""
+    """Wrong port should fail fast (no ephemeral server)."""
     with pytest.raises(grpc.RpcError):
         with grpc.insecure_channel("localhost:12345") as channel:
-            stub = ImageGenerationServiceStub(channel)
-            request = EchoRequest()
-            stub.Echo(request)
+            stub = up_grpc.ImageGenerationServiceStub(channel)
+            stub.Echo(up_pb2.EchoRequest())

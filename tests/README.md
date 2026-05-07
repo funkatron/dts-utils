@@ -11,6 +11,25 @@ Some tests are **skipped** (integration / optional): see [gRPC integration tests
 
 ---
 
+## Ephemeral `gRPCServerCLI` (pytest)
+
+Upstream-aligned smoke (**same proto as `generate`**) without LaunchAgent:
+
+1. Install or locate **`gRPCServerCLI`** (e.g. `dts-utils server install`, or ensure `/usr/local/bin/gRPCServerCLI` / `~/.local/bin/gRPCServerCLI` is on `PATH`).
+2. Ensure a **models root directory** exists — typically Draw Things’ **`Models`** folder. Override with **`DTS_GRPC_TEST_MODEL_PATH`** if needed.
+3. Run:
+
+```bash
+export DTS_GRPC_TEST_SPAWN_SERVER=1
+uv run pytest tests/test_grpc_live_cli.py -v
+```
+
+Optional: **`DTS_GRPC_TEST_SERVER_BINARY=/path/to/gRPCServerCLI`** if the binary is not on `PATH`.
+
+This starts one subprocess per test **module** on **`127.0.0.1:<free port>`** with **`--no-tls`**, then tears it down. It does not load or modify your LaunchAgent plist.
+
+---
+
 ## Manual release smoke
 
 Exercise the CLI against a **live** Draw Things **`gRPCServerCLI`** (not only `pytest`). Record the server release **tag** you used under **Tested with** in [CHANGELOG.md](../CHANGELOG.md) for that version.

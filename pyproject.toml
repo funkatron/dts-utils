@@ -42,8 +42,10 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
 markers = [
     "integration: optional tests that assume a reachable gRPC server or local models.",
+    "live_grpc_cli: opt-in tests that spawn gRPCServerCLI (set DTS_GRPC_TEST_SPAWN_SERVER=1).",
 ]
 
 [tool.coverage.run]

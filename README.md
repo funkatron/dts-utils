@@ -6,6 +6,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 
 - **Command reference:** [CLI.md](CLI.md) — full flags plus a **How to use this doc** table at the top.
 - **Wire format:** [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) (messages and streaming), [PROTOBUF.md](PROTOBUF.md) (FlatBuffer config and protos).
+- **Documentation map:** [docs/README.md](docs/README.md).
 - **Product docs (Draw Things):** [drawthings.ai/docs](https://drawthings.ai/docs).
 
 ---
@@ -67,6 +68,8 @@ uv run dts-utils generate \
 ```
 
 Skip `server install` / `server check` if the server already runs elsewhere; see [Remote or existing servers](#remote-or-existing-servers).
+
+**Blank Mac with no checkpoints yet:** the quickstart assumes something usable ends up in **`default.json`** (often after Draw Things has populated **`Models`**). For an explicit walkthrough — install the Draw Things app preset **Z Image Turbo 1.0 (Exact)**, **`dts-utils`**, **`models build`**, **`configs scaffold-from-metadata`**, then **`generate`** — see [docs/setup-clean-install-z-image-turbo.md](docs/setup-clean-install-z-image-turbo.md).
 
 Optional **browser UI** (same gRPC server; loopback HTTP only by default):
 

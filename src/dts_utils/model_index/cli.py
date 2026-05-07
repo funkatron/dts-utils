@@ -13,6 +13,7 @@ from .local import (
     compute_index_status,
     default_models_dir,
     doctor_local_models,
+    expected_filenames_from_community_metadata,
     format_doctor_findings,
     format_index_statuses,
     format_installed_summaries,
@@ -118,6 +119,36 @@ def build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("--model-dir", type=Path, default=_default_models_dir())
     status_parser.add_argument("--data-dir", type=Path, default=_default_data_dir())
     status_parser.add_argument("--limit", type=int, default=50)
+
+    fetch_parser = subparsers.add_parser(
+        "fetch",
+        help="Download weight files described by bundled recipes (requires --yes to write files).",
+    )
+    fetch_parser.add_argument(
+        "recipe_id",
+        nargs="?",
+        default=None,
+        help=(
+            "Bundled recipe id (stem of *.json under dts_utils.model_fetch.recipe_files). "
+            "When omitted: DTS_UTILS_DEFAULT_FETCH_RECIPE, then registry.json default_recipe_id."
+        ),
+    )
+    fetch_parser.add_argument(
+        "--from-metadata",
+        type=Path,
+        metavar="PATH",
+        dest="from_metadata",
+        help="Print Draw Things basenames implied by a community-models metadata.json (no downloads).",
+    )
+    fetch_parser.add_argument(
+        "--model-dir",
+        type=Path,
+        default=None,
+        help="Destination directory (default: DRAW_THINGS_MODEL_PATH or Draw Things default models dir).",
+    )
+    fetch_parser.add_argument("--dry-run", action="store_true", help="Print plan only; no downloads.")
+    fetch_parser.add_argument("--yes", action="store_true", help="Confirm writing files into --model-dir.")
+    fetch_parser.add_argument("--force", action="store_true", help="Re-fetch even when SHA already matches.")
 
     doctor_parser = subparsers.add_parser("doctor", help="Check the local model directory for common issues.")
     doctor_parser.add_argument("--model-dir", type=Path, default=_default_models_dir())
@@ -286,6 +317,62 @@ def handle_status(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_fetch_from_metadata(path: Path) -> int:
+    import json
+
+    expanded = path.expanduser()
+    try:
+        raw_text = expanded.read_text(encoding="utf-8")
+    except OSError as exc:
+        print(f"Could not read {expanded}: {exc}", file=sys.stderr)
+        return 2
+    try:
+        payload = json.loads(raw_text)
+    except json.JSONDecodeError as exc:
+        print(f"Invalid JSON in {expanded}: {exc}", file=sys.stderr)
+        return 2
+    if not isinstance(payload, dict):
+        print(f"{expanded} must contain a JSON object.", file=sys.stderr)
+        return 2
+    if payload.get("remote_api_model_config") is not None:
+        print(
+            "Note: metadata includes remote_api_model_config; local filenames may be empty.",
+            file=sys.stderr,
+        )
+    for name in expected_filenames_from_community_metadata(payload):
+        print(name)
+    return 0
+
+
+def handle_fetch(args: argparse.Namespace) -> int:
+    from dts_utils.model_fetch.errors import FetchRecipeError
+    from dts_utils.model_fetch.recipes import resolve_default_recipe_id
+    from dts_utils.model_fetch.runner import run_fetch_plan
+
+    if args.from_metadata is not None:
+        if args.recipe_id:
+            print(
+                "Pass either RECIPE_ID or --from-metadata PATH, not both.",
+                file=sys.stderr,
+            )
+            return 2
+        return _handle_fetch_from_metadata(args.from_metadata)
+
+    recipe_id = args.recipe_id or resolve_default_recipe_id()
+    model_dir = args.model_dir if args.model_dir is not None else _default_models_dir()
+    try:
+        return run_fetch_plan(
+            recipe_id=recipe_id,
+            model_dir=model_dir.expanduser(),
+            dry_run=args.dry_run,
+            yes=args.yes,
+            force=args.force,
+        )
+    except FetchRecipeError as exc:
+        print(exc, file=sys.stderr)
+        return 2
+
+
 def handle_doctor(args: argparse.Namespace) -> int:
     local_files = scan_local_models(args.model_dir)
     records = _load_index_or_exit(args.data_dir)
@@ -315,6 +402,7 @@ def main(argv: list[str] | None = None) -> int:
         "report": handle_report,
         "installed": handle_installed,
         "status": handle_status,
+        "fetch": handle_fetch,
         "doctor": handle_doctor,
     }
     handler = handlers[args.command]

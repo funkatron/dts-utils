@@ -44,6 +44,20 @@ def spawned_live_cli():
 
 
 @pytest.fixture
+def live_upstream_stub(spawned_live_cli):
+    """Upstream ``ImageGenerationServiceStub`` over plaintext to :fixture:`spawned_live_cli`."""
+    from dts_utils.grpc.connection import create_channel
+    from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
+
+    host, port = spawned_live_cli
+    channel = create_channel(host, port, insecure=True)
+    try:
+        yield up_grpc.ImageGenerationServiceStub(channel)
+    finally:
+        channel.close()
+
+
+@pytest.fixture
 def mock_subprocess():
     """Mock subprocess.run for testing."""
     with patch("subprocess.run") as mock_run:

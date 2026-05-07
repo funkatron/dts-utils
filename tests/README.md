@@ -21,12 +21,12 @@ Upstream-aligned smoke (**same proto as `generate`**) without LaunchAgent:
 
 ```bash
 export DTS_GRPC_TEST_SPAWN_SERVER=1
-uv run pytest tests/test_grpc_live_cli.py tests/test_generate_functional_live.py -v
+uv run pytest tests/test_grpc_server.py tests/test_generate_functional_live.py -v
 ```
 
 Optional: **`DTS_GRPC_TEST_SERVER_BINARY=/path/to/gRPCServerCLI`** if the binary is not on `PATH`.
 
-The **`spawned_live_cli`** fixture lives in **`conftest.py`** (session scope): **one** subprocess per **`pytest` invocation**, shared by RPC smoke tests and **`tests/test_generate_functional_live.py`** (runs **`dts_utils.generate.main`** with **`--configuration default`** and **`--no-tls`** — requires **`flatc`** on `PATH`; **`ensure_default_generation_json_config()`** ensures **`default.json`** like shorthand).
+The **`spawned_live_cli`** fixture lives in **`conftest.py`** (session scope): **one** subprocess per **`pytest` invocation**, shared by **`tests/test_grpc_server.py`** (RPC smoke via **`live_upstream_stub`**) and **`tests/test_generate_functional_live.py`** (runs **`dts_utils.generate.main`** with **`--configuration default`** and **`--no-tls`** — requires **`flatc`** on `PATH`; **`ensure_default_generation_json_config()`** ensures **`default.json`** like shorthand).
 
 This listens on **`127.0.0.1:<free port>`** with **`--no-tls`**, then tears down when the session finishes. It does not load or modify your LaunchAgent plist.
 

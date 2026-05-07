@@ -1,6 +1,6 @@
 """Full-stack functional tests against ephemeral ``gRPCServerCLI`` (no mocks).
 
-Uses the same ``spawned_live_cli`` fixture as ``test_grpc_live_cli.py``; enable with
+Uses the same ``spawned_live_cli`` / ``live_upstream_stub`` fixtures as ``tests/test_grpc_server.py``; enable with
 ``DTS_GRPC_TEST_SPAWN_SERVER=1``. Cold model load can take tens of seconds on first run.
 
 Generation uses the saved profile **`default`** (same resolution as ``--configuration default`` /

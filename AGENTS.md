@@ -44,7 +44,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 - `src/dts_utils/generate*.py` — generation pipeline and public Python API (see package `__init__`).
 - `src/dts_utils/installer/` — macOS LaunchAgent install lifecycle.
 - `src/dts_utils/grpc/` — channels, stubs, `is_server_running` (TLS-first loopback probe, plaintext fallback; `prefer_plaintext` for `--no-tls` servers).
-- `src/dts_utils/model_index/` — community metadata index (`dts-utils models`).
+- `src/dts_utils/model_index/` — community metadata index (`dts-utils models`); **`fetch`** loads bundled recipes from `dts_utils/model_fetch/recipe_files/` (optional **`uv sync --extra download`** for Hugging Face sources).
 - `src/dts_utils/tls_export.py` — PEM path/export (`dts-utils tls`).
 - `src/dts_utils/web/` — loopback Starlette UI (`dts-utils web`); see [CLI.md](CLI.md#web-dts-utils-web).
 

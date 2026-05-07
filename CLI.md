@@ -8,6 +8,7 @@ Reference for the **`dts-utils`** command-line tool (flags, shorthand, environme
 | --- | --- |
 | Run your first image from a prompt | [README.md § Quickstart](README.md#quickstart), then [Generate shorthand](#generate-shorthand-prompt-first) here |
 | Look up a flag or subcommand | [Available commands](#available-commands) |
+| Community models index / bundled fetch recipes | [models (`dts-utils models`)](#models-dts-utils-models) |
 | Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-utils-web) |
 | Copy example commands | [Examples](#examples) |
 | Script-friendly env vars | [Environment variables](#environment-variables) |
@@ -140,6 +141,30 @@ Options:
 For remote or LAN servers, prefer `--root-cert`. `--trust-server-cert` is limited to `localhost` and loopback. `--force-trust-server-cert` is for diagnostics only.
 
 Draw Things often builds `gRPCServerCLI` without gRPC reflection. `reflect` may therefore return `UNIMPLEMENTED` even when `generate` works. See [README.md § Troubleshooting](README.md#troubleshooting).
+
+<a id="models-dts-utils-models"></a>
+
+### models (`dts-utils models`)
+
+Inspect the cloned **`drawthingsai/community-models`** index locally (`build`, `search`, `show`, …) and optionally download Draw Things weight filenames described by **bundled fetch recipes**.
+
+```bash
+uv run dts-utils models fetch --dry-run
+uv run dts-utils models fetch RECIPE_ID --yes --model-dir /path/to/Models
+uv run dts-utils models fetch --from-metadata ~/.cache/community-models/models/SOME_MODEL/metadata.json
+```
+
+**`fetch`:**
+
+- **`--dry-run`:** Print which artifacts would be written and whether each has download sources; no disk writes.
+- Without **`--dry-run`**, downloads require **`--yes`** (otherwise exit code **`2`**).
+- **`RECIPE_ID`:** Optional positional; when omitted, **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** overrides **`registry.json`** **`default_recipe_id`** (bundled default targets **Z Image Turbo 1.0 (Exact)** recipe **`z-image-turbo-1.0-exact`**).
+- **`--model-dir`:** Destination directory (default: **`DRAW_THINGS_MODEL_PATH`** if set, else Draw Things’ default **`Models`** folder — same idea as other **`models`** subcommands).
+- **`--force`:** Re-download even when an existing file already matches the recipe **`sha256`** (when the recipe defines one).
+- Recipes only allow **`https://`** direct URLs (TLS verification on). Sources with **`type`: `huggingface`** need **`uv sync --extra download`** ( **`huggingface_hub`** ); optional **`HF_TOKEN`** is passed through when set.
+- **`--from-metadata PATH`:** Print the basenames **`configs scaffold-from-metadata`** cares about for one **`metadata.json`** (no **`RECIPE_ID`** on the same invocation).
+
+Bundled recipe JSON lives under **`dts_utils/model_fetch/recipe_files/`** in the repository; **`sources`** may be empty until maintainers add verified **`https://`** or Hugging Face entries.
 
 ### configs
 
@@ -375,7 +400,8 @@ uv run dts-utils server uninstall
 | `DTS_UTILS_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `default.json` the first time; overrides guessing from the models directory. |
 | `DTS_WEB_TOKEN` | When set, `dts-utils web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
-| `DTS_WEB_HISTORY_DIR` | Override where `dts-utils web` stores history metadata and PNG files (default: `web-history` under the resolved config directory — see **`dts-utils configs path`**). |
+| `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Optional override for **`dts-utils models fetch`** when **`RECIPE_ID`** is omitted (otherwise **`registry.json`** **`default_recipe_id`**). |
+| `HF_TOKEN` | Optional Hugging Face token when using **`huggingface`** recipe sources (**`uv sync --extra download`**). |
 
 `DRAW_THINGS_MODEL_PATH` example:
 

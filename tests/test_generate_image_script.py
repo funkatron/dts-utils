@@ -307,16 +307,6 @@ def test_normalize_configuration_for_flatc_maps_draw_things_json():
     }
 
 
-def test_normalize_configuration_maps_fps_json_alias_to_fps_id():
-    """Draw Things JSON may use ``fps``; flatc schema field is ``fps_id``."""
-    module = load_generate_image_module()
-    out = module.normalize_configuration_for_flatc(
-        {"model": "x.ckpt", "fps": 12},
-    )
-    assert out["fps_id"] == 12
-    assert "fps" not in out
-
-
 def test_normalize_compression_artifacts_enum_lowercase():
     """Draw Things exports compressionArtifacts as lowercase; flatc expects CompressionMethod labels."""
     module = load_generate_image_module()

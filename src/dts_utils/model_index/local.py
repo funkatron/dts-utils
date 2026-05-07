@@ -4,9 +4,39 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 from .parse import ModelRecord
+
+
+def expected_filenames_from_community_metadata(metadata: dict[str, Any]) -> list[str]:
+    """Basenames that must exist under the Draw Things model dir for this preset.
+
+    Uses the same rules as index/status helpers for ``community-models`` ``metadata.json``
+    (``file``, encoder/VAE keys, ``additional_clip_encoders``, ``converted`` keys).
+    """
+    names: list[str] = []
+    for key in ("file", "autoencoder", "text_encoder", "clip_encoder", "t5_encoder"):
+        value = metadata.get(key)
+        if isinstance(value, str) and value.strip():
+            names.append(Path(value).name)
+    additional = metadata.get("additional_clip_encoders")
+    if isinstance(additional, list):
+        for item in additional:
+            if isinstance(item, str) and item.strip():
+                names.append(Path(item).name)
+    converted = metadata.get("converted")
+    if isinstance(converted, dict):
+        for key in converted:
+            if isinstance(key, str) and key.strip():
+                names.append(Path(key).name)
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for name in names:
+        if name not in seen:
+            seen.add(name)
+            deduped.append(name)
+    return deduped
 
 
 def default_models_dir() -> Path:
@@ -109,29 +139,7 @@ def scan_local_models(models_dir: Path) -> list[LocalFileRecord]:
 
 
 def _expected_file_names(record: ModelRecord) -> list[str]:
-    payload = record.raw_metadata_json
-    names: list[str] = []
-    for key in ("file", "autoencoder", "text_encoder", "clip_encoder", "t5_encoder"):
-        value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            names.append(Path(value).name)
-    additional = payload.get("additional_clip_encoders")
-    if isinstance(additional, list):
-        for item in additional:
-            if isinstance(item, str) and item.strip():
-                names.append(Path(item).name)
-    converted = payload.get("converted")
-    if isinstance(converted, dict):
-        for key in converted:
-            if isinstance(key, str) and key.strip():
-                names.append(Path(key).name)
-    deduped: list[str] = []
-    seen: set[str] = set()
-    for name in names:
-        if name not in seen:
-            seen.add(name)
-            deduped.append(name)
-    return deduped
+    return expected_filenames_from_community_metadata(record.raw_metadata_json)
 
 
 def _primary_expected_name(record: ModelRecord) -> str | None:

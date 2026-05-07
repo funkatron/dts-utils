@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import pytest
 
+from pathlib import Path
+
 from dts_utils.model_index.local import _expected_file_names
 from dts_utils.model_index.local import expected_filenames_from_community_metadata
+from dts_utils.model_index.local import sha256_by_basename_from_community_metadata
 from dts_utils.model_index.parse import ModelRecord
+from dts_utils.model_index.parse import metadata_fetch_hints
 
 
 def _minimal_meta(**extras: object) -> dict[str, object]:
@@ -71,3 +75,35 @@ def test_expected_filenames_skips_remote_api_style_unused_here():
 def test_expected_filenames_remote_only_payload():
     meta: dict[str, object] = {"remote_api_model_config": {"x": 1}}
     assert expected_filenames_from_community_metadata(meta) == []
+
+
+def test_sha256_map_from_converted_basenames():
+    h = "6d90c3f0342410a747396ae7b7dedfb03caa4621ee426744793fc57e60766c52"
+    payload = _minimal_meta(
+        converted={
+            "nested/z_image_turbo_1.0_f16.ckpt": h,
+            "bad": "not-a-sha",
+            "skip.bin": "abcd",
+        },
+    )
+    assert sha256_by_basename_from_community_metadata(dict(payload)) == {
+        "z_image_turbo_1.0_f16.ckpt": h,
+    }
+
+
+def test_metadata_fetch_hints_explicit_hf_repo(tmp_path: Path):
+    meta_path = tmp_path / "metadata.json"
+    meta_path.write_text("{}", encoding="utf-8")
+    payload: dict[str, object] = {"huggingface_repo_id": "org/model-repo"}
+    hints = metadata_fetch_hints(meta_path, payload)
+    assert hints.huggingface_repo_id == "org/model-repo"
+
+
+def test_metadata_fetch_hints_preserves_download_url(tmp_path: Path):
+    meta_path = tmp_path / "metadata.json"
+    payload: dict[str, object] = {
+        "huggingface_repo_id": "ab/cd",
+        "download_url": "https://example.com/file.ckpt",
+    }
+    hints = metadata_fetch_hints(meta_path, payload)
+    assert hints.download_url == "https://example.com/file.ckpt"

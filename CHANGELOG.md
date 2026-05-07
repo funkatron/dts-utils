@@ -51,6 +51,7 @@ Example snippet for the next release:
 - **Docs:** [CLI.md](CLI.md) — removed redundant “If you only run one command…” lines before example blocks.
 - **`dts-util web`:** Generation **history** persists **`configuration`** (same saved-profile value as **`POST /api/generate`**) with each PNG batch; History rows show it in the subtitle, and **Reuse** restores profile (dropdown or custom field), **runs**, and **negative prompt** with the prompt for a consistent redo.
 - **`dts-utils` shorthand / web:** Implicit saved profile is **`default`** (**`default.json`** under `configs path`). Legacy **`zit.json`** there is renamed to **`default.json`** when **`default.json`** is missing. **`os.environ.setdefault("DTS_UTILS_DEFAULT_CONFIGURATION", "default")`** after materialization.
+- **`dts-utils models fetch`:** **`--from-metadata`** **`--manifest`** prints tab-separated basename / **`converted`** SHA / **`huggingface_repo_id`** / **`download_url`** (parity with **`models build`** inference); **`--dry-run`** performs zero network I/O and no **`--model-dir`** writes; default-registry errors (**missing **`registry.json`**, invalid JSON, empty **`default_recipe_id`**) exit **`2`** with **`stderr`** when **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** is unset. **`uv sync --dev`** installs **`huggingface_hub`** for mocked hub tests; **`uv sync --extra download`** remains for minimal installs that need **`models fetch`** Hugging Face sources.
 
 ### Added
 

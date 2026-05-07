@@ -18,11 +18,12 @@ from .local import (
     format_index_statuses,
     format_installed_summaries,
     scan_local_models,
+    sha256_by_basename_from_community_metadata,
     summarize_doctor_counts,
     summarize_installed_models,
     summarize_status_counts,
 )
-from .parse import build_records, enrich_huggingface_records
+from .parse import build_records, enrich_huggingface_records, metadata_fetch_hints
 from .repo import COMMUNITY_MODELS_REPO_URL, RepoSyncError, ensure_repo
 from .search import (
     filter_records,
@@ -123,6 +124,10 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_parser = subparsers.add_parser(
         "fetch",
         help="Download weight files described by bundled recipes (requires --yes to write files).",
+        description=(
+            "Without RECIPE_ID: DTS_UTILS_DEFAULT_FETCH_RECIPE (non-empty) wins over bundled "
+            "registry.json default_recipe_id."
+        ),
     )
     fetch_parser.add_argument(
         "recipe_id",
@@ -138,7 +143,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="PATH",
         dest="from_metadata",
-        help="Print Draw Things basenames implied by a community-models metadata.json (no downloads).",
+        help=(
+            "Print expected Draw Things basenames from community-models metadata.json (no downloads). "
+            "Use --manifest for SHA + HF/repo columns aligned with the model index."
+        ),
+    )
+    fetch_parser.add_argument(
+        "--manifest",
+        action="store_true",
+        help=(
+            "With --from-metadata only: tab-separated rows "
+            "basename, sha256_from_converted, huggingface_repo_id, download_url."
+        ),
     )
     fetch_parser.add_argument(
         "--model-dir",
@@ -317,7 +333,7 @@ def handle_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_fetch_from_metadata(path: Path) -> int:
+def _handle_fetch_from_metadata(path: Path, *, manifest: bool) -> int:
     import json
 
     expanded = path.expanduser()
@@ -339,7 +355,18 @@ def _handle_fetch_from_metadata(path: Path) -> int:
             "Note: metadata includes remote_api_model_config; local filenames may be empty.",
             file=sys.stderr,
         )
-    for name in expected_filenames_from_community_metadata(payload):
+    hints = metadata_fetch_hints(expanded, payload)
+    names = expected_filenames_from_community_metadata(payload)
+    sha_map = sha256_by_basename_from_community_metadata(payload)
+    if manifest:
+        hf = hints.huggingface_repo_id or ""
+        du = hints.download_url or ""
+        for name in names:
+            sha = sha_map.get(name, "")
+            print(f"{name}\t{sha}\t{hf}\t{du}")
+        return 0
+
+    for name in names:
         print(name)
     return 0
 
@@ -349,6 +376,10 @@ def handle_fetch(args: argparse.Namespace) -> int:
     from dts_utils.model_fetch.recipes import resolve_default_recipe_id
     from dts_utils.model_fetch.runner import run_fetch_plan
 
+    if args.manifest and args.from_metadata is None:
+        print("--manifest requires --from-metadata PATH.", file=sys.stderr)
+        return 2
+
     if args.from_metadata is not None:
         if args.recipe_id:
             print(
@@ -356,11 +387,11 @@ def handle_fetch(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-        return _handle_fetch_from_metadata(args.from_metadata)
+        return _handle_fetch_from_metadata(args.from_metadata, manifest=args.manifest)
 
-    recipe_id = args.recipe_id or resolve_default_recipe_id()
-    model_dir = args.model_dir if args.model_dir is not None else _default_models_dir()
     try:
+        recipe_id = args.recipe_id or resolve_default_recipe_id()
+        model_dir = args.model_dir if args.model_dir is not None else _default_models_dir()
         return run_fetch_plan(
             recipe_id=recipe_id,
             model_dir=model_dir.expanduser(),

@@ -152,17 +152,18 @@ Inspect the cloned **`drawthingsai/community-models`** index locally (`build`, `
 uv run dts-utils models fetch --dry-run
 uv run dts-utils models fetch RECIPE_ID --yes --model-dir /path/to/Models
 uv run dts-utils models fetch --from-metadata ~/.cache/community-models/models/SOME_MODEL/metadata.json
+uv run dts-utils models fetch --from-metadata "$META" --manifest   # TSV: basename, converted SHA, HF repo id, download URL
 ```
 
 **`fetch`:**
 
-- **`--dry-run`:** Print which artifacts would be written and whether each has download sources; no disk writes.
-- Without **`--dry-run`**, downloads require **`--yes`** (otherwise exit code **`2`**).
-- **`RECIPE_ID`:** Optional positional; when omitted, **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** overrides **`registry.json`** **`default_recipe_id`** (bundled default targets **Z Image Turbo 1.0 (Exact)** recipe **`z-image-turbo-1.0-exact`**).
+- **`--dry-run`:** Print planned artifacts only — **no HTTP(S), no Hugging Face hub calls, and no writes under `--model-dir`** (zero bytes transferred).
+- Without **`--dry-run`**, mutating downloads require **`--yes`** (otherwise exit code **`2`**). **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** selects only the default **recipe id** when **`RECIPE_ID`** is omitted; it does **not** bypass **`--yes`**.
+- **`RECIPE_ID`:** Optional positional; when omitted: **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** (if non-empty), **then** shipped **`registry.json`** **`default_recipe_id`**. If the registry cannot be read or **`default_recipe_id`** is missing/empty while the env override is unset, the command exits **`2`** with **`stderr`** (fatal — fix packaging or set **`DTS_UTILS_DEFAULT_FETCH_RECIPE`**). Unknown **`RECIPE_ID`** also exits **`2`**.
 - **`--model-dir`:** Destination directory (default: **`DRAW_THINGS_MODEL_PATH`** if set, else Draw Things’ default **`Models`** folder — same idea as other **`models`** subcommands).
-- **`--force`:** Re-download even when an existing file already matches the recipe **`sha256`** (when the recipe defines one).
-- Recipes only allow **`https://`** direct URLs (TLS verification on). Sources with **`type`: `huggingface`** need **`uv sync --extra download`** ( **`huggingface_hub`** ); optional **`HF_TOKEN`** is passed through when set.
-- **`--from-metadata PATH`:** Print the basenames **`configs scaffold-from-metadata`** cares about for one **`metadata.json`** (no **`RECIPE_ID`** on the same invocation).
+- **`--force`:** Re-fetch even when the artifact is already satisfied (matching **`sha256`** when the recipe defines one, or any existing **non-empty** file when the recipe omits **`sha256`**).
+- Recipes only allow **`https://`** direct URLs (TLS verification always on; no **`http://`**, **`file://`**, or insecure bypass flags). Sources with **`type`: `huggingface`** need **`huggingface_hub`** (**`uv sync --extra download`** matches **`[download]`**); **`HF_TOKEN`** is passed through when set.
+- **`--from-metadata PATH`:** Prints Draw Things basenames using the same rules as **`models`** status / index helpers (parity with **`_expected_file_names`**). **`--manifest`** adds tab-separated columns per row: **basename**, **SHA-256 from `converted`** (if present), **`huggingface_repo_id`**, **`download_url`** — aligned with **`models build`** URL inference from one **`metadata.json`**.
 
 Bundled recipe JSON lives under **`dts_utils/model_fetch/recipe_files/`** in the repository; **`sources`** may be empty until maintainers add verified **`https://`** or Hugging Face entries.
 

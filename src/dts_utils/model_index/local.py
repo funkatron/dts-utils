@@ -39,6 +39,25 @@ def expected_filenames_from_community_metadata(metadata: dict[str, Any]) -> list
     return deduped
 
 
+def sha256_by_basename_from_community_metadata(metadata: dict[str, Any]) -> dict[str, str]:
+    """Map Draw Things basename -> lowercase SHA-256 hex from ``converted``."""
+    out: dict[str, str] = {}
+    converted = metadata.get("converted")
+    if not isinstance(converted, dict):
+        return out
+    for raw_key, raw_val in converted.items():
+        if not isinstance(raw_key, str) or not raw_key.strip():
+            continue
+        if not isinstance(raw_val, str) or not raw_val.strip():
+            continue
+        hexval = raw_val.strip().lower()
+        if len(hexval) != 64 or any(c not in "0123456789abcdef" for c in hexval):
+            continue
+        basename = Path(raw_key).name
+        out[basename] = hexval
+    return out
+
+
 def default_models_dir() -> Path:
     return Path.home() / "Library/Containers/com.liuliu.draw-things/Data/Documents/Models"
 

@@ -76,6 +76,11 @@ If you already copied the three **`*.ckpt`** files into the model directory by h
    uv run dts-utils configs scaffold-from-metadata "$META"
    ```
 
+   Optional — list expected filenames, **`converted`** hashes when present, and inferred **`huggingface_repo_id`** / **`download_url`** (same indexing rules as **`dts-utils models build`**):
+
+   ```bash
+   uv run dts-utils models fetch --from-metadata "$META" --manifest
+   ```
    That creates **`z-image-turbo-1.0-exact.json`** under **`dts-utils configs path`** (stem matches the folder name).
 
 4. (Optional) Make shorthand use it without a second argument:

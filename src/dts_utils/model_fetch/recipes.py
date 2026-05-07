@@ -1,4 +1,26 @@
-"""Recipe loading and default recipe resolution."""
+"""Recipe loading and default recipe resolution.
+
+Bundled recipe objects are JSON dicts with:
+
+- ``id`` (optional echo), optional human ``description``.
+- ``artifacts``: non-empty list of objects::
+
+    {"filename": "<DrawThings basename>", "sha256": "<64-char hex, optional>",
+     "sources": [<source>, ...]}
+
+  When ``sha256`` is present it is verified after download (no bypass flag).
+
+- Each ``source`` is either::
+
+    {"type": "https", "url": "https://..."}
+
+  or::
+
+    {"type": "huggingface", "repo_id": "...", "path_in_repo": "...",
+     "revision": "<optional>"}
+
+  Only ``https://`` URLs are accepted for HTTP sources; TLS verification stays on.
+"""
 
 from __future__ import annotations
 

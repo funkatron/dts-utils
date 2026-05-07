@@ -61,7 +61,11 @@ def _artifact_satisfied(dest: Path, expected_sha: str | None, *, force: bool) ->
         return False
     if expected_sha:
         return sha256_file(dest).lower() == expected_sha.strip().lower()
-    return False
+    # Recipe omitted SHA: treat existing non-empty file as satisfied (size-only idempotency).
+    try:
+        return dest.stat().st_size > 0
+    except OSError:
+        return False
 
 
 def _download_first_working_source(art: dict[str, Any], dest: Path) -> None:

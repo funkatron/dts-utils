@@ -2,21 +2,20 @@
 
 Uses the same ``spawned_live_cli`` fixture as ``test_grpc_live_cli.py``; enable with
 ``DTS_GRPC_TEST_SPAWN_SERVER=1``. Cold model load can take tens of seconds on first run.
+
+Generation uses the saved profile **`default`** (same resolution as ``--configuration default`` /
+shorthand), via :func:`dts_utils.configs.ensure_default_generation_json_config`.
 """
 
 from __future__ import annotations
 
-import json
 import shutil
 from importlib import import_module, reload
 from pathlib import Path
 
 import pytest
 
-from ephemeral_grpc_server import (
-    first_model_checkpoint_basename,
-    resolve_models_directory,
-)
+from dts_utils.configs import DEFAULT_PROFILE_NAME, ensure_default_generation_json_config
 
 
 def load_generate_module():
@@ -31,26 +30,7 @@ def test_generate_cli_writes_png(spawned_live_cli, tmp_path: Path) -> None:
     if not shutil.which("flatc"):
         pytest.skip("flatc not on PATH (JSON configuration conversion)")
 
-    models = resolve_models_directory()
-    assert models is not None  # prerequisite enforced by fixture
-    model_name = first_model_checkpoint_basename(models)
-    if not model_name:
-        pytest.skip("No .safetensors / .ckpt under models directory")
-
-    cfg = {
-        "width": 512,
-        "height": 512,
-        "batchCount": 1,
-        "steps": 4,
-        "guidanceScale": 7.5,
-        "strength": 1.0,
-        "model": model_name,
-        "controls": [],
-        "hiresFix": False,
-        "seed": 42,
-    }
-    config_path = tmp_path / "live-gen.json"
-    config_path.write_text(json.dumps(cfg), encoding="utf-8")
+    ensure_default_generation_json_config()
     out = tmp_path / "live-out.png"
 
     mod = load_generate_module()
@@ -58,8 +38,8 @@ def test_generate_cli_writes_png(spawned_live_cli, tmp_path: Path) -> None:
         [
             "--prompt",
             "functional live test gray square",
-            "--configuration-json",
-            str(config_path),
+            "--configuration",
+            DEFAULT_PROFILE_NAME,
             "--output",
             str(out),
             "--host",

@@ -2,7 +2,7 @@
 
 Use this when you want a **from-zero** path on macOS: **`dts-utils`**, **`gRPCServerCLI`**, and **one community preset** — **Z Image Turbo 1.0 (Exact)** (`drawthingsai/community-models` → **`models/z-image-turbo-1.0-exact`**).
 
-This doc is **operator prose**, not an automated installer. Getting weights onto disk is still your responsibility; the most reliable route for Draw Things–compatible **`*.ckpt`** names is usually the **Draw Things app** Community catalog.
+This doc is **operator prose**, not an automated installer. Getting weights onto disk is still your responsibility; the most reliable route for Draw Things–compatible **`*.ckpt`** names is usually the **Draw Things app** Community catalog. Maintainer backlog for **`dts-utils models fetch`** (verified URLs, configs integration, integration smoke): [models-fetch-roadmap.md](models-fetch-roadmap.md).
 
 ---
 

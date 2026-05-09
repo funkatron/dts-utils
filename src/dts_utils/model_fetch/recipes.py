@@ -6,9 +6,11 @@ Bundled recipe objects are JSON dicts with:
 - ``artifacts``: non-empty list of objects::
 
     {"filename": "<DrawThings basename>", "sha256": "<64-char hex, optional>",
-     "sources": [<source>, ...]}
+     "expected_size_bytes": <int, optional>, "sources": [<source>, ...]}
 
   When ``sha256`` is present it is verified after download (no bypass flag).
+  When ``sha256`` is absent but ``expected_size_bytes`` is set, that exact size is used for
+  skip/idempotency and verified after download.
 
 - Each ``source`` is either::
 

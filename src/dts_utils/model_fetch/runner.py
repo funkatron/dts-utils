@@ -13,6 +13,7 @@ from dts_utils.model_fetch.download import (
     download_hf_file,
     sha256_file,
     verify_sha_required,
+    verify_size_required,
 )
 from dts_utils.model_fetch.errors import FetchRecipeError
 from dts_utils.model_fetch.recipes import load_recipe_dict
@@ -33,6 +34,18 @@ def _normalize_artifacts(payload: dict[str, Any]) -> list[dict[str, Any]]:
         if sha_val is not None:
             if not isinstance(sha_val, str) or not sha_val.strip():
                 raise FetchRecipeError(f"artifacts[{i}].sha256 must be non-empty when set.")
+        size_raw = raw.get("expected_size_bytes")
+        expected_size: int | None = None
+        if size_raw is not None:
+            if isinstance(size_raw, bool) or not isinstance(size_raw, int):
+                raise FetchRecipeError(
+                    f"artifacts[{i}].expected_size_bytes must be a non-negative integer when set.",
+                )
+            if size_raw < 0:
+                raise FetchRecipeError(
+                    f"artifacts[{i}].expected_size_bytes must be non-negative.",
+                )
+            expected_size = size_raw
         sources = raw.get("sources", [])
         if sources is None:
             sources = []
@@ -48,20 +61,32 @@ def _normalize_artifacts(payload: dict[str, Any]) -> list[dict[str, Any]]:
             {
                 "filename": fn.strip(),
                 "sha256": sha_val.strip() if isinstance(sha_val, str) else None,
+                "expected_size_bytes": expected_size,
                 "sources": sources,
             },
         )
     return normalized
 
 
-def _artifact_satisfied(dest: Path, expected_sha: str | None, *, force: bool) -> bool:
+def _artifact_satisfied(
+    dest: Path,
+    *,
+    expected_sha: str | None,
+    expected_size_bytes: int | None,
+    force: bool,
+) -> bool:
     if not dest.is_file():
         return False
     if force:
         return False
     if expected_sha:
         return sha256_file(dest).lower() == expected_sha.strip().lower()
-    # Recipe omitted SHA: treat existing non-empty file as satisfied (size-only idempotency).
+    if expected_size_bytes is not None:
+        try:
+            return dest.stat().st_size == expected_size_bytes
+        except OSError:
+            return False
+    # Recipe omitted SHA and size: treat existing non-empty file as satisfied (weak idempotency).
     try:
         return dest.stat().st_size > 0
     except OSError:
@@ -128,16 +153,19 @@ def run_fetch_plan(
             dest = model_dir / art["filename"]
             n_sources = len(art["sources"])
             sha_note = "sha256=" + ("set" if art["sha256"] else "none")
+            sz = art["expected_size_bytes"]
+            size_note = f" expected_size_bytes={sz}" if sz is not None else ""
             print(
                 f"[dry-run] artifact={art['filename']} dest={dest} "
-                f"sources={n_sources} {sha_note}",
+                f"sources={n_sources} {sha_note}{size_note}",
             )
             if not art["sources"]:
                 missing_urls += 1
         if missing_urls:
             print(
                 f"[dry-run] note: {missing_urls} artifact(s) have empty sources "
-                "(extend bundled recipe JSON with https:// or huggingface entries).",
+                "(bundled skeleton — see docs/models-fetch-roadmap.md; extend recipe JSON "
+                "with https:// or huggingface entries when verified).",
                 file=sys.stderr,
             )
         return 0
@@ -149,13 +177,29 @@ def run_fetch_plan(
         )
         return 2
 
+    skeleton = sum(1 for art in artifacts if not art["sources"])
+    if skeleton:
+        print(
+            f"Note: {skeleton} artifact(s) in this recipe have no download URLs yet "
+            "(bundled skeleton). Install weights via Draw Things Community or edit recipe JSON "
+            "after verifying URLs — see docs/models-fetch-roadmap.md. "
+            "Preview without writes: dts-utils models fetch [<recipe-id>] --dry-run",
+            file=sys.stderr,
+        )
+
     model_dir.mkdir(parents=True, exist_ok=True)
     failures = 0
     for art in artifacts:
         dest = model_dir / art["filename"]
         expected_sha = art["sha256"]
+        expected_size = art["expected_size_bytes"]
 
-        if _artifact_satisfied(dest, expected_sha, force=force):
+        if _artifact_satisfied(
+            dest,
+            expected_sha=expected_sha,
+            expected_size_bytes=expected_size,
+            force=force,
+        ):
             print(f"[skip] already satisfied {dest.name}")
             continue
 
@@ -172,6 +216,8 @@ def run_fetch_plan(
             _download_first_working_source(art, dest)
             if expected_sha:
                 verify_sha_required(dest, expected_sha)
+            elif expected_size is not None:
+                verify_size_required(dest, expected_size)
         except FetchRecipeError as exc:
             print(f"[error] {art['filename']}: {exc}", file=sys.stderr)
             failures += 1

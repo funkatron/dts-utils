@@ -10,11 +10,13 @@ import pytest
 from dts_utils.model_fetch.download import assert_https_url
 from dts_utils.model_fetch.download import download_hf_file
 from dts_utils.model_fetch.download import verify_sha_required
+from dts_utils.model_fetch.download import verify_size_required
 from dts_utils.model_fetch.errors import FetchRecipeError
 from dts_utils.model_fetch.recipes import DEFAULT_FETCH_RECIPE_ENV
 from dts_utils.model_fetch.recipes import resolve_default_recipe_id
 from dts_utils.model_fetch.runner import _artifact_satisfied
 from dts_utils.model_fetch.runner import _download_first_working_source
+from dts_utils.model_fetch.runner import _normalize_artifacts
 from dts_utils.model_fetch.runner import run_fetch_plan
 from dts_utils.model_index.cli import main as models_main
 
@@ -137,7 +139,7 @@ def test_manifest_requires_from_metadata():
     assert rc == 2
 
 
-def test_models_fetch_manifest_tsv_columns(tmp_path: Path, capsys):
+def test_models_fetch_manifest_compact_stdout_and_hints_stderr(tmp_path: Path, capsys):
     h = "6d90c3f0342410a747396ae7b7dedfb03caa4621ee426744793fc57e60766c52"
     meta = tmp_path / "metadata.json"
     meta.write_text(
@@ -153,9 +155,114 @@ def test_models_fetch_manifest_tsv_columns(tmp_path: Path, capsys):
     )
     rc = models_main(["fetch", "--from-metadata", str(meta), "--manifest"])
     assert rc == 0
-    line = capsys.readouterr().out.strip().splitlines()[0]
-    parts = line.split("\t")
+    cap = capsys.readouterr()
+    assert cap.out.strip() == f"m.ckpt\t{h}"
+    assert "# fetch-manifest-hints" in cap.err
+    assert "org/hf" in cap.err
+    assert "https://example.com/x" in cap.err
+
+
+def test_models_fetch_manifest_wide_four_columns(tmp_path: Path, capsys):
+    h = "6d90c3f0342410a747396ae7b7dedfb03caa4621ee426744793fc57e60766c52"
+    meta = tmp_path / "metadata.json"
+    meta.write_text(
+        json.dumps(
+            {
+                "file": "m.ckpt",
+                "converted": {"m.ckpt": h},
+                "huggingface_repo_id": "org/hf",
+                "download_url": "https://example.com/x",
+            },
+        ),
+        encoding="utf-8",
+    )
+    rc = models_main(
+        ["fetch", "--from-metadata", str(meta), "--manifest", "--manifest-wide"],
+    )
+    assert rc == 0
+    cap = capsys.readouterr()
+    parts = cap.out.strip().split("\t")
     assert parts == ["m.ckpt", h, "org/hf", "https://example.com/x"]
+
+
+def test_manifest_wide_requires_manifest_flag():
+    rc = models_main(["fetch", "--manifest-wide"])
+    assert rc == 2
+
+
+def test_run_fetch_plan_yes_skeleton_stderr_lists_roadmap(tmp_path: Path, capsys):
+    rc = run_fetch_plan(
+        recipe_id="z-image-turbo-1.0-exact",
+        model_dir=tmp_path,
+        dry_run=False,
+        yes=True,
+        force=False,
+    )
+    assert rc == 2
+    assert "models-fetch-roadmap" in capsys.readouterr().err
+
+
+def test_normalize_artifacts_expected_size_bytes():
+    arts = _normalize_artifacts(
+        {
+            "artifacts": [
+                {"filename": "a.bin", "sources": [], "expected_size_bytes": 42},
+            ],
+        },
+    )
+    assert arts[0]["expected_size_bytes"] == 42
+
+
+def test_normalize_artifacts_rejects_bool_expected_size():
+    with pytest.raises(FetchRecipeError, match="expected_size_bytes"):
+        _normalize_artifacts(
+            {
+                "artifacts": [
+                    {"filename": "a.bin", "sources": [], "expected_size_bytes": True},
+                ],
+            },
+        )
+
+
+def test_artifact_satisfied_matches_expected_size_bytes(tmp_path: Path):
+    dest = tmp_path / "f.ckpt"
+    dest.write_bytes(b"x" * 10)
+    assert _artifact_satisfied(
+        dest,
+        expected_sha=None,
+        expected_size_bytes=10,
+        force=False,
+    )
+    assert not _artifact_satisfied(
+        dest,
+        expected_sha=None,
+        expected_size_bytes=11,
+        force=False,
+    )
+
+
+def test_artifact_satisfied_no_sha_skips_nonempty_file(tmp_path: Path):
+    dest = tmp_path / "flux_1_vae_f16.ckpt"
+    dest.write_bytes(b"x")
+    assert _artifact_satisfied(
+        dest,
+        expected_sha=None,
+        expected_size_bytes=None,
+        force=False,
+    ) is True
+
+
+def test_verify_size_required_ok(tmp_path: Path):
+    p = tmp_path / "f.ckpt"
+    p.write_bytes(b"12345")
+    verify_size_required(p, 5)
+
+
+def test_verify_size_required_mismatch(tmp_path: Path):
+    p = tmp_path / "f.ckpt"
+    p.write_bytes(b"ab")
+    with pytest.raises(FetchRecipeError, match="byte size mismatch"):
+        verify_size_required(p, 99)
 
 
 def test_run_fetch_plan_dry_run_invokes_no_download_backends(monkeypatch):
@@ -211,12 +318,6 @@ def test_https_sources_try_next_on_failure(monkeypatch, tmp_path: Path):
     _download_first_working_source(art, dest)
     assert dest.read_bytes() == b"ok-bytes"
     assert len(urls) == 2
-
-
-def test_artifact_satisfied_no_sha_skips_nonempty_file(tmp_path: Path):
-    dest = tmp_path / "flux_1_vae_f16.ckpt"
-    dest.write_bytes(b"x")
-    assert _artifact_satisfied(dest, None, force=False) is True
 
 
 @pytest.mark.integration

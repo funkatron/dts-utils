@@ -18,7 +18,7 @@
 | Pytest and release smoke | [tests/README.md](../tests/README.md) |
 | Release history | [CHANGELOG.md](../CHANGELOG.md) |
 | Contributing or agent automation | [AGENTS.md](../AGENTS.md) |
-| **`dts-utils web` layout (wireframe, Canvas)** | [web-ui-layout.md](web-ui-layout.md) |
+| Weight orchestration / `models fetch` backlog | [models-fetch-roadmap.md](models-fetch-roadmap.md) |
 
 ---
 

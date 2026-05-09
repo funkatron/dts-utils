@@ -145,16 +145,23 @@ def build_parser() -> argparse.ArgumentParser:
         dest="from_metadata",
         help=(
             "Print expected Draw Things basenames from community-models metadata.json (no downloads). "
-            "Use --manifest for SHA + HF/repo columns aligned with the model index."
+            "Use --manifest for basename + converted SHA (URLs once on stderr); "
+            "--manifest-wide repeats URL columns per row."
         ),
     )
     fetch_parser.add_argument(
         "--manifest",
         action="store_true",
         help=(
-            "With --from-metadata only: tab-separated rows "
-            "basename, sha256_from_converted, huggingface_repo_id, download_url."
+            "With --from-metadata only: tab-separated basename and sha256_from_converted; "
+            "prints huggingface_repo_id and download_url once on stderr (use --manifest-wide "
+            "for legacy four-column rows)."
         ),
+    )
+    fetch_parser.add_argument(
+        "--manifest-wide",
+        action="store_true",
+        help="With --manifest: repeat huggingface_repo_id and download_url on every stdout row.",
     )
     fetch_parser.add_argument(
         "--model-dir",
@@ -333,7 +340,7 @@ def handle_status(args: argparse.Namespace) -> int:
     return 0
 
 
-def _handle_fetch_from_metadata(path: Path, *, manifest: bool) -> int:
+def _handle_fetch_from_metadata(path: Path, *, manifest: bool, manifest_wide: bool) -> int:
     import json
 
     expanded = path.expanduser()
@@ -361,9 +368,19 @@ def _handle_fetch_from_metadata(path: Path, *, manifest: bool) -> int:
     if manifest:
         hf = hints.huggingface_repo_id or ""
         du = hints.download_url or ""
-        for name in names:
-            sha = sha_map.get(name, "")
-            print(f"{name}\t{sha}\t{hf}\t{du}")
+        if manifest_wide:
+            for name in names:
+                sha = sha_map.get(name, "")
+                print(f"{name}\t{sha}\t{hf}\t{du}")
+        else:
+            if hf or du:
+                print(
+                    f"# fetch-manifest-hints\thuggingface_repo_id\t{hf}\tdownload_url\t{du}",
+                    file=sys.stderr,
+                )
+            for name in names:
+                sha = sha_map.get(name, "")
+                print(f"{name}\t{sha}")
         return 0
 
     for name in names:
@@ -380,6 +397,10 @@ def handle_fetch(args: argparse.Namespace) -> int:
         print("--manifest requires --from-metadata PATH.", file=sys.stderr)
         return 2
 
+    if args.manifest_wide and not args.manifest:
+        print("--manifest-wide requires --manifest.", file=sys.stderr)
+        return 2
+
     if args.from_metadata is not None:
         if args.recipe_id:
             print(
@@ -387,7 +408,11 @@ def handle_fetch(args: argparse.Namespace) -> int:
                 file=sys.stderr,
             )
             return 2
-        return _handle_fetch_from_metadata(args.from_metadata, manifest=args.manifest)
+        return _handle_fetch_from_metadata(
+            args.from_metadata,
+            manifest=args.manifest,
+            manifest_wide=args.manifest_wide,
+        )
 
     try:
         recipe_id = args.recipe_id or resolve_default_recipe_id()

@@ -124,3 +124,16 @@ def verify_sha_required(dest: Path, expected_hex: str) -> None:
             f"{dest.name}: SHA-256 mismatch after download "
             f"(expected {expected}, got {actual}).",
         )
+
+
+def verify_size_required(dest: Path, expected_bytes: int) -> None:
+    """When recipe omits ``sha256``, optional exact byte size check after download."""
+    try:
+        actual = dest.stat().st_size
+    except OSError as exc:
+        raise FetchRecipeError(f"{dest.name}: could not stat after download: {exc}") from exc
+    if actual != expected_bytes:
+        raise FetchRecipeError(
+            f"{dest.name}: byte size mismatch after download "
+            f"(expected {expected_bytes}, got {actual}).",
+        )

@@ -9,6 +9,8 @@ uv sync --dev
 uv run pytest
 ```
 
+**`uv sync --dev`** pulls **`huggingface_hub`** so **`models fetch`** tests that stub the Hub run without **`uv sync --extra download`**. End users who only install **`[download]`** still get **`huggingface_hub`** for **`type`: `huggingface`** recipe sources.
+
 Integration-style gRPC tests may skip without a live server; see [tests/README.md](tests/README.md) (ephemeral `gRPCServerCLI` via `DTS_GRPC_TEST_SPAWN_SERVER`) and [PROTOBUF.md](PROTOBUF.md#grpc-integration-tests).
 
 ### Pytest markers

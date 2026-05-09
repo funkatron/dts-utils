@@ -9,7 +9,7 @@ uv run pytest
 
 Some tests are **skipped** (integration / optional): see [gRPC integration tests](../PROTOBUF.md#grpc-integration-tests) in `PROTOBUF.md` for why, and for the **maintainer playbook**—ephemeral ports, in-process fakes vs optional real `gRPCServerCLI`, and keeping tests aligned when Draw Things updates the wire protocol.
 
-**`models fetch`** tests exercise bundled JSON and CLI parsing only (no network downloads). Optional **`@pytest.mark.integration`** **`models fetch`** smoke may appear guarded by **`DTS_UTILS_FETCH_INTEGRATION=1`** — unset means skip.
+**`models fetch`** tests exercise bundled JSON and CLI parsing only (no network downloads). Maintainer backlog and phased work: [models-fetch-roadmap.md](../docs/models-fetch-roadmap.md). Optional **`@pytest.mark.integration`** **`models fetch`** smoke may appear guarded by **`DTS_UTILS_FETCH_INTEGRATION=1`** — unset means skip.
 
 ---
 

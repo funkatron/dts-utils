@@ -12,6 +12,7 @@
 | --- | --- |
 | Install server, first PNG, common failures | [README.md](../README.md) |
 | Clean Mac → **`gRPCServerCLI`** + Z Image Turbo (community-models) | [setup-clean-install-z-image-turbo.md](setup-clean-install-z-image-turbo.md) |
+| Install + **`generate`** smoke (SD 1.5‑class, SDXL, Z‑Turbo, LTX‑2.3 distilled) | [smoke-multi-model-demo.md](smoke-multi-model-demo.md) |
 | Subcommands, shorthand, environment variables, **web UI** | [CLI.md](../CLI.md) |
 | gRPC messages and streaming | [DRAW-THINGS-GRPC-API.md](../DRAW-THINGS-GRPC-API.md) |
 | Protobuf, FlatBuffers, integration tests | [PROTOBUF.md](../PROTOBUF.md) |

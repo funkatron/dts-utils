@@ -33,6 +33,16 @@ def test_resolve_configuration_value_finds_named_json_config(tmp_path):
     assert configs.resolve_configuration_value("portrait.json", config_dir=config_dir) == saved_path
 
 
+def test_resolve_configuration_value_finds_dotted_stem_json_config(tmp_path):
+    """Stems with dotted versions must resolve (pathlib ``suffix`` is not ``.json``)."""
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    saved_path = config_dir / "dreamshaper-v6.31.json"
+    saved_path.write_text("{}", encoding="utf-8")
+
+    assert configs.resolve_configuration_value("dreamshaper-v6.31", config_dir=config_dir) == saved_path
+
+
 def test_resolve_configuration_value_rejects_missing_raw_path(tmp_path):
     """Verify missing non-JSON paths are treated as missing raw config files."""
     with pytest.raises(ValueError, match="Configuration file not found"):

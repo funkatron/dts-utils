@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -318,6 +319,124 @@ def test_https_sources_try_next_on_failure(monkeypatch, tmp_path: Path):
     _download_first_working_source(art, dest)
     assert dest.read_bytes() == b"ok-bytes"
     assert len(urls) == 2
+
+
+def test_download_first_huggingface_source(monkeypatch, tmp_path: Path) -> None:
+    cached = tmp_path / "hub_cache.bin"
+    cached.write_bytes(b"hf-bytes")
+    art = {
+        "filename": "out.ckpt",
+        "sources": [
+            {"type": "huggingface", "repo_id": "org/repo", "path_in_repo": "weights/x.bin"},
+        ],
+    }
+
+    def fake_hf(**kwargs: object) -> Path:
+        assert kwargs["repo_id"] == "org/repo"
+        assert kwargs["path_in_repo"] == "weights/x.bin"
+        assert kwargs["revision"] is None
+        return cached
+
+    monkeypatch.setattr("dts_utils.model_fetch.runner.download_hf_file", fake_hf)
+    dest = tmp_path / "out.ckpt"
+    _download_first_working_source(art, dest)
+    assert dest.read_bytes() == b"hf-bytes"
+
+
+def test_run_fetch_plan_https_then_sha_verify_ok(monkeypatch, tmp_path: Path) -> None:
+    blob = b"artifact-bytes-for-fetch-plan"
+    digest = hashlib.sha256(blob).hexdigest()
+    fake_recipe = {
+        "id": "stub-recipe",
+        "artifacts": [
+            {
+                "filename": "model.ckpt",
+                "sha256": digest,
+                "sources": [{"type": "https", "url": "https://example.com/weights.ckpt"}],
+            },
+        ],
+    }
+    monkeypatch.setattr(
+        "dts_utils.model_fetch.runner.load_recipe_dict",
+        lambda _rid: fake_recipe,
+    )
+    monkeypatch.setattr(
+        "dts_utils.model_fetch.runner.download_bytes_https",
+        lambda url: blob if "example.com" in url else b"",
+    )
+    rc = run_fetch_plan(
+        recipe_id="stub-recipe",
+        model_dir=tmp_path,
+        dry_run=False,
+        yes=True,
+        force=False,
+    )
+    assert rc == 0
+    assert (tmp_path / "model.ckpt").read_bytes() == blob
+
+
+def test_run_fetch_plan_huggingface_then_size_verify_ok(monkeypatch, tmp_path: Path) -> None:
+    blob = b"x" * 17
+    cached = tmp_path / "cached-from-hub"
+    cached.write_bytes(blob)
+    fake_recipe = {
+        "artifacts": [
+            {
+                "filename": "w.ckpt",
+                "expected_size_bytes": len(blob),
+                "sources": [
+                    {"type": "huggingface", "repo_id": "a/b", "path_in_repo": "f.bin"},
+                ],
+            },
+        ],
+    }
+    monkeypatch.setattr(
+        "dts_utils.model_fetch.runner.load_recipe_dict",
+        lambda _rid: fake_recipe,
+    )
+    monkeypatch.setattr(
+        "dts_utils.model_fetch.runner.download_hf_file",
+        lambda **kw: cached,
+    )
+    out_dir = tmp_path / "models"
+    rc = run_fetch_plan(
+        recipe_id="any",
+        model_dir=out_dir,
+        dry_run=False,
+        yes=True,
+        force=False,
+    )
+    assert rc == 0
+    assert (out_dir / "w.ckpt").read_bytes() == blob
+
+
+def test_normalize_artifacts_rejects_negative_expected_size() -> None:
+    with pytest.raises(FetchRecipeError, match="expected_size_bytes"):
+        _normalize_artifacts(
+            {
+                "artifacts": [
+                    {"filename": "a.bin", "sources": [], "expected_size_bytes": -1},
+                ],
+            },
+        )
+
+
+def test_normalize_artifacts_rejects_non_int_expected_size() -> None:
+    with pytest.raises(FetchRecipeError, match="expected_size_bytes"):
+        _normalize_artifacts(
+            {
+                "artifacts": [
+                    {"filename": "a.bin", "sources": [], "expected_size_bytes": "99"},
+                ],
+            },
+        )
+
+
+def test_models_fetch_unknown_recipe_exit_2(capsys: pytest.CaptureFixture[str]) -> None:
+    rc = models_main(["fetch", "--dry-run", "not-a-bundled-recipe-id"])
+    assert rc == 2
+    err = capsys.readouterr().err.lower()
+    assert "recipe" in err
 
 
 @pytest.mark.integration

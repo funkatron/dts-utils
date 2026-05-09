@@ -52,6 +52,7 @@ Example snippet for the next release:
 - **`dts-util web`:** Generation **history** persists **`configuration`** (same saved-profile value as **`POST /api/generate`**) with each PNG batch; History rows show it in the subtitle, and **Reuse** restores profile (dropdown or custom field), **runs**, and **negative prompt** with the prompt for a consistent redo.
 - **`dts-utils` shorthand / web:** Implicit saved profile is **`default`** (**`default.json`** under `configs path`). Legacy **`zit.json`** there is renamed to **`default.json`** when **`default.json`** is missing. **`os.environ.setdefault("DTS_UTILS_DEFAULT_CONFIGURATION", "default")`** after materialization.
 - **`dts-utils models fetch`:** **`--from-metadata`** **`--manifest`** defaults to compact stdout (**basename + `converted` SHA**) with URL hints once on **`stderr`**; **`--manifest-wide`** restores four-column rows. Recipe artifacts support optional **`expected_size_bytes`** when **`sha256`** is omitted. Skeleton recipes print **`stderr`** guidance pointing at **`docs/models-fetch-roadmap.md`**; **`--dry-run`** notes reference the same roadmap.
+- **`generate_api` / web `/api/generate`:** `{…}` prompt templates are expanded **before** loading generation configuration (saved JSON / **`flatc`**), so invalid wildcards return **400** with the wildcard error even when **`flatc`** is not installed.
 
 ### Added
 

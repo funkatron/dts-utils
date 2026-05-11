@@ -77,7 +77,7 @@ message ImageGenerationResponse {
 }
 ```
 
-`generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-utils generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output.
+`generatedImages` are Draw Things tensor bytes, not PNG files. The `dts-utils generate` client decodes those tensors with `fpzip`, `numpy`, and `Pillow`, then writes PNG output. Some `gRPCServerCLI` builds stream progress in `previewImage` and leave `generatedImages` empty; in that case `dts-utils` uses the **largest** streamed `previewImage` payload that successfully decodes as the same tensor format.
 
 ## Examples (dts-utils)
 

@@ -404,6 +404,7 @@ uv run dts-utils server uninstall
 | `DTS_WEB_TOKEN` | When set, `dts-utils web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
 | `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Optional override for **`dts-utils models fetch`** when **`RECIPE_ID`** is omitted (otherwise **`registry.json`** **`default_recipe_id`**). |
+| `DTS_GRPC_GENERATE_DEBUG` | When set to **`1`** / **`true`** / **`yes`** / **`on`**, **`GenerateImage`** logs one **stderr** summary line per streamed response (field **counts** only). See [PROTOBUF.md § Debugging](PROTOBUF.md#debugging-generateimage-streams). |
 | `HF_TOKEN` | Optional Hugging Face token when using **`huggingface`** recipe sources (**`uv sync --extra download`**). |
 
 `DRAW_THINGS_MODEL_PATH` example:

@@ -56,6 +56,8 @@ Example snippet for the next release:
 
 ### Added
 
+- **`GenerateImage`:** when the server never fills **`generatedImages`** but sends decodable tensor data in **`previewImage`** (seen on some **`gRPCServerCLI`** builds), **`dts-utils`** falls back to the **largest** preview payload that decodes like a Draw Things tensor. See [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md#image-generation-contract).
+- **`DTS_GRPC_GENERATE_DEBUG`:** when set (**`1`** / **`true`** / **`yes`** / **`on`**), each streamed **`GenerateImage`** response logs one **stderr** line with field **counts** (for example **`generatedImages`** vs **`previewImage`** vs **`remoteDownload`**). Documented in [PROTOBUF.md](PROTOBUF.md#debugging-generateimage-streams) and [CLI.md](CLI.md#environment-variables); use with **`GRPC_VERBOSITY`** / **`GRPC_TRACE`** for grpcio low-level tracing.
 - **`dts_utils.configuration_build.configurations_equivalent_for_flatbuffer`:** returns whether two JSON configs normalize to the same **`flatc`** input (aliases, dropped empties, dimensions, `_dts_utils*` stripping); also bound on **`dts_utils.generate`** for callers/tests.
 - **`dts-utils configs import-draw-things`:** Import Draw Things **Local** presets (`custom_configs.json` → **`NAME.json`** for **`generate --configuration`**, copied as-is — validate if **`flatc`** rejects fields). **`--mirror-app-json`** copies **`Models/custom*.json`** and related app JSON into **`draw-things-app/`** only (not **`--configuration`** targets).
 - **`dts-utils configs scaffold-from-metadata`:** Create starter saved profile JSON from **`community-models`** **`metadata.json`** (checkpoint name plus optional **note**-based size/step guesses). **`--scan DIR`** walks the tree and writes one profile per eligible local model (`apis/` skipped). Skips remote/API-only models. **`--limit`**, **`--verbose`**, **`--dry-run`**, **`--force`** apply to batch mode as documented in [CLI.md](CLI.md).
@@ -68,6 +70,9 @@ Example snippet for the next release:
 ### Fixed
 
 - **`configs` / `generate`:** Saved profile names with dotted version segments (for example **`dreamshaper-v6.31`**, **`z-image-turbo-1.0-exact`**) resolve correctly to **`*.json`** — pathlib treated the last segment as a file extension and blocked lookup before.
+- **JSON → FlatBuffer:** **`guidingFrameNoise`** in Draw Things JSON maps to **`guiding_frame_noise`** and **`config.fbs`** includes the field so **`flatc`** does not fail with **`unknown field: guidingFrameNoise`**.
+- **JSON → FlatBuffer:** **`motionScale`** in Draw Things JSON maps to **`motion_scale`** and **`config.fbs`** includes the field so **`flatc`** does not fail with **`unknown field: motionScale`**.
+- **JSON → FlatBuffer:** **`stage2Guidance`** in Draw Things JSON maps to **`stage_2_guidance`** and **`config.fbs`** includes the field so **`flatc`** does not fail with **`unknown field: stage2Guidance`**.
 - **JSON → FlatBuffer:** **`fps`** in Draw Things JSON maps to **`fps_id`** so **`flatc`** does not fail with **`unknown field: fps`**.
 - **JSON → FlatBuffer:** **`compressionArtifacts": "disabled"`** (Draw Things export style) maps to enum **`Disabled`** so **`flatc`** accepts configs that previously failed with **`unknown enum value: disabled`**.
 - **`dts-util web`:** Closed image viewer `<dialog>` no longer covered the page and swallowed clicks (fullscreen flex layout is scoped to `[open]` only).

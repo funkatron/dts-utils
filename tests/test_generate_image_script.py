@@ -307,6 +307,33 @@ def test_normalize_configuration_for_flatc_maps_draw_things_json():
     }
 
 
+def test_normalize_maps_guiding_frame_noise_alias():
+    """Draw Things exports guidingFrameNoise; flatc expects guiding_frame_noise (config.fbs)."""
+    module = load_generate_image_module()
+    out = module.normalize_configuration_for_flatc(
+        {"model": "x.ckpt", "guidingFrameNoise": 0.12},
+    )
+    assert out == {"model": "x.ckpt", "guiding_frame_noise": 0.12}
+
+
+def test_normalize_maps_motion_scale_alias():
+    """Draw Things exports motionScale; flatc expects motion_scale (config.fbs)."""
+    module = load_generate_image_module()
+    out = module.normalize_configuration_for_flatc(
+        {"model": "x.ckpt", "motionScale": 1.25},
+    )
+    assert out == {"model": "x.ckpt", "motion_scale": 1.25}
+
+
+def test_normalize_maps_stage2_guidance_alias():
+    """Draw Things exports stage2Guidance; flatc expects stage_2_guidance (config.fbs)."""
+    module = load_generate_image_module()
+    out = module.normalize_configuration_for_flatc(
+        {"model": "x.ckpt", "stage2Guidance": 2.0},
+    )
+    assert out == {"model": "x.ckpt", "stage_2_guidance": 2.0}
+
+
 def test_normalize_compression_artifacts_enum_lowercase():
     """Draw Things exports compressionArtifacts as lowercase; flatc expects CompressionMethod labels."""
     module = load_generate_image_module()

@@ -74,6 +74,33 @@ message ImageGenerationResponse {
 
 `generatedImages` contains Draw Things tensor bytes. The helper script decodes those bytes to PNG using `fpzip`, `numpy`, and `Pillow`.
 
+## Debugging `GenerateImage` streams
+
+### Per-message summary (`DTS_GRPC_GENERATE_DEBUG`)
+
+When generation finishes with **no images** (library: `GenerationEmptyError`; UI: “No generated images returned by the server”), set:
+
+```bash
+export DTS_GRPC_GENERATE_DEBUG=1
+uv run dts-utils generate …   # or run `dts-utils web` and generate from the UI
+```
+
+Each streamed `ImageGenerationResponse` prints one **stderr** line with **counts only** (for example `generatedImages_count`, `previewImage_bytes`, `chunkState`, `signposts_count`, and `remoteDownload` progress when present). Raw tensor or preview bytes are **not** logged. This answers whether the server filled **`generatedImages`** or only **`previewImage`** / signposts / download progress.
+
+### gRPC / grpcio tracing (`GRPC_VERBOSITY`, `GRPC_TRACE`)
+
+The Python client uses **grpcio** (C core). For low-level channel and call tracing (not decoded protobuf fields), see the upstream [gRPC environment variables](https://github.com/grpc/grpc/blob/master/doc/environment_variables.md) documentation.
+
+Example (very noisy):
+
+```bash
+export GRPC_VERBOSITY=debug
+export GRPC_TRACE=api,call_error,connectivity_state,http
+uv run dts-utils generate --prompt "test" --configuration-json … …
+```
+
+For “empty **`generatedImages`** but something else on the wire,” start with **`DTS_GRPC_GENERATE_DEBUG`**; use **`GRPC_TRACE`** when you need TLS, connectivity, or RPC framing detail.
+
 ## FlatBuffer Configuration
 
 The root FlatBuffer type is `GenerationConfiguration` in `src/dts_utils/grpc/proto/upstream/config.fbs`.

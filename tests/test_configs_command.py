@@ -345,7 +345,7 @@ def test_configs_scaffold_rejects_scan_and_metadata_together(tmp_path: Path) -> 
     assert rc == 2
 
 
-def test_configs_import_draw_things_writes_profiles(tmp_path: Path) -> None:
+def test_configs_import_draw_things_writes_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     src = tmp_path / "custom_configs.json"
     src.write_text(
         json.dumps(
@@ -359,7 +359,9 @@ def test_configs_import_draw_things_writes_profiles(tmp_path: Path) -> None:
     )
     out = tmp_path / "cfgs"
     rc = configs.main(["import-draw-things", "--source", str(src), "--directory", str(out)])
+    captured = capsys.readouterr()
     assert rc == 0
+    assert "Imported presets may not work immediately" in captured.err
     assert json.loads((out / "Alpha.json").read_text())["model"] == "a.ckpt"
     assert (out / "Same.json").is_file()
     assert (out / "Same-2.json").is_file()

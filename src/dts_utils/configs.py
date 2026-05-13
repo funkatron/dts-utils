@@ -446,7 +446,8 @@ def import_draw_things_saved_configs(
         out_dir.mkdir(parents=True, exist_ok=True)
 
     print(
-        "Preset JSON is copied from Draw Things as-is — validate with generate; simplify fields if flatc errors.",
+        "Preset JSON is copied from Draw Things as-is. Imported presets may not work immediately: "
+        "validate each with generate, then simplify fields if flatc errors.",
         file=sys.stderr,
     )
 
@@ -616,7 +617,8 @@ def build_parser() -> argparse.ArgumentParser:
         "import-draw-things",
         help=(
             "Import Draw Things Local configurations from the macOS app sandbox "
-            "(Models/custom_configs.json) into separate saved JSON profiles."
+            "(Models/custom_configs.json) into separate saved JSON profiles. "
+            "Imported profiles are a starting point and may require edits before generate succeeds."
         ),
     )
     import_dt_parser.add_argument(

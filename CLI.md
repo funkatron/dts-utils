@@ -151,6 +151,9 @@ Inspect the cloned **`drawthingsai/community-models`** index locally (`build`, `
 ```bash
 uv run dts-utils models fetch --dry-run
 uv run dts-utils models fetch RECIPE_ID --yes --model-dir /path/to/Models
+uv run dts-utils models fetch sdxl-turbo --dry-run
+uv run dts-utils models fetch z-image-turbo-1.0-exact --yes
+uv run dts-utils models fetch ltx-2.3-22b-distilled-exact --yes
 uv run dts-utils models fetch --from-metadata ~/.cache/community-models/models/SOME_MODEL/metadata.json
 uv run dts-utils models fetch --from-metadata "$META" --manifest          # stdout: basename + SHA; stderr: URL hints once
 uv run dts-utils models fetch --from-metadata "$META" --manifest --manifest-wide   # legacy four-column stdout rows
@@ -167,7 +170,7 @@ uv run dts-utils models fetch --from-metadata "$META" --manifest --manifest-wide
 - **Bundled recipe artifacts** may set **`sha256`** (mandatory verify after download when present), optional **`expected_size_bytes`** when **`sha256`** is omitted (exact-size skip + verify after download), and **`sources`** (HTTPS / Hugging Face entries). Maintainer phases and backlog: **[docs/models-fetch-roadmap.md](docs/models-fetch-roadmap.md)**.
 - **`--from-metadata PATH`:** Prints Draw Things basenames using the same rules as **`models`** status / index helpers (parity with **`_expected_file_names`**). **`--manifest`** prints each row as **basename**, then a tab, then **`converted`** SHA when known; **`huggingface_repo_id`** and **`download_url`** print once on **`stderr`** as **`# fetch-manifest-hints`**. **`--manifest-wide`** repeats the URL columns on every stdout row (legacy scripting).
 
-Bundled recipe JSON lives under **`dts_utils/model_fetch/recipe_files/`** in the repository; **`sources`** may be empty until maintainers add verified **`https://`** or Hugging Face entries (see roadmap doc).
+Bundled recipe JSON lives under **`dts_utils/model_fetch/recipe_files/`** in the repository. Current source-backed smoke recipes are **`sdxl-turbo`**, **`z-image-turbo-1.0-exact`**, and **`ltx-2.3-22b-distilled-exact`** (see roadmap for additional presets).
 
 ### configs
 

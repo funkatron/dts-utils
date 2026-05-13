@@ -21,7 +21,9 @@ Operator-facing behavior stays in [CLI.md](../CLI.md) and [setup-clean-install-z
 
 ## Phase A — Verified sources for reference recipes
 
-**Goal:** Ship non-empty `sources` for **`z-image-turbo-1.0-exact`** (and future presets) only after **manual** confirmation that each `repo_id` + optional `revision` + `path_in_repo` (or direct `https://`) resolves to the **Draw Things–compatible** blob matching community filenames / hashes.
+**Status:** Landed for smoke targets **`sdxl-turbo`**, **`z-image-turbo-1.0-exact`**, and **`ltx-2.3-22b-distilled-exact`** via bundled recipe sources.
+
+**Goal:** Expand source-backed coverage beyond those smoke presets only after **manual** confirmation that each source resolves to the **Draw Things–compatible** blob matching community filenames / hashes.
 
 **Acceptance**
 

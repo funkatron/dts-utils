@@ -14,6 +14,7 @@ from dts_utils.model_fetch.download import verify_sha_required
 from dts_utils.model_fetch.download import verify_size_required
 from dts_utils.model_fetch.errors import FetchRecipeError
 from dts_utils.model_fetch.recipes import DEFAULT_FETCH_RECIPE_ENV
+from dts_utils.model_fetch.recipes import load_recipe_dict
 from dts_utils.model_fetch.recipes import resolve_default_recipe_id
 from dts_utils.model_fetch.runner import _artifact_satisfied
 from dts_utils.model_fetch.runner import _download_first_working_source
@@ -191,9 +192,22 @@ def test_manifest_wide_requires_manifest_flag():
     assert rc == 2
 
 
-def test_run_fetch_plan_yes_skeleton_stderr_lists_roadmap(tmp_path: Path, capsys):
+def test_run_fetch_plan_yes_skeleton_stderr_lists_roadmap(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+):
+    monkeypatch.setattr(
+        "dts_utils.model_fetch.runner.load_recipe_dict",
+        lambda _rid: {
+            "id": "skeleton",
+            "artifacts": [
+                {"filename": "missing.ckpt", "sources": []},
+            ],
+        },
+    )
     rc = run_fetch_plan(
-        recipe_id="z-image-turbo-1.0-exact",
+        recipe_id="skeleton",
         model_dir=tmp_path,
         dry_run=False,
         yes=True,
@@ -212,6 +226,19 @@ def test_normalize_artifacts_expected_size_bytes():
         },
     )
     assert arts[0]["expected_size_bytes"] == 42
+
+
+@pytest.mark.parametrize(
+    "recipe_id",
+    ["sdxl-turbo", "z-image-turbo-1.0-exact", "ltx-2.3-22b-distilled-exact"],
+)
+def test_targeted_smoke_recipes_have_download_sources(recipe_id: str) -> None:
+    recipe = load_recipe_dict(recipe_id)
+    arts = _normalize_artifacts(recipe)
+    assert arts, "recipe must include artifacts"
+    for art in arts:
+        assert art["sources"], f"{recipe_id}:{art['filename']} missing sources"
+        assert art["sha256"] or art["expected_size_bytes"] is not None
 
 
 def test_normalize_artifacts_rejects_bool_expected_size():

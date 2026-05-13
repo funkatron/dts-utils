@@ -1,0 +1,56 @@
+{
+  "id": "ltx-2.3-22b-distilled-exact",
+  "description": "LTX-2.3 22B [distilled] (Exact) — Draw Things-compatible .ckpt basenames from community metadata plus required upscaler/autoencoder dependencies. Uses static.libnnc.org converted artifacts. SHA-256 is pinned where metadata publishes it; expected_size_bytes is used for dependencies without published SHA in metadata.",
+  "artifacts": [
+    {
+      "filename": "ltx_2.3_22b_distilled_f16.ckpt",
+      "sha256": "d8a81d00047d0d768c581f9b6d3aad9c6bae92cd4872d35dc356a641db3c8c4c",
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/ltx_2.3_22b_distilled_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "gemma_3_12b_it_qat_f16.ckpt",
+      "sha256": "ad6bf339f8d54153aa5a64770f85303d21c4d95d6c188f1fa8725b7d4b6bc715",
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/gemma_3_12b_it_qat_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "ltx_2.3_audio_video_vae_f16.ckpt",
+      "expected_size_bytes": 1820950528,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/ltx_2.3_audio_video_vae_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "ltx_2.3_spatial_upscaler_x2_1.1_f16.ckpt",
+      "expected_size_bytes": 998080512,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/ltx_2.3_spatial_upscaler_x2_1.1_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "ltx_2.3_spatial_upscaler_x1.5_f16.ckpt",
+      "expected_size_bytes": 1092734976,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/ltx_2.3_spatial_upscaler_x1.5_f16.ckpt"
+        }
+      ]
+    }
+  ]
+}

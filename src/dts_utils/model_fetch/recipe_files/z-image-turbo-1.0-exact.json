@@ -1,20 +1,36 @@
 {
   "id": "z-image-turbo-1.0-exact",
-  "description": "Z Image Turbo 1.0 (Exact) — filenames and SHA-256 from drawthingsai/community-models metadata. Sources are empty until maintainer-verified https:// or huggingface entries exist (HF Tongyi repos ship diffusers layouts, not Draw Things ckpt exports). Install via Draw Things Community or extend this recipe.",
+  "description": "Z Image Turbo 1.0 (Exact) — Draw Things-compatible .ckpt basenames. Sources point at static.libnnc.org converted artifacts. SHA-256 is from drawthingsai/community-models metadata when available; otherwise expected_size_bytes is used until upstream publishes SHA.",
   "artifacts": [
     {
       "filename": "z_image_turbo_1.0_f16.ckpt",
       "sha256": "6d90c3f0342410a747396ae7b7dedfb03caa4621ee426744793fc57e60766c52",
-      "sources": []
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/z_image_turbo_1.0_f16.ckpt"
+        }
+      ]
     },
     {
       "filename": "qwen_3_vl_4b_instruct_f16.ckpt",
       "sha256": "7ba2e5a8714f228bb12d2765779040bb20bc19764d0173d8daab952458f09c8a",
-      "sources": []
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/qwen_3_vl_4b_instruct_f16.ckpt"
+        }
+      ]
     },
     {
       "filename": "flux_1_vae_f16.ckpt",
-      "sources": []
+      "expected_size_bytes": 167870464,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/flux_1_vae_f16.ckpt"
+        }
+      ]
     }
   ]
 }

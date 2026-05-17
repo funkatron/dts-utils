@@ -15,6 +15,7 @@
 | Subcommands, shorthand, environment variables, **web UI** | [CLI.md](../CLI.md) |
 | gRPC messages and streaming | [DRAW-THINGS-GRPC-API.md](../DRAW-THINGS-GRPC-API.md) |
 | Protobuf, FlatBuffers, integration tests | [PROTOBUF.md](../PROTOBUF.md) |
+| Apple-first pipeline runtime notes (`dts_utils.pipeline`) | [apple-infomux-pipeline-ops.md](apple-infomux-pipeline-ops.md) |
 | Pytest and release smoke | [tests/README.md](../tests/README.md) |
 | Release history | [CHANGELOG.md](../CHANGELOG.md) |
 | Contributing or agent automation | [AGENTS.md](../AGENTS.md) |

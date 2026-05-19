@@ -109,14 +109,16 @@ def prepare_image_generation_request(
     gen: ImageGenerationRequestOptions,
 ) -> tuple[up_pb2.ImageGenerationRequest, str, str]:
     """Build the gRPC request and return expanded prompt strings (same values set on *request*)."""
+    # Expand `{…}` templates before configuration I/O so invalid templates fail fast (e.g. HTTP 400)
+    # even when `flatc` or saved JSON is unavailable — matches `/api/prompt/expand` semantics.
+    prompt_expanded = expand_prompt_wildcards(gen.prompt)
+    neg_raw = gen.negative_prompt or ""
+    negative_expanded = expand_prompt_wildcards(neg_raw) if neg_raw.strip() else ""
     configuration = read_configuration_bytes(
         configuration=gen.configuration,
         configuration_json=gen.configuration_json,
         config_dir=gen.config_dir,
     )
-    prompt_expanded = expand_prompt_wildcards(gen.prompt)
-    neg_raw = gen.negative_prompt or ""
-    negative_expanded = expand_prompt_wildcards(neg_raw) if neg_raw.strip() else ""
     request = up_pb2.ImageGenerationRequest(
         prompt=prompt_expanded,
         negativePrompt=negative_expanded,

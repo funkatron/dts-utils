@@ -68,3 +68,30 @@ def test_flatc_accepts_json_with_fps_alias() -> None:
     blob = json_configuration_to_flatbuffer(cfg)
     assert isinstance(blob, bytes)
     assert len(blob) >= 32
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_flatc_accepts_guiding_frame_noise_from_draw_things_camel_case() -> None:
+    """Regression: Draw Things exports ``guidingFrameNoise``; schema field is ``guiding_frame_noise``."""
+    cfg = {**_MINIMAL_DRAW_THINGS_STYLE, "guidingFrameNoise": 0.05}
+    blob = json_configuration_to_flatbuffer(cfg)
+    assert isinstance(blob, bytes)
+    assert len(blob) >= 32
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_flatc_accepts_motion_scale_from_draw_things_camel_case() -> None:
+    """Regression: Draw Things exports ``motionScale``; schema field is ``motion_scale``."""
+    cfg = {**_MINIMAL_DRAW_THINGS_STYLE, "motionScale": 1.5}
+    blob = json_configuration_to_flatbuffer(cfg)
+    assert isinstance(blob, bytes)
+    assert len(blob) >= 32
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_flatc_accepts_stage2_guidance_from_draw_things_camel_case() -> None:
+    """Regression: Draw Things exports ``stage2Guidance``; schema field is ``stage_2_guidance``."""
+    cfg = {**_MINIMAL_DRAW_THINGS_STYLE, "stage2Guidance": 3.0}
+    blob = json_configuration_to_flatbuffer(cfg)
+    assert isinstance(blob, bytes)
+    assert len(blob) >= 32

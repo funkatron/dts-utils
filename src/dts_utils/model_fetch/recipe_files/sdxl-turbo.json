@@ -1,0 +1,56 @@
+{
+  "id": "sdxl-turbo",
+  "description": "SDXL Turbo — Draw Things-compatible .ckpt basenames from community metadata/builtin expectations. Uses static.libnnc.org converted artifacts. SHA-256 is pinned where community metadata provides it; expected_size_bytes is used for builtin dependencies without published SHA in metadata.",
+  "artifacts": [
+    {
+      "filename": "sd_xl_turbo_f16.ckpt",
+      "sha256": "c85ea750f1ff5d17c032465c07f854eaf5f1551e27bd85dbe9c2d1025a41e004",
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/sd_xl_turbo_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "sd_xl_turbo_q6p_q8p.ckpt",
+      "sha256": "a8072ace4eb3d6590db8abe8fda6c0c22f4c3e68efb86f0e58a27dc4f68731ef",
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/sd_xl_turbo_q6p_q8p.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "sdxl_vae_v1.0_f16.ckpt",
+      "expected_size_bytes": 167534592,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/sdxl_vae_v1.0_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "open_clip_vit_bigg14_f16.ckpt",
+      "expected_size_bytes": 1391304704,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/open_clip_vit_bigg14_f16.ckpt"
+        }
+      ]
+    },
+    {
+      "filename": "clip_vit_l14_f16.ckpt",
+      "expected_size_bytes": 246517760,
+      "sources": [
+        {
+          "type": "https",
+          "url": "https://static.libnnc.org/clip_vit_l14_f16.ckpt"
+        }
+      ]
+    }
+  ]
+}

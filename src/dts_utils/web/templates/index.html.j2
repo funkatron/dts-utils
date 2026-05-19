@@ -1127,17 +1127,22 @@ uv run dts-utils server check</pre>
         return;
       }
       const defaultProfile = j.default_profile || "default";
+      const pipelineProfiles = Array.isArray(j.pipeline_profiles) ? j.pipeline_profiles : [];
+      const preferredPipelineDefault = "sdxl-turbo";
+      const uiDefaultProfile = pipelineProfiles.includes(preferredPipelineDefault)
+        ? preferredPipelineDefault
+        : defaultProfile;
       const rawNames = j.names;
       const nameList = Array.isArray(rawNames) ? rawNames : [];
       if (rawNames != null && !Array.isArray(rawNames)) {
         console.warn("loadConfigs: expected names array, got", typeof rawNames, rawNames);
       }
-      const names = [...new Set([...nameList, defaultProfile])].sort();
+      const names = [...new Set([...pipelineProfiles, ...nameList, defaultProfile])].sort();
       for (const n of names) {
         const o = document.createElement("option");
         o.value = n;
         o.textContent = n;
-        if (n === defaultProfile) o.selected = true;
+        if (n === uiDefaultProfile) o.selected = true;
         sel.appendChild(o);
       }
     } catch (e) {

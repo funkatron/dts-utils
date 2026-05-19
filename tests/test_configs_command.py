@@ -33,6 +33,16 @@ def test_resolve_configuration_value_finds_named_json_config(tmp_path):
     assert configs.resolve_configuration_value("portrait.json", config_dir=config_dir) == saved_path
 
 
+def test_resolve_configuration_value_finds_dotted_stem_json_config(tmp_path):
+    """Stems with dotted versions must resolve (pathlib ``suffix`` is not ``.json``)."""
+    config_dir = tmp_path / "configs"
+    config_dir.mkdir()
+    saved_path = config_dir / "dreamshaper-v6.31.json"
+    saved_path.write_text("{}", encoding="utf-8")
+
+    assert configs.resolve_configuration_value("dreamshaper-v6.31", config_dir=config_dir) == saved_path
+
+
 def test_resolve_configuration_value_rejects_missing_raw_path(tmp_path):
     """Verify missing non-JSON paths are treated as missing raw config files."""
     with pytest.raises(ValueError, match="Configuration file not found"):
@@ -335,7 +345,7 @@ def test_configs_scaffold_rejects_scan_and_metadata_together(tmp_path: Path) -> 
     assert rc == 2
 
 
-def test_configs_import_draw_things_writes_profiles(tmp_path: Path) -> None:
+def test_configs_import_draw_things_writes_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     src = tmp_path / "custom_configs.json"
     src.write_text(
         json.dumps(
@@ -349,7 +359,9 @@ def test_configs_import_draw_things_writes_profiles(tmp_path: Path) -> None:
     )
     out = tmp_path / "cfgs"
     rc = configs.main(["import-draw-things", "--source", str(src), "--directory", str(out)])
+    captured = capsys.readouterr()
     assert rc == 0
+    assert "Imported presets may not work immediately" in captured.err
     assert json.loads((out / "Alpha.json").read_text())["model"] == "a.ckpt"
     assert (out / "Same.json").is_file()
     assert (out / "Same-2.json").is_file()

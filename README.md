@@ -203,6 +203,7 @@ Local index over public Draw Things community-model metadata. No `GenerateImage`
 
 ```bash
 uv run dts-utils models build              # clone/update metadata, build local tables
+uv run dts-utils models fetch --dry-run    # bundled recipe plan (roadmap: docs/models-fetch-roadmap.md)
 uv run dts-utils models search flux
 uv run dts-utils models search sdxl anime
 uv run dts-utils models search --family Flux --has-hf

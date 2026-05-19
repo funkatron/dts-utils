@@ -7,9 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from dts_utils.model_fetch.download import (
-    atomic_write_bytes,
     copy_hf_download_to_dest,
-    download_bytes_https,
+    download_https_to_dest,
     download_hf_file,
     sha256_file,
     verify_sha_required,
@@ -93,7 +92,13 @@ def _artifact_satisfied(
         return False
 
 
-def _download_first_working_source(art: dict[str, Any], dest: Path) -> None:
+def _download_first_working_source(
+    art: dict[str, Any],
+    dest: Path,
+    *,
+    expected_sha: str | None,
+    expected_size: int | None,
+) -> None:
     sources: list[dict[str, Any]] = art["sources"]
     errors: list[str] = []
     for src in sources:
@@ -103,10 +108,8 @@ def _download_first_working_source(art: dict[str, Any], dest: Path) -> None:
                 url = src.get("url")
                 if not isinstance(url, str) or not url.strip():
                     raise FetchRecipeError("https source missing url.")
-                data = download_bytes_https(url.strip())
-                atomic_write_bytes(dest, data)
-                return
-            if stype == "huggingface":
+                download_https_to_dest(url=url.strip(), dest=dest)
+            elif stype == "huggingface":
                 repo_id = src.get("repo_id")
                 path_in_repo = src.get("path_in_repo")
                 if not isinstance(repo_id, str) or not repo_id.strip():
@@ -121,9 +124,19 @@ def _download_first_working_source(art: dict[str, Any], dest: Path) -> None:
                     revision=rev,
                 )
                 copy_hf_download_to_dest(cached, dest)
-                return
-            raise FetchRecipeError(f"Unknown source type {stype!r}.")
+            else:
+                raise FetchRecipeError(f"Unknown source type {stype!r}.")
+
+            if expected_sha:
+                verify_sha_required(dest, expected_sha)
+            elif expected_size is not None:
+                verify_size_required(dest, expected_size)
+            return
         except FetchRecipeError as exc:
+            try:
+                dest.unlink(missing_ok=True)
+            except OSError:
+                pass
             errors.append(str(exc))
             continue
     detail = "; ".join(errors) if errors else "no sources"
@@ -213,11 +226,12 @@ def run_fetch_plan(
 
         try:
             print(f"[fetch] {art['filename']} -> {dest}")
-            _download_first_working_source(art, dest)
-            if expected_sha:
-                verify_sha_required(dest, expected_sha)
-            elif expected_size is not None:
-                verify_size_required(dest, expected_size)
+            _download_first_working_source(
+                art,
+                dest,
+                expected_sha=expected_sha,
+                expected_size=expected_size,
+            )
         except FetchRecipeError as exc:
             print(f"[error] {art['filename']}: {exc}", file=sys.stderr)
             failures += 1

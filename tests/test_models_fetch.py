@@ -297,8 +297,8 @@ def test_run_fetch_plan_dry_run_invokes_no_download_backends(monkeypatch):
     calls: list[str] = []
 
     monkeypatch.setattr(
-        "dts_utils.model_fetch.runner.download_bytes_https",
-        lambda url: calls.append(url) or b"",
+        "dts_utils.model_fetch.runner.download_https_to_dest",
+        lambda **kw: calls.append(str(kw.get("url", ""))),
     )
 
     def hf(**_: object) -> Path:
@@ -319,6 +319,7 @@ def test_run_fetch_plan_dry_run_invokes_no_download_backends(monkeypatch):
 
 def test_https_sources_try_next_on_failure(monkeypatch, tmp_path: Path):
     dest = tmp_path / "out.bin"
+    expected_sha = hashlib.sha256(b"ok-bytes").hexdigest()
     art = {
         "filename": "out.bin",
         "sources": [
@@ -328,22 +329,18 @@ def test_https_sources_try_next_on_failure(monkeypatch, tmp_path: Path):
     }
     urls: list[str] = []
 
-    def fake_download(url: str) -> bytes:
+    def fake_download(*, url: str, dest: Path, timeout: float = 600.0, chunk_size: int = 1024 * 1024) -> None:
         urls.append(url)
         if len(urls) == 1:
-            raise FetchRecipeError("404")
-        return b"ok-bytes"
+            dest.write_bytes(b"bad")
+            return
+        dest.write_bytes(b"ok-bytes")
 
     monkeypatch.setattr(
-        "dts_utils.model_fetch.runner.download_bytes_https",
+        "dts_utils.model_fetch.runner.download_https_to_dest",
         fake_download,
     )
-
-    def atomic(dest_path: Path, data: bytes) -> None:
-        dest_path.write_bytes(data)
-
-    monkeypatch.setattr("dts_utils.model_fetch.runner.atomic_write_bytes", atomic)
-    _download_first_working_source(art, dest)
+    _download_first_working_source(art, dest, expected_sha=expected_sha, expected_size=None)
     assert dest.read_bytes() == b"ok-bytes"
     assert len(urls) == 2
 
@@ -366,7 +363,7 @@ def test_download_first_huggingface_source(monkeypatch, tmp_path: Path) -> None:
 
     monkeypatch.setattr("dts_utils.model_fetch.runner.download_hf_file", fake_hf)
     dest = tmp_path / "out.ckpt"
-    _download_first_working_source(art, dest)
+    _download_first_working_source(art, dest, expected_sha=None, expected_size=None)
     assert dest.read_bytes() == b"hf-bytes"
 
 
@@ -388,8 +385,8 @@ def test_run_fetch_plan_https_then_sha_verify_ok(monkeypatch, tmp_path: Path) ->
         lambda _rid: fake_recipe,
     )
     monkeypatch.setattr(
-        "dts_utils.model_fetch.runner.download_bytes_https",
-        lambda url: blob if "example.com" in url else b"",
+        "dts_utils.model_fetch.runner.download_https_to_dest",
+        lambda **kw: kw["dest"].write_bytes(blob),
     )
     rc = run_fetch_plan(
         recipe_id="stub-recipe",

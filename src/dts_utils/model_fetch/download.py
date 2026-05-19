@@ -43,6 +43,47 @@ def download_bytes_https(url: str, *, timeout: float = 600.0) -> bytes:
         raise FetchRecipeError(f"Network error downloading {url!r}: {exc}") from exc
 
 
+def download_https_to_dest(
+    *,
+    url: str,
+    dest: Path,
+    timeout: float = 600.0,
+    chunk_size: int = 1024 * 1024,
+) -> None:
+    """Stream URL bytes to *dest* with TLS verification and atomic replace."""
+    assert_https_url(url)
+    ctx = ssl.create_default_context()
+    request = Request(url, headers={"User-Agent": "dts-utils-models-fetch"})
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(
+        mode="wb",
+        dir=dest.parent,
+        prefix=f".{dest.name}-",
+        suffix=".dts-fetch-tmp",
+        delete=False,
+    ) as tmp:
+        tmp_path = Path(tmp.name)
+    try:
+        try:
+            with urlopen(request, timeout=timeout, context=ctx) as response, tmp_path.open("wb") as handle:
+                while True:
+                    chunk = response.read(chunk_size)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
+        except HTTPError as exc:
+            raise FetchRecipeError(f"HTTP error downloading {url!r}: {exc}") from exc
+        except URLError as exc:
+            raise FetchRecipeError(f"Network error downloading {url!r}: {exc}") from exc
+        tmp_path.replace(dest)
+    finally:
+        if tmp_path.exists():
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+
+
 def download_hf_file(
     *,
     repo_id: str,

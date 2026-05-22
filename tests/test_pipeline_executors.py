@@ -60,3 +60,4 @@ def test_ltx_executor_emits_video_artifact(tmp_path: Path) -> None:
     out = manifest.steps[1]["outputs"][0]
     assert out["kind"] == "video"
     assert Path(out["path"]).suffix == ".mp4"
+    assert manifest.steps[1]["metadata"]["output_meta"]["motion"] == "ken_burns"

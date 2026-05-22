@@ -5,12 +5,20 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from io import BytesIO
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
+from PIL import Image
+
+from dts_utils.generate_api import (
+    GrpcClientOptions,
+    ImageGenerationRequestOptions,
+    generate_png_bytes,
+)
 from dts_utils.pipeline.contracts import ImageRef, VideoRef, run_layout_paths
 
 
@@ -189,3 +197,111 @@ class LtxImageToVideoExecutor(SubprocessExecutor):
             model_sha256=model_sha256,
             backend="ltx-runtime",
         )
+
+
+class DrawThingsPromptTextToImageExecutor(SubprocessExecutor):
+    """Prompt-driven T2I via Draw Things gRPC before I2V."""
+
+    def __init__(
+        self,
+        *,
+        host: str = "localhost",
+        port: int = 7859,
+        no_tls: bool = False,
+        root_cert: Path | None = None,
+        trust_server_cert: bool = False,
+        force_trust_server_cert: bool = False,
+        max_message_mb: int = 64,
+        user: str = "dts-utils",
+        shared_secret: str | None = None,
+    ) -> None:
+        super().__init__(
+            name="drawthings_prompt_text_to_image",
+            step_kind="text_to_image",
+            mode="drawthings_prompt_text_to_image",
+            artifact_basename="image.png",
+            cache_namespace="text_to_image_drawthings_prompt",
+            model_id="drawthings-grpc",
+            model_sha256="n/a",
+            backend="drawthings-grpc",
+        )
+        self.client_opts = GrpcClientOptions(
+            host=host,
+            port=port,
+            no_tls=no_tls,
+            root_cert=root_cert,
+            trust_server_cert=trust_server_cert,
+            force_trust_server_cert=force_trust_server_cert,
+            max_message_mb=max_message_mb,
+        )
+        self.user = user
+        self.shared_secret = shared_secret
+
+    def model_fingerprint(self) -> str:
+        return (
+            f"{self.model_id}:{self.backend}:{self.client_opts.host}:{self.client_opts.port}:"
+            f"{int(self.client_opts.no_tls)}"
+        )
+
+    def execute(
+        self,
+        *,
+        run_root: Path,
+        run_id: str,
+        step_id: str,
+        cache_key: str,
+        request: dict[str, Any],
+        parent_artifact_ids: list[str],
+    ) -> ExecutorResult:
+        prompt = str(request.get("prompt", "")).strip()
+        if not prompt:
+            raise ValueError("prompt is required for drawthings prompt executor")
+        configuration = request.get("configuration")
+        configuration_json = request.get("configuration_json")
+        if not configuration and not configuration_json:
+            raise ValueError("either configuration or configuration_json is required for prompt generation")
+
+        layout = run_layout_paths(run_root, run_id, step_id, self.artifact_basename)
+        layout["step_dir"].mkdir(parents=True, exist_ok=True)
+        gen = ImageGenerationRequestOptions(
+            prompt=prompt,
+            negative_prompt=str(request.get("negative_prompt", "")),
+            configuration=configuration,
+            configuration_json=configuration_json,
+            user=str(request.get("user", self.user)),
+            shared_secret=request.get("shared_secret", self.shared_secret),
+            config_dir=Path(str(request["config_dir"])) if request.get("config_dir") else None,
+        )
+        pngs = generate_png_bytes(self.client_opts, gen, generations=1)
+        if not pngs:
+            raise RuntimeError("Draw Things returned no images")
+        png = pngs[0]
+        layout["artifact_path"].write_bytes(png)
+        with Image.open(BytesIO(png)) as img:
+            width, height = img.size
+        output_meta = {"width": width, "height": height, "source": "drawthings_prompt"}
+        layout["artifact_metadata_path"].write_text(json.dumps(output_meta, sort_keys=True), encoding="utf-8")
+        artifact = ImageRef(
+            artifact_id=_artifact_id(run_id, step_id, cache_key),
+            kind="image",
+            format=layout["artifact_path"].suffix.lstrip("."),
+            path=str(layout["artifact_path"]),
+            metadata_path=str(layout["artifact_metadata_path"]),
+            created_by_step=step_id,
+            parent_artifact_ids=parent_artifact_ids,
+            width=width,
+            height=height,
+        )
+        model = {
+            "id": self.model_id,
+            "sha256": self.model_sha256,
+            "backend": self.backend,
+            "fingerprint": self.model_fingerprint(),
+        }
+        metadata = {
+            "mode": self.mode,
+            "prompt": prompt,
+            "negative_prompt": str(request.get("negative_prompt", "")),
+            "output_meta": output_meta,
+        }
+        return ExecutorResult(artifact=artifact, model=model, metadata=metadata)

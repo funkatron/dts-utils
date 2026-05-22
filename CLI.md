@@ -8,6 +8,7 @@ Reference for the **`dts-utils`** command-line tool (flags, shorthand, environme
 | --- | --- |
 | Run your first image from a prompt | [README.md § Quickstart](README.md#quickstart), then [Generate shorthand](#generate-shorthand-prompt-first) here |
 | Look up a flag or subcommand | [Available commands](#available-commands) |
+| Run Apple-first media pipeline steps | [pipeline (`dts-utils pipeline`)](#pipeline-dts-utils-pipeline) |
 | Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-utils-web) |
 | Copy example commands | [Examples](#examples) |
 | Script-friendly env vars | [Environment variables](#environment-variables) |
@@ -182,6 +183,27 @@ Subcommands:
 - `tls export`: Connect with TLS, capture the presented PEM; use `--output` / `-o` (defaults to `tls path`), `--force` to replace, `--host` / `--port`, `--retries` for post-install backoff.
 
 With `server install` (macOS): `uv run dts-utils server install --export-tls-cert` runs export to the default PEM after `server test` passes (skipped when `--no-tls` is set).
+
+### pipeline (`dts-utils pipeline`)
+
+Run Apple-first local media pipeline steps (`text_to_image` -> `image_to_video`) and validate runtime prerequisites.
+
+```bash
+uv run dts-utils pipeline check
+uv run dts-utils pipeline run --preset sdxl-to-ltx --run-id demo-001
+```
+
+Subcommands:
+
+- `pipeline check`: Report `ffmpeg` availability, run-root writability, and Gatekeeper note. Returns non-zero when required runtime prerequisites are missing.
+- `pipeline run`: Execute a two-step local pipeline and write artifacts + manifests under `--run-root` (default `~/Movies/infomux-runs`).
+  - `--image PATH` runs image-to-video only (uses the provided input image).
+  - `--prompt "..." --configuration NAME_OR_PATH` runs prompt-to-image (Draw Things gRPC) then image-to-video in one command.
+  - `--preset {stub-to-ltx,sdxl-to-ltx,z-to-ltx}` picks the T2I executor.
+  - `--run-id`, `--run-root`, `--no-cache`, `--max-oom-retries` control run behavior.
+  - `--host`, `--port`, `--no-tls`, `--trust-server-cert`, `--root-cert`, `--shared-secret` apply to `--prompt` mode.
+  - `--sdxl-runtime {pytorch-mps,mlx}` selects SDXL runtime when preset mode is `sdxl-to-ltx`.
+  - `--width`/`--height` control image size; `--video-width`/`--video-height`, `--fps`, `--seconds` control I2V output.
 
 <a id="web-dts-utils-web"></a>
 

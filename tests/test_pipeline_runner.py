@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from dts_utils.pipeline.cache import step_cache_key
 from dts_utils.pipeline.executors import LtxImageToVideoExecutor, StubTextToImageExecutor
 from dts_utils.pipeline.runner import PipelineRunner, PipelineStep
 
@@ -67,3 +68,34 @@ def test_runner_oom_policy_downscales_for_ltx(tmp_path: Path) -> None:
     retries = i2v["metadata"].get("oom_retries", [])
     assert retries, "expected OOM retry metadata"
     assert retries[0]["width"] <= 1024
+    image_path = manifest.artifacts[0]["path"]
+    parent_id = manifest.artifacts[0]["artifact_id"]
+    full_key = step_cache_key(
+        cache_namespace="image_to_video_ltx",
+        executor_version=LtxImageToVideoExecutor().executor_version,
+        request_payload={
+            "image_path": image_path,
+            "fps": 12,
+            "seconds": 2.0,
+            "width": 2048,
+            "height": 2048,
+            "simulate_oom": True,
+        },
+        upstream_artifact_ids=[parent_id],
+        model_fingerprint=LtxImageToVideoExecutor().model_fingerprint(),
+    )
+    retry_key = step_cache_key(
+        cache_namespace="image_to_video_ltx",
+        executor_version=LtxImageToVideoExecutor().executor_version,
+        request_payload={
+            "image_path": image_path,
+            "fps": 12,
+            "seconds": retries[0]["seconds"],
+            "width": retries[0]["width"],
+            "height": retries[0]["height"],
+        },
+        upstream_artifact_ids=[parent_id],
+        model_fingerprint=LtxImageToVideoExecutor().model_fingerprint(),
+    )
+    assert full_key != retry_key
+    assert i2v["cache_key"] == retry_key

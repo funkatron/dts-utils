@@ -5,12 +5,27 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import os
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 from PIL import Image
+
+_FFMPEG_STUB_ENV = "DTS_PIPELINE_ALLOW_FFMPEG_STUB"
+
+
+def _ffmpeg_stub_allowed() -> bool:
+    return os.environ.get(_FFMPEG_STUB_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _raise_ffmpeg_missing(exc: FileNotFoundError) -> None:
+    if _ffmpeg_stub_allowed():
+        return
+    raise RuntimeError(
+        "ffmpeg not found on PATH; install ffmpeg and re-run, or use `dts-utils pipeline check`."
+    ) from exc
 
 
 def _write_stub_png(path: Path, width: int, height: int, seed: int) -> None:
@@ -122,7 +137,12 @@ def _render_flipbook_motion(
             "+faststart",
             str(video_path),
         ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
+        try:
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+        except FileNotFoundError as exc:
+            _raise_ffmpeg_missing(exc)
+            video_path.write_bytes(b"INFOMUX-STUB-MP4")
+            return
     if proc.returncode != 0:
         stderr = proc.stderr or "ffmpeg failed"
         raise RuntimeError(stderr.strip())
@@ -138,29 +158,29 @@ def _render_ffmpeg_loop(
     *,
     motion: bool = False,
 ) -> None:
+    if motion:
+        _render_flipbook_motion(image_path, video_path, fps, seconds, width, height)
+        return
+    vf = f"fps={fps},scale={width}:{height}"
+    cmd = [
+        "ffmpeg",
+        "-y",
+        "-loop",
+        "1",
+        "-i",
+        str(image_path),
+        "-vf",
+        vf,
+        "-t",
+        f"{seconds:.3f}",
+        "-pix_fmt",
+        "yuv420p",
+        str(video_path),
+    ]
     try:
-        if motion:
-            _render_flipbook_motion(image_path, video_path, fps, seconds, width, height)
-            return
-        vf = f"fps={fps},scale={width}:{height}"
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-loop",
-            "1",
-            "-i",
-            str(image_path),
-            "-vf",
-            vf,
-            "-t",
-            f"{seconds:.3f}",
-            "-pix_fmt",
-            "yuv420p",
-            str(video_path),
-        ]
         proc = subprocess.run(cmd, capture_output=True, text=True)
-    except FileNotFoundError:
-        # Test/dev fallback when ffmpeg is unavailable: write placeholder bytes.
+    except FileNotFoundError as exc:
+        _raise_ffmpeg_missing(exc)
         video_path.write_bytes(b"INFOMUX-STUB-MP4")
         return
     if proc.returncode != 0:

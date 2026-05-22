@@ -29,7 +29,8 @@ This supports lightweight progress polling for long video steps.
 ## ffmpeg behavior
 
 - Video steps call `ffmpeg` through the subprocess worker.
-- In test/dev environments where `ffmpeg` is unavailable, the stub worker writes a placeholder artifact to keep contract tests deterministic.
+- If `ffmpeg` is missing, `pipeline run` fails with an actionable error (run `dts-utils pipeline check` first).
+- Tests may set `DTS_PIPELINE_ALLOW_FFMPEG_STUB=1` to write a deterministic placeholder `.mp4` when `ffmpeg` is unavailable.
 
 ## Gatekeeper and quarantine
 

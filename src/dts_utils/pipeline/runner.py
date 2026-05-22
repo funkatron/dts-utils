@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dts_utils.pipeline.cache import stable_sha256, step_cache_key
+from dts_utils.pipeline.cache import cache_request_payload, stable_sha256, step_cache_key
 from dts_utils.pipeline.contracts import PipelineRunManifest, StepRun, run_layout_paths
 from dts_utils.pipeline.executors import SubprocessExecutor
 
@@ -88,66 +88,73 @@ class PipelineRunner:
                 request.setdefault("width", source.get("width", request.get("width", 1024)))
                 request.setdefault("height", source.get("height", request.get("height", 1024)))
 
-            input_hash = stable_sha256({"request": request, "parents": parent_ids})
-            ck = step_cache_key(
-                cache_namespace=step.executor.cache_namespace,
-                executor_version=step.executor.executor_version,
-                request_payload=request,
-                upstream_artifact_ids=parent_ids,
-                model_fingerprint=step.executor.model_fingerprint(),
-            )
             started = _iso_now()
             step_status = "completed"
             metadata: dict[str, Any] = {}
+            artifact: dict[str, Any]
+            model: dict[str, Any]
+            retries = 0
 
-            cache_hit = self.allow_cache and ck in cache
-            cached = cache.get(ck, {})
-            if cache_hit and Path(cached.get("path", "")).exists():
-                artifact = cached
-                step_status = "cached"
-                metadata["cache_hit"] = True
-            else:
-                retries = 0
-                while True:
-                    try:
-                        result = step.executor.execute(
-                            run_root=self.run_root,
-                            run_id=run_id,
-                            step_id=step.step_id,
-                            cache_key=ck,
-                            request=request,
-                            parent_artifact_ids=parent_ids,
+            while True:
+                cache_payload = cache_request_payload(request)
+                input_hash = stable_sha256({"request": cache_payload, "parents": parent_ids})
+                ck = step_cache_key(
+                    cache_namespace=step.executor.cache_namespace,
+                    executor_version=step.executor.executor_version,
+                    request_payload=request,
+                    upstream_artifact_ids=parent_ids,
+                    model_fingerprint=step.executor.model_fingerprint(),
+                )
+                cached = cache.get(ck, {})
+                if self.allow_cache and ck in cache and Path(cached.get("path", "")).exists():
+                    artifact = cached
+                    step_status = "cached"
+                    metadata["cache_hit"] = True
+                    model = {
+                        "id": step.executor.model_id,
+                        "sha256": step.executor.model_sha256,
+                        "backend": step.executor.backend,
+                        "fingerprint": step.executor.model_fingerprint(),
+                    }
+                    break
+
+                try:
+                    result = step.executor.execute(
+                        run_root=self.run_root,
+                        run_id=run_id,
+                        step_id=step.step_id,
+                        cache_key=ck,
+                        request=request,
+                        parent_artifact_ids=parent_ids,
+                    )
+                    artifact = result.artifact.to_dict()
+                    metadata.update(result.metadata)
+                    model = result.model
+                    cache[ck] = artifact
+                    self._write_cache(cache)
+                    break
+                except RuntimeError as e:
+                    if (
+                        step.executor.step_kind == "image_to_video"
+                        and "out of memory" in str(e).lower()
+                        and retries < self.max_oom_retries
+                    ):
+                        retries += 1
+                        request["width"] = max(512, int(request.get("width", 1024)) // 2)
+                        request["height"] = max(288, int(request.get("height", 576)) // 2)
+                        request["seconds"] = max(1.0, float(request.get("seconds", 2.0)) / 2.0)
+                        # Test/dev knob: only simulate one OOM failure before retry.
+                        request.pop("simulate_oom", None)
+                        metadata.setdefault("oom_retries", []).append(
+                            {
+                                "retry": retries,
+                                "width": request["width"],
+                                "height": request["height"],
+                                "seconds": request["seconds"],
+                            }
                         )
-                        artifact = result.artifact.to_dict()
-                        metadata.update(result.metadata)
-                        model = result.model
-                        break
-                    except RuntimeError as e:
-                        if (
-                            step.executor.step_kind == "image_to_video"
-                            and "out of memory" in str(e).lower()
-                            and retries < self.max_oom_retries
-                        ):
-                            retries += 1
-                            request["width"] = max(512, int(request.get("width", 1024)) // 2)
-                            request["height"] = max(288, int(request.get("height", 576)) // 2)
-                            request["seconds"] = max(1.0, float(request.get("seconds", 2.0)) / 2.0)
-                            # Test/dev knob: only simulate one OOM failure before retry.
-                            request.pop("simulate_oom", None)
-                            metadata.setdefault("oom_retries", []).append(
-                                {"retry": retries, "width": request["width"], "height": request["height"], "seconds": request["seconds"]}
-                            )
-                            continue
-                        raise
-                cache[ck] = artifact
-                self._write_cache(cache)
-            if cache_hit and Path(cached.get("path", "")).exists():
-                model = {
-                    "id": step.executor.model_id,
-                    "sha256": step.executor.model_sha256,
-                    "backend": step.executor.backend,
-                    "fingerprint": step.executor.model_fingerprint(),
-                }
+                        continue
+                    raise
 
             artifacts.append(artifact)
             artifacts_by_step[step.step_id] = artifact

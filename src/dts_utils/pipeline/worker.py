@@ -7,6 +7,7 @@ import json
 import math
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from PIL import Image
@@ -54,6 +55,79 @@ def _write_stub_png(path: Path, width: int, height: int, seed: int) -> None:
     img.save(path, format="PNG")
 
 
+def _smoothstep(t: float) -> float:
+    t = max(0.0, min(1.0, t))
+    return t * t * (3.0 - 2.0 * t)
+
+
+def _render_flipbook_motion(
+    image_path: Path,
+    video_path: Path,
+    fps: int,
+    seconds: float,
+    width: int,
+    height: int,
+) -> None:
+    """Ken Burns via many eased frames + concat (smoother than ffmpeg zoompan on one still)."""
+    fps = max(1, fps)
+    width = max(1, width)
+    height = max(1, height)
+    frame_count = max(2, min(480, int(round(max(seconds, 0.1) * fps))))
+    max_zoom = 1.18
+    pan_frac = 0.14
+
+    with tempfile.TemporaryDirectory(prefix="dts-pipeline-motion-") as tmp:
+        frames_dir = Path(tmp)
+        with Image.open(image_path) as src:
+            src = src.convert("RGB")
+            sw, sh = src.size
+            cover = max(width / sw, height / sh)
+            nw = max(1, int(sw * cover * max_zoom))
+            nh = max(1, int(sh * cover * max_zoom))
+            base = src.resize((nw, nh), Image.Resampling.LANCZOS)
+            aspect = width / max(1, height)
+
+            for i in range(frame_count):
+                t = i / (frame_count - 1)
+                ease = _smoothstep(t)
+                zoom = 1.0 + (max_zoom - 1.0) * ease
+                crop_h = max(1, int(nh / zoom))
+                crop_w = max(1, int(crop_h * aspect))
+                if crop_w > nw:
+                    crop_w = nw
+                    crop_h = max(1, int(crop_w / aspect))
+                max_x = max(0, nw - crop_w)
+                max_y = max(0, nh - crop_h)
+                phase = ease * math.pi * 0.5
+                left = int(max_x * (0.5 + pan_frac * math.sin(phase)))
+                top = int(max_y * (0.5 - pan_frac * math.cos(phase)))
+                frame = base.crop((left, top, left + crop_w, top + crop_h))
+                frame = frame.resize((width, height), Image.Resampling.LANCZOS)
+                frame.save(frames_dir / f"frame_{i:06d}.jpg", format="JPEG", quality=92)
+
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-framerate",
+            str(fps),
+            "-i",
+            str(frames_dir / "frame_%06d.jpg"),
+            "-frames:v",
+            str(frame_count),
+            "-c:v",
+            "libx264",
+            "-pix_fmt",
+            "yuv420p",
+            "-movflags",
+            "+faststart",
+            str(video_path),
+        ]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+    if proc.returncode != 0:
+        stderr = proc.stderr or "ffmpeg failed"
+        raise RuntimeError(stderr.strip())
+
+
 def _render_ffmpeg_loop(
     image_path: Path,
     video_path: Path,
@@ -64,37 +138,26 @@ def _render_ffmpeg_loop(
     *,
     motion: bool = False,
 ) -> None:
-    if motion:
-        # Add clearly visible Ken Burns motion so output never looks static.
-        frame_count = max(1, int(round(max(seconds, 0.1) * max(fps, 1))))
-        vf = (
-            f"scale={width}:{height},"
-            f"zoompan="
-            f"z='if(eq(on,1),1.0,min(zoom+0.0035,1.28))':"
-            f"x='iw/2-(iw/zoom/2)+sin(on/10)*48':"
-            f"y='ih/2-(ih/zoom/2)+cos(on/14)*32':"
-            f"d=1:s={width}x{height}:fps={fps},"
-            f"trim=end_frame={frame_count}"
-        )
-    else:
-        vf = f"fps={fps},scale={width}:{height}"
-
-    cmd = [
-        "ffmpeg",
-        "-y",
-        "-loop",
-        "1",
-        "-i",
-        str(image_path),
-        "-vf",
-        vf,
-        "-t",
-        f"{seconds:.3f}",
-        "-pix_fmt",
-        "yuv420p",
-        str(video_path),
-    ]
     try:
+        if motion:
+            _render_flipbook_motion(image_path, video_path, fps, seconds, width, height)
+            return
+        vf = f"fps={fps},scale={width}:{height}"
+        cmd = [
+            "ffmpeg",
+            "-y",
+            "-loop",
+            "1",
+            "-i",
+            str(image_path),
+            "-vf",
+            vf,
+            "-t",
+            f"{seconds:.3f}",
+            "-pix_fmt",
+            "yuv420p",
+            str(video_path),
+        ]
         proc = subprocess.run(cmd, capture_output=True, text=True)
     except FileNotFoundError:
         # Test/dev fallback when ffmpeg is unavailable: write placeholder bytes.
@@ -138,7 +201,7 @@ def _mode_image_to_video_ltx(request: dict[str, object], artifact_path: Path) ->
         "height": height,
         "fps": fps,
         "seconds": seconds,
-        "motion": "ken_burns",
+        "motion": "flipbook_smooth",
     }
 
 

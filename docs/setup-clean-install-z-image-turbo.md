@@ -2,7 +2,7 @@
 
 Use this when you want a **from-zero** path on macOS: **`dts-utils`**, **`gRPCServerCLI`**, and **one community preset** — **Z Image Turbo 1.0 (Exact)** (`drawthingsai/community-models` → **`models/z-image-turbo-1.0-exact`**).
 
-This doc is **operator prose**, not an automated installer. Getting weights onto disk is still your responsibility; the most reliable route for Draw Things–compatible **`*.ckpt`** names is usually the **Draw Things app** Community catalog.
+This doc is **operator prose**, not an automated installer. Getting weights onto disk is still your responsibility; the most reliable route for Draw Things–compatible **`*.ckpt`** names is usually the **Draw Things app** Community catalog. Maintainer backlog for **`dts-utils models fetch`** (verified URLs, configs integration, integration smoke): [models-fetch-roadmap.md](models-fetch-roadmap.md).
 
 ---
 
@@ -76,6 +76,11 @@ If you already copied the three **`*.ckpt`** files into the model directory by h
    uv run dts-utils configs scaffold-from-metadata "$META"
    ```
 
+   Optional — list expected filenames, **`converted`** hashes when present, and inferred **`huggingface_repo_id`** / **`download_url`** (same indexing rules as **`dts-utils models build`**):
+
+   ```bash
+   uv run dts-utils models fetch --from-metadata "$META" --manifest
+   ```
    That creates **`z-image-turbo-1.0-exact.json`** under **`dts-utils configs path`** (stem matches the folder name).
 
 4. (Optional) Make shorthand use it without a second argument:

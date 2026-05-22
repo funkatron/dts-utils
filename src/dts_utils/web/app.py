@@ -64,6 +64,11 @@ _GENERATE_STREAM_QUEUE_MAXSIZE = 64
 _MAX_EXPANDED_WILDCARDS_B64_LEN = 6000
 _HISTORY_MAX_ITEMS = 30
 _HISTORY_INDEX = "index.json"
+_UI_PIPELINE_PROFILES = (
+    "sdxl-turbo",
+    "z-image-turbo-1.0-exact",
+    "ltx-2.3-22b-distilled-exact",
+)
 
 
 def _expanded_wildcards_b64(prompts: list[str], negatives: list[str]) -> str | None:
@@ -282,7 +287,14 @@ async def api_configs(request: Request) -> JSONResponse:
             {"detail": f"Cannot read or create saved JSON configs directory: {exc}"},
             status_code=500,
         )
-    return JSONResponse({"names": names, "default_profile": DEFAULT_PROFILE_NAME, "config_dir": str(directory)})
+    return JSONResponse(
+        {
+            "names": names,
+            "default_profile": DEFAULT_PROFILE_NAME,
+            "config_dir": str(directory),
+            "pipeline_profiles": list(_UI_PIPELINE_PROFILES),
+        }
+    )
 
 
 async def index(request: Request) -> Response:

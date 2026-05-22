@@ -178,6 +178,9 @@ table GenerationConfiguration {
   cfg_zero_init_steps: int = 0;
   compression_artifacts: CompressionMethod = Disabled;
   compression_artifacts_quality: float = 43.1;
+  guiding_frame_noise: float = 0;
+  motion_scale: float = 1.0;
+  stage_2_guidance: float = 1.0;
 }
 
 root_type GenerationConfiguration;

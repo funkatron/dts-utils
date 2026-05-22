@@ -516,6 +516,47 @@ def load_metadata_payload(path: Path) -> tuple[dict[str, Any], list[str]]:
     return payload, warnings
 
 
+@dataclass(slots=True, frozen=True)
+class MetadataFetchHints:
+    """HF/repo/source URLs inferred from one ``metadata.json`` (same rules as ``build_records``)."""
+
+    source_url: str | None
+    huggingface_repo_id: str | None
+    download_url: str | None
+
+
+def metadata_fetch_hints(metadata_path: Path, raw_payload: dict[str, Any]) -> MetadataFetchHints:
+    """Resolve URLs keyed like indexed ``ModelRecord`` fields for a single metadata file."""
+    source_url = _choose_source_url(raw_payload)
+    huggingface_repo_id = (
+        _find_first_string(raw_payload, ("huggingface_repo_id", "huggingface"))
+        or extract_repo_id(source_url)
+    )
+    download_url = _find_first_string(
+        raw_payload,
+        ("download_url", "downloadURL", "source", "url"),
+    )
+    if not download_url:
+        download_url = _find_nested_string(
+            raw_payload,
+            (
+                "download.file",
+                "download.url",
+            ),
+        )
+    if huggingface_repo_id and (not download_url or "huggingface.co" in download_url):
+        download_url = download_url or _guess_hf_download_url(huggingface_repo_id, raw_payload)
+    if not source_url:
+        source_url = _extract_source_url_from_sidecar_files(metadata_path)
+        if source_url and not huggingface_repo_id:
+            huggingface_repo_id = extract_repo_id(source_url)
+    return MetadataFetchHints(
+        source_url=source_url,
+        huggingface_repo_id=huggingface_repo_id,
+        download_url=download_url,
+    )
+
+
 def build_records(repo_dir: Path) -> list[ModelRecord]:
     """Build normalized records for all ids listed in uncurated_models.txt."""
     ids = load_uncurated_ids(repo_dir / "uncurated_models.txt")
@@ -553,33 +594,14 @@ def build_records(repo_dir: Path) -> list[ModelRecord]:
             if raw_payload:
                 name = _find_first_string(raw_payload, ("name", "title")) or model_id
                 record_type = _infer_type(metadata_path, raw_payload)
-                source_url = _choose_source_url(raw_payload)
-                huggingface_repo_id = (
-                    _find_first_string(raw_payload, ("huggingface_repo_id", "huggingface"))
-                    or extract_repo_id(source_url)
-                )
-                download_url = _find_first_string(
-                    raw_payload,
-                    ("download_url", "downloadURL", "source", "url"),
-                )
-                if not download_url:
-                    download_url = _find_nested_string(
-                        raw_payload,
-                        (
-                            "download.file",
-                            "download.url",
-                        ),
-                    )
-                if huggingface_repo_id and (not download_url or "huggingface.co" in download_url):
-                    download_url = download_url or _guess_hf_download_url(huggingface_repo_id, raw_payload)
+                hints = metadata_fetch_hints(metadata_path, raw_payload)
+                source_url = hints.source_url
+                huggingface_repo_id = hints.huggingface_repo_id
+                download_url = hints.download_url
                 author = _find_first_string(raw_payload, ("author", "creator", "publisher"))
                 license_name = _infer_license(metadata_path, raw_payload)
                 tags = _coerce_string_list(raw_payload.get("tags"))
                 model_family = detect_model_family(model_id, raw_payload)
-                if not source_url:
-                    source_url = _extract_source_url_from_sidecar_files(metadata_path)
-                    if source_url and not huggingface_repo_id:
-                        huggingface_repo_id = extract_repo_id(source_url)
 
         record = ModelRecord(
             id=model_id,

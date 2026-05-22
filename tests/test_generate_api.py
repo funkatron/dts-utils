@@ -110,6 +110,25 @@ def test_prepare_image_generation_request_matches_proto_fields(monkeypatch, tmp_
     assert req.negativePrompt == en
 
 
+def test_prepare_image_generation_request_expands_wildcards_before_configuration_io(monkeypatch):
+    calls: list[str] = []
+
+    def track_read(**kwargs: object) -> bytes:
+        calls.append("read_configuration_bytes")
+        return b"x"
+
+    monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", track_read)
+    with pytest.raises(PromptWildcardError, match="Unresolved"):
+        prepare_image_generation_request(
+            ImageGenerationRequestOptions(
+                prompt="{||}",
+                negative_prompt="",
+                configuration="dummy-profile",
+            ),
+        )
+    assert calls == []
+
+
 def test_generate_png_batch_returns_expanded_prompts(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
@@ -132,6 +151,9 @@ def test_generate_png_batch_returns_expanded_prompts(monkeypatch: pytest.MonkeyP
     assert batch.expanded_prompts == seen
     assert all(x in {"p", "q"} for x in batch.expanded_prompts)
     assert batch.expanded_negative_prompts == ["", ""]
+
+
+def test_build_image_generation_request_invalid_wildcard_prompt(monkeypatch, tmp_path):
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
     monkeypatch.setattr(

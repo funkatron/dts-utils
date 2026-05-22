@@ -9,6 +9,7 @@ Reference for the **`dts-utils`** command-line tool (flags, shorthand, environme
 | Run your first image from a prompt | [README.md § Quickstart](README.md#quickstart), then [Generate shorthand](#generate-shorthand-prompt-first) here |
 | Look up a flag or subcommand | [Available commands](#available-commands) |
 | Run Apple-first media pipeline steps | [pipeline (`dts-utils pipeline`)](#pipeline-dts-utils-pipeline) |
+| Community models index / bundled fetch recipes | [models (`dts-utils models`)](#models-dts-utils-models) |
 | Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-utils-web) |
 | Copy example commands | [Examples](#examples) |
 | Script-friendly env vars | [Environment variables](#environment-variables) |
@@ -141,6 +142,36 @@ Options:
 For remote or LAN servers, prefer `--root-cert`. `--trust-server-cert` is limited to `localhost` and loopback. `--force-trust-server-cert` is for diagnostics only.
 
 Draw Things often builds `gRPCServerCLI` without gRPC reflection. `reflect` may therefore return `UNIMPLEMENTED` even when `generate` works. See [README.md § Troubleshooting](README.md#troubleshooting).
+
+<a id="models-dts-utils-models"></a>
+
+### models (`dts-utils models`)
+
+Inspect the cloned **`drawthingsai/community-models`** index locally (`build`, `search`, `show`, …) and optionally download Draw Things weight filenames described by **bundled fetch recipes**.
+
+```bash
+uv run dts-utils models fetch --dry-run
+uv run dts-utils models fetch RECIPE_ID --yes --model-dir /path/to/Models
+uv run dts-utils models fetch sdxl-turbo --dry-run
+uv run dts-utils models fetch z-image-turbo-1.0-exact --yes
+uv run dts-utils models fetch ltx-2.3-22b-distilled-exact --yes
+uv run dts-utils models fetch --from-metadata ~/.cache/community-models/models/SOME_MODEL/metadata.json
+uv run dts-utils models fetch --from-metadata "$META" --manifest          # stdout: basename + SHA; stderr: URL hints once
+uv run dts-utils models fetch --from-metadata "$META" --manifest --manifest-wide   # legacy four-column stdout rows
+```
+
+**`fetch`:**
+
+- **`--dry-run`:** Print planned artifacts only — **no HTTP(S), no Hugging Face hub calls, and no writes under `--model-dir`** (zero bytes transferred).
+- Without **`--dry-run`**, mutating downloads require **`--yes`** (otherwise exit code **`2`**). **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** selects only the default **recipe id** when **`RECIPE_ID`** is omitted; it does **not** bypass **`--yes`**.
+- **`RECIPE_ID`:** Optional positional; when omitted: **`DTS_UTILS_DEFAULT_FETCH_RECIPE`** (if non-empty), **then** shipped **`registry.json`** **`default_recipe_id`**. If the registry cannot be read or **`default_recipe_id`** is missing/empty while the env override is unset, the command exits **`2`** with **`stderr`** (fatal — fix packaging or set **`DTS_UTILS_DEFAULT_FETCH_RECIPE`**). Unknown **`RECIPE_ID`** also exits **`2`**.
+- **`--model-dir`:** Destination directory (default: **`DRAW_THINGS_MODEL_PATH`** if set, else Draw Things’ default **`Models`** folder — same idea as other **`models`** subcommands).
+- **`--force`:** Re-fetch even when the artifact is already satisfied (**`sha256`** match when set; exact **`expected_size_bytes`** when set without **`sha256`**; otherwise any existing **non-empty** file).
+- Recipes only allow **`https://`** direct URLs (TLS verification always on; no **`http://`**, **`file://`**, or insecure bypass flags). Sources with **`type`: `huggingface`** need **`huggingface_hub`** (**`uv sync --extra download`** matches **`[download]`**); **`HF_TOKEN`** is passed through when set.
+- **Bundled recipe artifacts** may set **`sha256`** (mandatory verify after download when present), optional **`expected_size_bytes`** when **`sha256`** is omitted (exact-size skip + verify after download), and **`sources`** (HTTPS / Hugging Face entries). Maintainer phases and backlog: **[docs/models-fetch-roadmap.md](docs/models-fetch-roadmap.md)**.
+- **`--from-metadata PATH`:** Prints Draw Things basenames using the same rules as **`models`** status / index helpers (parity with **`_expected_file_names`**). **`--manifest`** prints each row as **basename**, then a tab, then **`converted`** SHA when known; **`huggingface_repo_id`** and **`download_url`** print once on **`stderr`** as **`# fetch-manifest-hints`**. **`--manifest-wide`** repeats the URL columns on every stdout row (legacy scripting).
+
+Bundled recipe JSON lives under **`dts_utils/model_fetch/recipe_files/`** in the repository. Current source-backed smoke recipes are **`sdxl-turbo`**, **`z-image-turbo-1.0-exact`**, and **`ltx-2.3-22b-distilled-exact`** (see roadmap for additional presets).
 
 ### configs
 
@@ -397,7 +428,9 @@ uv run dts-utils server uninstall
 | `DTS_UTILS_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `default.json` the first time; overrides guessing from the models directory. |
 | `DTS_WEB_TOKEN` | When set, `dts-utils web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
-| `DTS_WEB_HISTORY_DIR` | Override where `dts-utils web` stores history metadata and PNG files (default: `web-history` under the resolved config directory — see **`dts-utils configs path`**). |
+| `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Optional override for **`dts-utils models fetch`** when **`RECIPE_ID`** is omitted (otherwise **`registry.json`** **`default_recipe_id`**). |
+| `DTS_GRPC_GENERATE_DEBUG` | When set to **`1`** / **`true`** / **`yes`** / **`on`**, **`GenerateImage`** logs one **stderr** summary line per streamed response (field **counts** only). See [PROTOBUF.md § Debugging](PROTOBUF.md#debugging-generateimage-streams). |
+| `HF_TOKEN` | Optional Hugging Face token when using **`huggingface`** recipe sources (**`uv sync --extra download`**). |
 
 `DRAW_THINGS_MODEL_PATH` example:
 

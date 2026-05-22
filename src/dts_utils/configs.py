@@ -95,13 +95,21 @@ def resolve_configuration_value(value: str | Path, config_dir: Path | None = Non
     if explicit_path.exists():
         return explicit_path
 
-    if explicit_path.is_absolute() or explicit_path.parent != Path("."):
+    if explicit_path.is_absolute():
         raise ValueError(f"Configuration file not found: {explicit_path}")
 
-    if explicit_path.suffix and explicit_path.suffix.lower() != ".json":
+    if explicit_path.parent != Path("."):
         raise ValueError(f"Configuration file not found: {explicit_path}")
 
-    saved_name = explicit_path.name if explicit_path.suffix.lower() == ".json" else f"{explicit_path.name}.json"
+    # Single path component: either a saved profile stem or a raw FlatBuffer next to cwd.
+    # Pathlib treats the last dotted segment as ``suffix`` (e.g. ``dreamshaper-v6.31`` → ``.31``),
+    # so we cannot reject "unknown extensions" without breaking community preset stems.
+    suffix_lower = explicit_path.suffix.lower()
+    raw_flatbuffer_suffixes = frozenset({".fb", ".bin"})
+    if suffix_lower in raw_flatbuffer_suffixes:
+        raise ValueError(f"Configuration file not found: {explicit_path}")
+
+    saved_name = explicit_path.name if suffix_lower == ".json" else f"{explicit_path.name}.json"
     searched: list[Path] = []
     for directory in configuration_search_directories(config_dir):
         saved_path = directory / saved_name
@@ -438,7 +446,8 @@ def import_draw_things_saved_configs(
         out_dir.mkdir(parents=True, exist_ok=True)
 
     print(
-        "Preset JSON is copied from Draw Things as-is — validate with generate; simplify fields if flatc errors.",
+        "Preset JSON is copied from Draw Things as-is. Imported presets may not work immediately: "
+        "validate each with generate, then simplify fields if flatc errors.",
         file=sys.stderr,
     )
 
@@ -608,7 +617,8 @@ def build_parser() -> argparse.ArgumentParser:
         "import-draw-things",
         help=(
             "Import Draw Things Local configurations from the macOS app sandbox "
-            "(Models/custom_configs.json) into separate saved JSON profiles."
+            "(Models/custom_configs.json) into separate saved JSON profiles. "
+            "Imported profiles are a starting point and may require edits before generate succeeds."
         ),
     )
     import_dt_parser.add_argument(

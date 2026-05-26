@@ -2,12 +2,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from dts_utils.pipeline.executors import (
     PlaceholderImageToVideoExecutor,
     SdxlTextToImageExecutor,
     ZImageTurboTextToImageExecutor,
 )
 from dts_utils.pipeline.runner import PipelineRunner, PipelineStep
+
+
+@pytest.fixture(autouse=True)
+def _allow_ffmpeg_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Keep executor tests portable when ffmpeg is unavailable in CI.
+    monkeypatch.setenv("DTS_PIPELINE_ALLOW_FFMPEG_STUB", "1")
 
 
 def test_sdxl_executor_records_runtime_metadata(tmp_path: Path) -> None:

@@ -3,9 +3,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from dts_utils.pipeline.cache import step_cache_key
 from dts_utils.pipeline.executors import PlaceholderImageToVideoExecutor, StubTextToImageExecutor
 from dts_utils.pipeline.runner import PipelineRunner, PipelineStep
+
+
+@pytest.fixture(autouse=True)
+def _allow_ffmpeg_stub(monkeypatch: pytest.MonkeyPatch) -> None:
+    # CI images may not have ffmpeg installed; allow deterministic stub mp4 in these unit tests.
+    monkeypatch.setenv("DTS_PIPELINE_ALLOW_FFMPEG_STUB", "1")
 
 
 def test_runner_writes_step_and_pipeline_manifests(tmp_path: Path) -> None:

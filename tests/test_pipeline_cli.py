@@ -219,3 +219,31 @@ def test_pipeline_run_video_configuration_uses_drawthings_i2v(monkeypatch: pytes
     assert code == 0
     assert captured["steps"][1].executor.name == "drawthings_grpc_image_to_video"
     assert captured["steps"][1].request["prompt"] == "scene"
+
+
+def test_pipeline_cleanup_json(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    class FakeRes:
+        deleted = [SimpleNamespace(run_id="run-a")]
+        kept = [SimpleNamespace(run_id="run-b")]
+        reclaimed_bytes = 1234
+
+    monkeypatch.setattr("dts_utils.pipeline.cli.cleanup_runs", lambda *a, **k: FakeRes())
+    code = pipeline_cli.main(["cleanup", "--json"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert '"deleted_count": 1' in out
+    assert '"deleted_runs": [' in out
+
+
+def test_pipeline_cleanup_plaintext(monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    class FakeRes:
+        deleted = [SimpleNamespace(run_id="old-1"), SimpleNamespace(run_id="old-2")]
+        kept = []
+        reclaimed_bytes = 999
+
+    monkeypatch.setattr("dts_utils.pipeline.cli.cleanup_runs", lambda *a, **k: FakeRes())
+    code = pipeline_cli.main(["cleanup", "--dry-run"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "would delete: 2 run(s)" in out
+    assert "- old-1" in out

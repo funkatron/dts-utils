@@ -225,6 +225,7 @@ uv run dts-utils configs scaffold-pipeline infomux
 uv run dts-utils pipeline check
 uv run dts-utils pipeline profiles
 uv run dts-utils pipeline run --profile infomux --prompt "a quiet street at dusk"
+uv run dts-utils pipeline cleanup --older-than 7 --keep-last 20 --dry-run
 ```
 
 Subcommands:
@@ -232,6 +233,12 @@ Subcommands:
 - `pipeline check`: Report `ffmpeg` availability, run-root writability, and Gatekeeper note. Returns non-zero when required runtime prerequisites are missing.
 - `pipeline profiles`: List saved JSON profiles that contain a `_dts_utils_pipeline` block (same idea as picking a profile in the web UI).
 - `pipeline run`: Execute text-to-image → image-to-video and write artifacts + manifests under `--run-root` (default `~/Movies/infomux-runs`).
+- `pipeline cleanup`: Prune old run directories under `--run-root` to control disk usage.
+  - `--older-than DAYS`: delete runs older than this age.
+  - `--keep-last N`: always preserve newest `N` runs.
+  - `--max-run-root-gb GB`: cap total run-root usage by evicting oldest runs.
+  - `--dry-run`: print what would be deleted without removing files.
+  - `--json`: machine-readable cleanup summary.
 
 **Profile-first (recommended):** put pipeline defaults in a saved profile under `dts-utils configs path` (see `configs path`). The block is stripped before `flatc` and does not affect Draw Things generation JSON.
 

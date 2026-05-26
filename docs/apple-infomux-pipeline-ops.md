@@ -41,6 +41,16 @@ This supports lightweight progress polling for long video steps.
 - Web UI: select a profile marked **(pipeline)** and use **Run pipeline**.
 - Set `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` to omit `--profile` on repeat runs.
 
+## Run-root cleanup (disk control)
+
+- Use `dts-utils pipeline cleanup` to prune old run directories under your run root.
+- Common preview pass:
+  - `dts-utils pipeline cleanup --older-than 7 --keep-last 20 --dry-run`
+- Common bounded-size pass:
+  - `dts-utils pipeline cleanup --max-run-root-gb 25 --keep-last 10`
+- The cleaner only targets directories that contain `pipeline_run.json`.
+- Use `--json` for machine-readable output in scripts.
+
 ## Draw Things image-to-video
 
 - Real I2V uses the same `ImageGenerationService.GenerateImage` RPC as text-to-image: pass an input image tensor on `request.image`, a video-oriented saved JSON profile (from the pipeline profile’s `video_configuration`), and mux all returned frame tensors to `video.mp4`.

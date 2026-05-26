@@ -12,6 +12,7 @@ from dts_utils.exceptions import ConfigurationError
 from dts_utils.pipeline import (
     collect_apple_runtime_checks,
 )
+from dts_utils.pipeline.cleanup import cleanup_runs
 from dts_utils.pipeline.profile import (
     DEFAULT_PIPELINE_PROFILE_ENV,
     list_pipeline_profile_names,
@@ -31,7 +32,7 @@ def _default_pipeline_profile() -> str | None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="dts-utils pipeline",
-        description="Run Apple-first media pipelines and environment checks.",
+        description="Run Apple-first media pipelines, checks, and cleanup.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -41,6 +42,43 @@ def build_parser() -> argparse.ArgumentParser:
 
     profiles = sub.add_parser("profiles", help="List saved profiles that include pipeline defaults.")
     profiles.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
+
+    cleanup = sub.add_parser(
+        "cleanup",
+        help="Prune old pipeline run directories to control disk usage.",
+        description="Prune old pipeline runs under --run-root to keep disk usage bounded.",
+        epilog=(
+            "Examples:\n"
+            "  dts-utils pipeline cleanup --older-than 7 --keep-last 20 --dry-run\n"
+            "  dts-utils pipeline cleanup --max-run-root-gb 25 --keep-last 10\n"
+            "  dts-utils pipeline cleanup --older-than 30 --max-run-root-gb 50"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    cleanup.add_argument("--run-root", type=Path, default=default_run_root())
+    cleanup.add_argument(
+        "--older-than",
+        type=float,
+        default=None,
+        metavar="DAYS",
+        help="Delete runs older than DAYS (except newest --keep-last runs).",
+    )
+    cleanup.add_argument(
+        "--keep-last",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Always keep the newest N runs.",
+    )
+    cleanup.add_argument(
+        "--max-run-root-gb",
+        type=float,
+        default=None,
+        metavar="GB",
+        help="After age pruning, evict oldest runs until run-root is <= GB.",
+    )
+    cleanup.add_argument("--dry-run", action="store_true", help="Show what would be deleted, but do not remove files.")
+    cleanup.add_argument("--json", action="store_true", help="Print machine-readable JSON.")
 
     run = sub.add_parser(
         "run",
@@ -173,6 +211,37 @@ def handle_check(args: argparse.Namespace) -> int:
     return 0 if (checks.run_root_writable and checks.ffmpeg_path) else 1
 
 
+def handle_cleanup(args: argparse.Namespace) -> int:
+    res = cleanup_runs(
+        args.run_root,
+        older_than_days=args.older_than,
+        keep_last=args.keep_last,
+        max_run_root_gb=args.max_run_root_gb,
+        dry_run=args.dry_run,
+    )
+    payload = {
+        "run_root": str(args.run_root),
+        "dry_run": args.dry_run,
+        "deleted_count": len(res.deleted),
+        "kept_count": len(res.kept),
+        "reclaimed_bytes": res.reclaimed_bytes,
+        "deleted_runs": [r.run_id for r in res.deleted],
+    }
+    if args.json:
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    else:
+        mode = "would delete" if args.dry_run else "deleted"
+        print(f"run_root: {payload['run_root']}")
+        print(f"{mode}: {payload['deleted_count']} run(s)")
+        print(f"kept: {payload['kept_count']} run(s)")
+        print(f"reclaimed_bytes: {payload['reclaimed_bytes']}")
+        if payload["deleted_runs"]:
+            print("deleted_runs:")
+            for rid in payload["deleted_runs"]:
+                print(f"- {rid}")
+    return 0
+
+
 def handle_run(args: argparse.Namespace) -> int:
     try:
         manifest = execute_pipeline_run(_args_to_request(args))
@@ -195,6 +264,8 @@ def main(argv: list[str] | None = None) -> int:
         return handle_check(args)
     if args.command == "profiles":
         return handle_profiles(args)
+    if args.command == "cleanup":
+        return handle_cleanup(args)
     if args.command == "run":
         return handle_run(args)
     parser.error(f"Unknown command: {args.command}")

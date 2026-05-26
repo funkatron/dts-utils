@@ -12,7 +12,7 @@ def test_cache_key_includes_image_file_content(tmp_path: Path) -> None:
     image = tmp_path / "input.png"
     image.write_bytes(b"version-a")
     key_a = step_cache_key(
-        cache_namespace="image_to_video_ltx",
+        cache_namespace="image_to_video_placeholder",
         executor_version="0.1.0",
         request_payload={"image_path": str(image), "fps": 12, "seconds": 2.0},
         upstream_artifact_ids=[],
@@ -20,7 +20,7 @@ def test_cache_key_includes_image_file_content(tmp_path: Path) -> None:
     )
     image.write_bytes(b"version-b")
     key_b = step_cache_key(
-        cache_namespace="image_to_video_ltx",
+        cache_namespace="image_to_video_placeholder",
         executor_version="0.1.0",
         request_payload={"image_path": str(image), "fps": 12, "seconds": 2.0},
         upstream_artifact_ids=[],
@@ -47,7 +47,7 @@ def test_ffmpeg_missing_raises_without_stub_env(tmp_path: Path, monkeypatch: pyt
     image = tmp_path / "in.png"
     image.write_bytes(b"\x00")
     out = tmp_path / "out.mp4"
-    with pytest.raises(RuntimeError, match="ffmpeg not found"):
+    with pytest.raises(RuntimeError, match="ffmpeg is required"):
         _render_ffmpeg_loop(image, out, fps=12, seconds=1.0, width=64, height=64, motion=False)
 
 

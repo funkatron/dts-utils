@@ -392,3 +392,28 @@ def test_configs_import_draw_things_mirror_goes_to_subdir(monkeypatch: pytest.Mo
     assert rc == 0
     assert (out / "Alpha.json").is_file()
     assert (out / configs.DRAW_THINGS_APP_MIRROR_SUBDIR / "custom_lora.json").is_file()
+
+
+def test_scaffold_pipeline_list() -> None:
+    rc = configs.main(["scaffold-pipeline", "--list"])
+    assert rc == 0
+
+
+def test_scaffold_pipeline_writes_infomux(tmp_path: Path, capsys) -> None:
+    rc = configs.main(["scaffold-pipeline", "infomux", "--directory", str(tmp_path)])
+    assert rc == 0
+    dest = tmp_path / "infomux.json"
+    assert dest.is_file()
+    payload = json.loads(dest.read_text(encoding="utf-8"))
+    assert "_dts_utils_pipeline" in payload
+    assert payload["_dts_utils_pipeline"]["t2i_configuration"] == "default"
+    out = capsys.readouterr()
+    assert str(dest) in out.out
+    assert "pipeline run" in out.err
+
+
+def test_scaffold_pipeline_refuses_overwrite(tmp_path: Path) -> None:
+    dest = tmp_path / "infomux.json"
+    dest.write_text("{}", encoding="utf-8")
+    rc = configs.main(["scaffold-pipeline", "infomux", "--directory", str(tmp_path)])
+    assert rc == 2

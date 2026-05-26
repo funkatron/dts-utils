@@ -28,9 +28,23 @@ This supports lightweight progress polling for long video steps.
 
 ## ffmpeg behavior
 
-- Video steps call `ffmpeg` through the subprocess worker.
+- Video steps call `ffmpeg` to mux frames (Draw Things gRPC image-to-video) or to render placeholder motion (subprocess worker).
 - If `ffmpeg` is missing, `pipeline run` fails with an actionable error (run `dts-utils pipeline check` first).
 - Tests may set `DTS_PIPELINE_ALLOW_FFMPEG_STUB=1` to write a deterministic placeholder `.mp4` when `ffmpeg` is unavailable.
+
+## Pipeline profiles
+
+- Store run defaults in saved JSON under the configs directory as `_dts_utils_pipeline` (see [CLI.md](../CLI.md#pipeline-dts-utils-pipeline)).
+- Quick install bundled manifest: `dts-utils configs scaffold-pipeline infomux` (references **`default`** and **`ltx-2.3-22b-distilled-exact`** — create those Draw Things JSON profiles separately).
+- List profiles: `dts-utils pipeline profiles`.
+- Typical run: `dts-utils pipeline run --profile YOUR_PROFILE --prompt "..."`.
+- Web UI: select a profile marked **(pipeline)** and use **Run pipeline**.
+- Set `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` to omit `--profile` on repeat runs.
+
+## Draw Things image-to-video
+
+- Real I2V uses the same `ImageGenerationService.GenerateImage` RPC as text-to-image: pass an input image tensor on `request.image`, a video-oriented saved JSON profile (from the pipeline profile’s `video_configuration`), and mux all returned frame tensors to `video.mp4`.
+- Placeholder I2V (`i2v_backend: placeholder` in the profile, or legacy flags) does not call Draw Things; it animates the input still with ffmpeg for fast local tests.
 
 ## Gatekeeper and quarantine
 

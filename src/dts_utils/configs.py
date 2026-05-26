@@ -542,6 +542,8 @@ def build_parser() -> argparse.ArgumentParser:
   dts-utils configs scaffold-from-metadata ~/.cache/community-models/models/flux-2-klein-base-9b/metadata.json
   dts-utils configs scaffold-from-metadata ./metadata.json --dry-run
   dts-utils configs scaffold-from-metadata --scan ~/.cache/community-models/models --limit 20 --dry-run
+  dts-utils configs scaffold-pipeline infomux
+  dts-utils configs scaffold-pipeline --list
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -612,6 +614,29 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Overwrite an existing NAME.json.",
     )
+
+    pipeline_parser = subparsers.add_parser(
+        "scaffold-pipeline",
+        help="Install a bundled pipeline profile manifest (_dts_utils_pipeline) into saved configs.",
+    )
+    pipeline_parser.add_argument(
+        "name",
+        nargs="?",
+        default="infomux",
+        help="Template name (default: infomux). Use --list to see bundled templates.",
+    )
+    pipeline_parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List bundled pipeline profile templates and exit.",
+    )
+    pipeline_parser.add_argument(
+        "--directory",
+        type=Path,
+        help="Directory to write NAME.json (default: ``dts-utils configs path``).",
+    )
+    pipeline_parser.add_argument("--dry-run", action="store_true", help="Print destination path only.")
+    pipeline_parser.add_argument("--force", action="store_true", help="Overwrite an existing NAME.json.")
 
     import_dt_parser = subparsers.add_parser(
         "import-draw-things",
@@ -741,6 +766,43 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         out_path.write_text(text, encoding="utf-8")
         print(out_path)
+        return 0
+
+    if args.action == "scaffold-pipeline":
+        from dts_utils.exceptions import ConfigurationError
+        from dts_utils.pipeline.profile import (
+            list_pipeline_profile_templates,
+            scaffold_pipeline_profile,
+        )
+
+        if args.list:
+            names = list_pipeline_profile_templates()
+            if not names:
+                print("No bundled pipeline profile templates.")
+                return 0
+            for template_name in names:
+                print(template_name)
+            return 0
+
+        out_dir = (args.directory or configurations_dir()).expanduser()
+        try:
+            dest = scaffold_pipeline_profile(
+                args.name,
+                out_dir=out_dir,
+                dry_run=args.dry_run,
+                force=args.force,
+            )
+        except ConfigurationError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
+        if not args.dry_run:
+            print(dest)
+            print(
+                "Next: ensure referenced profiles exist (e.g. default, ltx-2.3-22b-distilled-exact). "
+                "Then: dts-utils pipeline run --profile "
+                f"{Path(args.name).stem} --prompt \"…\"  or select it in dts-utils web.",
+                file=sys.stderr,
+            )
         return 0
 
     if args.action == "import-draw-things":

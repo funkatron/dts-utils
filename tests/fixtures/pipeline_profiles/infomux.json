@@ -1,0 +1,16 @@
+{
+  "_dts_utils_pipeline": {
+    "t2i_configuration": "default",
+    "video_configuration": "ltx-2.3-22b-distilled-exact",
+    "t2i_mode": "drawthings",
+    "i2v_backend": "drawthings",
+    "fps": 25,
+    "video_width": 1024,
+    "video_height": 576,
+    "grpc": {
+      "trust_server_cert": true,
+      "host": "localhost",
+      "port": 7859
+    }
+  }
+}

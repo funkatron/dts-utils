@@ -14,8 +14,10 @@ from dts_utils.pipeline.contracts import (
 )
 from dts_utils.pipeline.apple_ops import AppleRuntimeChecks, collect_apple_runtime_checks, is_run_root_writable
 from dts_utils.pipeline.executors import (
+    DrawThingsGrpcImageToVideoExecutor,
     DrawThingsPromptTextToImageExecutor,
     LtxImageToVideoExecutor,
+    PlaceholderImageToVideoExecutor,
     SdxlTextToImageExecutor,
     StubTextToImageExecutor,
     ZImageTurboTextToImageExecutor,
@@ -25,9 +27,11 @@ from dts_utils.pipeline.runner import PipelineRunner, PipelineStep
 __all__ = [
     "ArtifactRef",
     "AppleRuntimeChecks",
+    "DrawThingsGrpcImageToVideoExecutor",
     "DrawThingsPromptTextToImageExecutor",
     "ImageRef",
     "LtxImageToVideoExecutor",
+    "PlaceholderImageToVideoExecutor",
     "PipelineRunManifest",
     "PipelineRunner",
     "PipelineStep",

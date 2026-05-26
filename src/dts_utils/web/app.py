@@ -45,6 +45,15 @@ from dts_utils.generate_api import (
 )
 from dts_utils.grpc.connection import is_loopback_host
 from dts_utils.grpc.utils import is_server_running
+from dts_utils.pipeline.profile import is_pipeline_profile
+from dts_utils.pipeline.run_plan import (
+    PipelineRunRequest,
+    build_pipeline_steps,
+    default_run_root,
+    prepare_pipeline_run,
+    validate_pipeline_run,
+)
+from dts_utils.pipeline.runner import PipelineRunner
 
 _templates_dir = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(_templates_dir))
@@ -56,6 +65,7 @@ _DEFAULT_GENERATE_TIMEOUT = 900.0
 _ENV_GENERATE_TIMEOUT = "DTS_WEB_GENERATE_TIMEOUT"
 _ENV_WEB_TOKEN = "DTS_WEB_TOKEN"
 _ENV_HISTORY_DIR = "DTS_WEB_HISTORY_DIR"
+_ENV_PIPELINE_RUN_ROOT = "DTS_WEB_PIPELINE_RUN_ROOT"
 
 # Bound SSE chunks waiting on a slow client (producer blocks on put when full).
 _GENERATE_STREAM_QUEUE_MAXSIZE = 64
@@ -64,11 +74,23 @@ _GENERATE_STREAM_QUEUE_MAXSIZE = 64
 _MAX_EXPANDED_WILDCARDS_B64_LEN = 6000
 _HISTORY_MAX_ITEMS = 30
 _HISTORY_INDEX = "index.json"
-_UI_PIPELINE_PROFILES = (
+_UI_PIPELINE_PROFILES_FALLBACK = (
     "sdxl-turbo",
     "z-image-turbo-1.0-exact",
     "ltx-2.3-22b-distilled-exact",
 )
+
+
+def _pipeline_profile_names_for_ui() -> list[str]:
+    try:
+        from dts_utils.pipeline.profile import list_pipeline_profile_names
+
+        names = list_pipeline_profile_names()
+        if names:
+            return names
+    except OSError:
+        pass
+    return list(_UI_PIPELINE_PROFILES_FALLBACK)
 
 
 def _expanded_wildcards_b64(prompts: list[str], negatives: list[str]) -> str | None:
@@ -244,7 +266,103 @@ def _map_exc(exc: Exception) -> JSONResponse:
         return JSONResponse({"detail": str(exc)}, status_code=502)
     if isinstance(exc, GenerationCancelledError):
         return JSONResponse({"detail": str(exc)}, status_code=499)
+    if isinstance(exc, RuntimeError):
+        return JSONResponse({"detail": str(exc)}, status_code=502)
     return JSONResponse({"detail": str(exc)}, status_code=500)
+
+
+def _pipeline_run_root() -> Path:
+    raw = os.environ.get(_ENV_PIPELINE_RUN_ROOT, "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    return default_run_root()
+
+
+def _parse_pipeline_payload(body: object) -> tuple[dict[str, object], JSONResponse | None]:
+    if not isinstance(body, dict):
+        return {}, JSONResponse({"detail": "Expected JSON object"}, status_code=400)
+    profile = body.get("profile")
+    if not isinstance(profile, str) or not profile.strip():
+        return {}, JSONResponse({"detail": "Field 'profile' is required (pipeline profile name)."}, status_code=400)
+    prompt = body.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip():
+        return {}, JSONResponse({"detail": "Field 'prompt' is required (non-empty string)."}, status_code=400)
+    return body, None
+
+
+def _build_pipeline_run_request(data: dict[str, object]) -> tuple[PipelineRunRequest, JSONResponse | None]:
+    profile = str(data["profile"]).strip()
+    if not is_pipeline_profile(profile):
+        return PipelineRunRequest(profile=profile, prompt=""), JSONResponse(
+            {
+                "detail": (
+                    f"Profile {profile!r} is not a pipeline profile "
+                    "(missing _dts_utils_pipeline in saved JSON). "
+                    "Use dts-utils pipeline profiles to list pipeline-capable profiles."
+                )
+            },
+            status_code=400,
+        )
+
+    client, err = _build_client_options(data)
+    if err:
+        return PipelineRunRequest(profile=profile, prompt=""), err
+
+    neg = data.get("negative_prompt")
+    negative_prompt = str(neg).strip() if isinstance(neg, str) else ""
+    shared = data.get("shared_secret")
+    shared_secret = str(shared).strip() if isinstance(shared, str) and shared.strip() else None
+
+    return (
+        PipelineRunRequest(
+            profile=profile,
+            prompt=str(data["prompt"]).strip(),
+            run_root=_pipeline_run_root(),
+            allow_cache=bool(data.get("allow_cache", True)),
+            negative_prompt=negative_prompt,
+            host=client.host,
+            port=client.port,
+            no_tls=client.no_tls,
+            trust_server_cert=client.trust_server_cert,
+            force_trust_server_cert=client.force_trust_server_cert,
+            root_cert=client.root_cert,
+            max_message_mb=client.max_message_mb,
+            shared_secret=shared_secret,
+            user=str(data.get("user", "dts-utils-web")),
+        ),
+        None,
+    )
+
+
+def _pipeline_artifact_url(run_id: str, step_id: str, filename: str) -> str:
+    from urllib.parse import quote
+
+    return (
+        f"/api/pipeline/artifact/{quote(run_id, safe='')}/"
+        f"{quote(step_id, safe='')}/{quote(filename, safe='')}"
+    )
+
+
+def _manifest_artifact_events(manifest: object) -> list[dict[str, object]]:
+    events: list[dict[str, object]] = []
+    for artifact in manifest.artifacts:
+        step_id = str(artifact.get("created_by_step", "artifact"))
+        path = Path(str(artifact.get("path", "")))
+        if not path.is_file():
+            continue
+        filename = path.name
+        kind = artifact.get("kind", "image")
+        events.append(
+            {
+                "type": "artifact",
+                "kind": kind,
+                "step_id": step_id,
+                "filename": filename,
+                "url": _pipeline_artifact_url(manifest.run_id, step_id, filename),
+                "path": str(path),
+            }
+        )
+    return events
 
 
 async def health(_: Request) -> JSONResponse:
@@ -292,7 +410,7 @@ async def api_configs(request: Request) -> JSONResponse:
             "names": names,
             "default_profile": DEFAULT_PROFILE_NAME,
             "config_dir": str(directory),
-            "pipeline_profiles": list(_UI_PIPELINE_PROFILES),
+            "pipeline_profiles": _pipeline_profile_names_for_ui(),
         }
     )
 
@@ -797,6 +915,173 @@ async def api_generate(request: Request) -> Response:
     )
 
 
+async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONResponse:
+    if err := _require_bearer(request):
+        return err
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
+
+    data, err = _parse_pipeline_payload(body)
+    if err:
+        return err
+
+    run_request, err = _build_pipeline_run_request(data)
+    if err:
+        return err
+
+    loop = asyncio.get_running_loop()
+    q: queue.Queue[str | None] = queue.Queue(maxsize=_GENERATE_STREAM_QUEUE_MAXSIZE)
+    timeout_sec = _generate_timeout_seconds()
+    run_root = _pipeline_run_root()
+
+    def worker() -> None:
+        with _execute_lock:
+            _generation_cancel_event.clear()
+            heartbeat_path: Path | None = None
+            try:
+                ns, profile_settings = prepare_pipeline_run(run_request)
+                validate_pipeline_run(ns, profile_settings)
+                run_id = str(ns.run_id)
+                heartbeat_path = run_root / run_id / "heartbeat.json"
+                steps = build_pipeline_steps(ns, profile_settings)
+                q.put(
+                    json.dumps(
+                        {
+                            "type": "meta",
+                            "profile": run_request.profile,
+                            "run_id": run_id,
+                            "total_steps": len(steps),
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+
+                runner = PipelineRunner(
+                    run_root,
+                    allow_cache=run_request.allow_cache,
+                    max_oom_retries=max(0, int(run_request.max_oom_retries or 1)),
+                )
+                last_progress = ""
+                stop_poll = threading.Event()
+
+                def poll_heartbeat() -> None:
+                    nonlocal last_progress
+                    while not stop_poll.is_set():
+                        if heartbeat_path.is_file():
+                            try:
+                                payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+                                msg = (
+                                    f"Step {payload.get('step_id', '?')} "
+                                    f"({int(payload.get('step_index', 0)) + 1}/"
+                                    f"{payload.get('total_steps', '?')}) — "
+                                    f"{payload.get('status', '')}"
+                                )
+                                if msg != last_progress:
+                                    last_progress = msg
+                                    q.put(
+                                        json.dumps(
+                                            {"type": "progress", "message": msg, **payload},
+                                            ensure_ascii=False,
+                                        )
+                                    )
+                            except (OSError, json.JSONDecodeError):
+                                pass
+                        stop_poll.wait(1.0)
+
+                poll_thread = threading.Thread(target=poll_heartbeat, daemon=True)
+                poll_thread.start()
+                try:
+                    manifest = runner.run(run_id=run_id, steps=steps)
+                finally:
+                    stop_poll.set()
+                    poll_thread.join(timeout=2.0)
+
+                for evt in _manifest_artifact_events(manifest):
+                    q.put(json.dumps(evt, ensure_ascii=False))
+                q.put(
+                    json.dumps(
+                        {
+                            "type": "done",
+                            "run_id": manifest.run_id,
+                            "run_root": manifest.run_root,
+                            "profile": run_request.profile,
+                            "artifacts": manifest.artifacts,
+                        },
+                        ensure_ascii=False,
+                    )
+                )
+            except BaseException as exc:
+                q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
+            finally:
+                q.put(None)
+
+    threading.Thread(target=worker, daemon=True).start()
+
+    async def event_iter():
+        deadline = loop.time() + timeout_sec
+        timed_out = False
+        try:
+            while True:
+                remaining = deadline - loop.time()
+                if remaining <= 0:
+                    timed_out = True
+                    break
+                try:
+                    line = await asyncio.wait_for(loop.run_in_executor(None, q.get), timeout=remaining)
+                except TimeoutError:
+                    timed_out = True
+                    break
+                if line is None:
+                    break
+                yield f"data: {line}\n\n"
+            if timed_out:
+                _generation_cancel_event.set()
+                err_line = json.dumps(
+                    {"type": "error", "detail": "Pipeline run timed out."},
+                    ensure_ascii=False,
+                )
+                yield f"data: {err_line}\n\n"
+        finally:
+            if timed_out:
+                while True:
+                    line = await loop.run_in_executor(None, q.get)
+                    if line is None:
+                        break
+
+    return StreamingResponse(
+        event_iter(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+async def api_pipeline_artifact(request: Request) -> Response:
+    if err := _require_bearer(request):
+        return err
+    run_id = request.path_params.get("run_id", "")
+    step_id = request.path_params.get("step_id", "")
+    filename = request.path_params.get("filename", "")
+    if not run_id or not step_id or not filename:
+        return JSONResponse({"detail": "Missing path segments."}, status_code=400)
+    if ".." in run_id or ".." in step_id or ".." in filename or "/" in filename:
+        return JSONResponse({"detail": "Invalid path."}, status_code=400)
+
+    run_root = _pipeline_run_root().resolve()
+    artifact_path = (run_root / run_id / step_id / filename).resolve()
+    allowed_root = (run_root / run_id).resolve()
+    if not str(artifact_path).startswith(str(allowed_root)) or not artifact_path.is_file():
+        return JSONResponse({"detail": "Not found"}, status_code=404)
+
+    media = "video/mp4" if filename.lower().endswith(".mp4") else "image/png"
+    return FileResponse(artifact_path, media_type=media, filename=filename)
+
+
 def create_app() -> Starlette:
     routes: list[Route] = [
         Route("/", index),
@@ -808,6 +1093,12 @@ def create_app() -> Starlette:
         Route("/api/generate/cancel", api_generate_cancel, methods=["POST"]),
         Route("/api/generate/stream", api_generate_stream, methods=["POST"]),
         Route("/api/generate", api_generate, methods=["POST"]),
+        Route("/api/pipeline/run/stream", api_pipeline_run_stream, methods=["POST"]),
+        Route(
+            "/api/pipeline/artifact/{run_id:str}/{step_id:str}/{filename:str}",
+            api_pipeline_artifact,
+            methods=["GET"],
+        ),
         Route("/history/{item_id:str}/{filename:str}", history_image, methods=["GET"]),
     ]
     return Starlette(routes=routes)

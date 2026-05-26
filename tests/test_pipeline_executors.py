@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from dts_utils.pipeline.executors import (
-    LtxImageToVideoExecutor,
+    PlaceholderImageToVideoExecutor,
     SdxlTextToImageExecutor,
     ZImageTurboTextToImageExecutor,
 )
@@ -39,7 +39,7 @@ def test_z_image_uses_distinct_cache_namespace(tmp_path: Path) -> None:
     assert manifest.steps[0]["cache_namespace"] == "text_to_image_z_image_turbo"
 
 
-def test_ltx_executor_emits_video_artifact(tmp_path: Path) -> None:
+def test_placeholder_executor_emits_video_artifact(tmp_path: Path) -> None:
     runner = PipelineRunner(tmp_path)
     manifest = runner.run(
         run_id="run-ltx",
@@ -51,7 +51,7 @@ def test_ltx_executor_emits_video_artifact(tmp_path: Path) -> None:
             ),
             PipelineStep(
                 step_id="vid",
-                executor=LtxImageToVideoExecutor(model_sha256="ltxsha"),
+                executor=PlaceholderImageToVideoExecutor(model_sha256="placeholder-sha"),
                 input_from_step="img",
                 request={"fps": 10, "seconds": 1.0},
             ),

@@ -185,6 +185,40 @@ def read_json_configuration_bytes(configuration_path: Path) -> bytes:
     return json_configuration_to_flatbuffer(configuration)
 
 
+def read_configuration_json_dict(
+    *,
+    configuration: str | Path | None = None,
+    configuration_json: str | Path | None = None,
+    config_dir: Path | None = None,
+) -> dict:
+    """Load a saved JSON configuration object (not flatbuffer bytes)."""
+    from dts_utils.configs import resolve_configuration_value
+
+    try:
+        if configuration:
+            configuration_path = resolve_configuration_value(configuration, config_dir=config_dir)
+        elif configuration_json:
+            configuration_path = resolve_configuration_value(configuration_json, config_dir=config_dir)
+        else:
+            raise ConfigurationError(
+                "Configuration is required. Pass --configuration CONFIG_PATH_OR_NAME "
+                "or --configuration-json JSON_PATH_OR_NAME."
+            )
+        if configuration_path.suffix.lower() != ".json":
+            raise ConfigurationError("JSON configuration path must end with .json")
+        with configuration_path.open(encoding="utf-8") as f:
+            loaded = json.load(f)
+    except ValueError as e:
+        raise ConfigurationError(str(e)) from e
+    except OSError as e:
+        raise ConfigurationError(str(e)) from e
+    except json.JSONDecodeError as e:
+        raise ConfigurationError(str(e)) from e
+    if not isinstance(loaded, dict):
+        raise ConfigurationError("JSON configuration must be an object.")
+    return loaded
+
+
 def read_configuration_bytes(
     *,
     configuration: str | Path | None = None,

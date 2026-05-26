@@ -196,6 +196,7 @@ Options:
   - **Fills in:** the checkpoint name from **`file`**. If the **`note`** field mentions common resolution or step wording (same rough ideas as the model index), **width**, **height**, and **steps** may be prefilled too.
   - **Otherwise:** you still get the right **model** filename; **width**, **height**, and **steps** stay at the usual starter values until you edit the JSON yourself.
 - **`configs scaffold-from-metadata --scan DIR`:** Same starter profiles as above, but walk **`DIR`** recursively for every **`metadata.json`** (skips **`apis/`** trees — those entries are cloud/API). Writes **one `.json` file per local model folder** into **`configs path`** or **`--directory`**. Use **`--dry-run`** to print **`would write …`** lines without saving; a short summary goes to **stderr**. **`--limit N`** processes only the first **`N`** files after sorting paths (sanity check before a full run). **`--verbose`** prints each profile path written and reasons for skips. **`--force`** overwrites existing **`NAME.json`** files. Do not combine **`--scan`** with a positional **`METADATA.json`** or **`--name`**.
+- **`configs scaffold-pipeline [NAME]`:** Install a bundled **pipeline profile manifest** (`_dts_utils_pipeline` only) into **`configs path`**. Default **`NAME`** is **`infomux`** (T2I via **`default`**, I2V via **`ltx-2.3-22b-distilled-exact`**, loopback gRPC with **`trust_server_cert`**). **`--list`** shows bundled template names. You still need the referenced Draw Things JSON profiles (create **`default`** via normal bootstrap, fetch LTX recipe via **`dts-utils models`**, etc.).
 
 Save files such as `portrait.json` in this directory, then use `--configuration portrait` with `dts-utils generate`.
 
@@ -220,21 +221,52 @@ With `server install` (macOS): `uv run dts-utils server install --export-tls-cer
 Run Apple-first local media pipeline steps (`text_to_image` -> `image_to_video`) and validate runtime prerequisites.
 
 ```bash
+uv run dts-utils configs scaffold-pipeline infomux
 uv run dts-utils pipeline check
-uv run dts-utils pipeline run --preset sdxl-to-ltx --run-id demo-001
+uv run dts-utils pipeline profiles
+uv run dts-utils pipeline run --profile infomux --prompt "a quiet street at dusk"
 ```
 
 Subcommands:
 
 - `pipeline check`: Report `ffmpeg` availability, run-root writability, and Gatekeeper note. Returns non-zero when required runtime prerequisites are missing.
-- `pipeline run`: Execute a two-step local pipeline and write artifacts + manifests under `--run-root` (default `~/Movies/infomux-runs`).
-  - `--image PATH` runs image-to-video only (uses the provided input image).
-  - `--prompt "..." --configuration NAME_OR_PATH` runs prompt-to-image (Draw Things gRPC) then image-to-video in one command.
-  - `--preset {stub-to-ltx,sdxl-to-ltx,z-to-ltx}` picks the T2I executor.
-  - `--run-id`, `--run-root`, `--no-cache`, `--max-oom-retries` control run behavior.
-  - `--host`, `--port`, `--no-tls`, `--trust-server-cert`, `--root-cert`, `--shared-secret` apply to `--prompt` mode.
-  - `--sdxl-runtime {pytorch-mps,mlx}` selects SDXL runtime when preset mode is `sdxl-to-ltx`.
-  - `--width`/`--height` control image size; `--video-width`/`--video-height`, `--fps`, `--seconds` control I2V output.
+- `pipeline profiles`: List saved JSON profiles that contain a `_dts_utils_pipeline` block (same idea as picking a profile in the web UI).
+- `pipeline run`: Execute text-to-image → image-to-video and write artifacts + manifests under `--run-root` (default `~/Movies/infomux-runs`).
+
+**Profile-first (recommended):** put pipeline defaults in a saved profile under `dts-utils configs path` (see `configs path`). The block is stripped before `flatc` and does not affect Draw Things generation JSON.
+
+```json
+{
+  "_dts_utils_pipeline": {
+    "t2i_configuration": "default",
+    "video_configuration": "ltx-2.3-22b-distilled-exact",
+    "t2i_mode": "drawthings",
+    "i2v_backend": "drawthings",
+    "fps": 25,
+    "video_width": 1024,
+    "video_height": 576,
+    "grpc": { "trust_server_cert": true }
+  }
+}
+```
+
+Then run with only the profile name and a prompt (CLI flags override profile fields when set):
+
+```bash
+uv run dts-utils pipeline run --profile infomux --prompt "your scene"
+```
+
+Optional env: `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` (same role as `DTS_UTILS_DEFAULT_CONFIGURATION` for generate shorthand).
+
+**Inputs:**
+
+- `--profile NAME` loads `_dts_utils_pipeline` defaults (T2I/I2V config names, gRPC, sizes, prompts).
+- `--prompt "..."` runs Draw Things T2I when the profile sets `t2i_mode: drawthings` (or when `--configuration` is set).
+- `--image PATH` runs image-to-video only.
+
+**Legacy / overrides:** `--preset`, `--configuration`, `--video-configuration`, `--i2v-backend`, `--host`, `--trust-server-cert`, and related flags still work and override the profile when passed.
+
+**Web UI:** When the selected saved profile includes `_dts_utils_pipeline` (shown as `name (pipeline)` in the profile list), the main action runs the full pipeline via `POST /api/pipeline/run/stream` (SSE progress + image/video artifacts). Single-image **Generate** still uses `/api/generate/stream` for non-pipeline profiles.
 
 <a id="web-dts-utils-web"></a>
 

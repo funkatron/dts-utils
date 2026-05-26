@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import dataclasses
+import io
 import time
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
@@ -12,7 +13,7 @@ import threading
 
 import grpc
 
-from dts_utils.configuration_build import read_configuration_bytes
+from dts_utils.configuration_build import read_configuration_bytes, read_configuration_json_dict
 from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
@@ -26,7 +27,9 @@ from dts_utils.grpc.connection import create_channel
 from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 from dts_utils.image_output import unique_ms_timestamp_output_path, write_images
-from dts_utils.tensor_png import decode_dt_tensor_to_png
+from PIL import Image
+
+from dts_utils.tensor_png import decode_dt_tensor_to_png, encode_png_to_dt_tensor
 
 # Independent RPC runs per UI/API/CLI request (each run re-expands `{…}` wildcards).
 MAX_BATCH_GENERATIONS = 25
@@ -94,6 +97,7 @@ class ImageGenerationRequestOptions:
     user: str = "dts-utils"
     shared_secret: str | None = None
     config_dir: Path | None = None
+    input_image_path: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -130,7 +134,28 @@ def prepare_image_generation_request(
     )
     if gen.shared_secret:
         request.sharedSecret = gen.shared_secret
+    if gen.input_image_path is not None:
+        request.image = encode_png_to_dt_tensor(gen.input_image_path.read_bytes())
     return request, prompt_expanded, negative_expanded
+
+
+def configuration_output_fps(gen: ImageGenerationRequestOptions, *, default: int = 24) -> int:
+    """Best-effort FPS from a saved JSON profile (mux fallback when the server omits timing)."""
+    try:
+        cfg = read_configuration_json_dict(
+            configuration=gen.configuration,
+            configuration_json=gen.configuration_json,
+            config_dir=gen.config_dir,
+        )
+    except ConfigurationError:
+        return default
+    for key in ("frames_per_second", "fps", "fps_id"):
+        value = cfg.get(key)
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            fps = int(value)
+            if fps > 0:
+                return fps
+    return default
 
 
 def build_image_generation_request(gen: ImageGenerationRequestOptions) -> up_pb2.ImageGenerationRequest:
@@ -279,6 +304,52 @@ def iter_generate_stream_dicts(
         "expanded_negative_prompts": expanded_negatives,
         "total_images": global_idx,
     }
+
+
+def generate_video_mp4_bytes(
+    client: GrpcClientOptions,
+    gen: ImageGenerationRequestOptions,
+    *,
+    input_image_path: Path,
+    output_fps: int | None = None,
+    scale_width: int | None = None,
+    scale_height: int | None = None,
+) -> tuple[bytes, dict[str, object]]:
+    """Run Draw Things ``GenerateImage`` with an input image tensor and mux returned frames to MP4."""
+    from dts_utils.pipeline.video_encode import png_frames_to_mp4
+
+    gen_with_image = dataclasses.replace(gen, input_image_path=input_image_path)
+    request, prompt_expanded, negative_expanded = prepare_image_generation_request(gen_with_image)
+    tensors = collect_raw_generation_tensors(client, request)
+    if not tensors:
+        raise GenerationEmptyError("No generated frames returned by the server.")
+    frame_pngs = [decode_dt_tensor_to_png(tensor) for tensor in tensors]
+    fps = output_fps if output_fps is not None else configuration_output_fps(gen_with_image)
+    mp4 = png_frames_to_mp4(
+        frame_pngs,
+        fps=fps,
+        width=scale_width,
+        height=scale_height,
+    )
+    seconds = len(frame_pngs) / float(fps)
+    meta: dict[str, object] = {
+        "frame_count": len(frame_pngs),
+        "fps": fps,
+        "seconds": seconds,
+        "source": "drawthings_grpc",
+        "motion": "drawthings_frames",
+        "expanded_prompt": prompt_expanded,
+        "expanded_negative_prompt": negative_expanded,
+    }
+    width = scale_width
+    height = scale_height
+    if width is None or height is None:
+        with Image.open(io.BytesIO(frame_pngs[0])) as img:
+            width = width or img.size[0]
+            height = height or img.size[1]
+    meta["width"] = int(width)
+    meta["height"] = int(height)
+    return mp4, meta
 
 
 def generate_png_bytes(

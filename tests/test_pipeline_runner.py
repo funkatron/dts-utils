@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from dts_utils.pipeline.cache import step_cache_key
-from dts_utils.pipeline.executors import LtxImageToVideoExecutor, StubTextToImageExecutor
+from dts_utils.pipeline.executors import PlaceholderImageToVideoExecutor, StubTextToImageExecutor
 from dts_utils.pipeline.runner import PipelineRunner, PipelineStep
 
 
@@ -20,7 +20,7 @@ def test_runner_writes_step_and_pipeline_manifests(tmp_path: Path) -> None:
             ),
             PipelineStep(
                 step_id="i2v",
-                executor=LtxImageToVideoExecutor(),
+                executor=PlaceholderImageToVideoExecutor(),
                 input_from_step="t2i",
                 request={"fps": 8, "seconds": 1.0},
             ),
@@ -50,7 +50,7 @@ def test_runner_cache_hit_marks_cached_status(tmp_path: Path) -> None:
     assert len(idx) == 1
 
 
-def test_runner_oom_policy_downscales_for_ltx(tmp_path: Path) -> None:
+def test_runner_oom_policy_downscales_for_placeholder_i2v(tmp_path: Path) -> None:
     runner = PipelineRunner(tmp_path, max_oom_retries=1)
     manifest = runner.run(
         run_id="run-oom",
@@ -58,7 +58,7 @@ def test_runner_oom_policy_downscales_for_ltx(tmp_path: Path) -> None:
             PipelineStep(step_id="t2i", executor=StubTextToImageExecutor(), request={"width": 2048, "height": 2048, "seed": 2}),
             PipelineStep(
                 step_id="i2v",
-                executor=LtxImageToVideoExecutor(),
+                executor=PlaceholderImageToVideoExecutor(),
                 input_from_step="t2i",
                 request={"fps": 12, "seconds": 2.0, "width": 2048, "height": 2048, "simulate_oom": True},
             ),
@@ -71,8 +71,8 @@ def test_runner_oom_policy_downscales_for_ltx(tmp_path: Path) -> None:
     image_path = manifest.artifacts[0]["path"]
     parent_id = manifest.artifacts[0]["artifact_id"]
     full_key = step_cache_key(
-        cache_namespace="image_to_video_ltx",
-        executor_version=LtxImageToVideoExecutor().executor_version,
+        cache_namespace="image_to_video_placeholder",
+        executor_version=PlaceholderImageToVideoExecutor().executor_version,
         request_payload={
             "image_path": image_path,
             "fps": 12,
@@ -82,11 +82,11 @@ def test_runner_oom_policy_downscales_for_ltx(tmp_path: Path) -> None:
             "simulate_oom": True,
         },
         upstream_artifact_ids=[parent_id],
-        model_fingerprint=LtxImageToVideoExecutor().model_fingerprint(),
+        model_fingerprint=PlaceholderImageToVideoExecutor().model_fingerprint(),
     )
     retry_key = step_cache_key(
-        cache_namespace="image_to_video_ltx",
-        executor_version=LtxImageToVideoExecutor().executor_version,
+        cache_namespace="image_to_video_placeholder",
+        executor_version=PlaceholderImageToVideoExecutor().executor_version,
         request_payload={
             "image_path": image_path,
             "fps": 12,
@@ -95,7 +95,7 @@ def test_runner_oom_policy_downscales_for_ltx(tmp_path: Path) -> None:
             "height": retries[0]["height"],
         },
         upstream_artifact_ids=[parent_id],
-        model_fingerprint=LtxImageToVideoExecutor().model_fingerprint(),
+        model_fingerprint=PlaceholderImageToVideoExecutor().model_fingerprint(),
     )
     assert full_key != retry_key
     assert i2v["cache_key"] == retry_key

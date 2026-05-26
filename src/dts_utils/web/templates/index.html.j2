@@ -802,7 +802,7 @@
   <div id="stage" role="region" aria-label="Generation output">
     <div id="resultPane" aria-live="polite">
       <p id="resultPlaceholder" class="result-placeholder">
-        Built render lands here. Enter a prompt below and run Generate.
+        Built render lands here. Enter a prompt below and run Generate (or Run pipeline when a pipeline profile is selected).
       </p>
       <div id="resultBusy" class="result-busy" hidden>
         <div class="result-busy-head">
@@ -827,7 +827,7 @@
     <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
-        <span class="hint" style="font-size:0.65rem;margin:0">⌘↵ · Ctrl+Enter generate</span>
+        <span class="hint" style="font-size:0.65rem;margin:0" id="composerShortcutHint">⌘↵ · Ctrl+Enter generate</span>
       </div>
       <div class="composer-input-row">
         <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
@@ -1128,6 +1128,7 @@ uv run dts-utils server check</pre>
       }
       const defaultProfile = j.default_profile || "default";
       const pipelineProfiles = Array.isArray(j.pipeline_profiles) ? j.pipeline_profiles : [];
+      pipelineProfileSet = new Set(pipelineProfiles);
       const preferredPipelineDefault = "sdxl-turbo";
       const uiDefaultProfile = pipelineProfiles.includes(preferredPipelineDefault)
         ? preferredPipelineDefault
@@ -1141,20 +1142,62 @@ uv run dts-utils server check</pre>
       for (const n of names) {
         const o = document.createElement("option");
         o.value = n;
-        o.textContent = n;
+        o.textContent = pipelineProfileSet.has(n) ? n + " (pipeline)" : n;
         if (n === uiDefaultProfile) o.selected = true;
         sel.appendChild(o);
       }
+      updateComposerMode();
     } catch (e) {
       console.error("loadConfigs:", e);
       appendDefaultProfileFallback("default — network error (see console)");
     }
   }
 
+  var pipelineProfileSet = new Set();
+
   function effectiveProfile() {
     const c = document.getElementById("profileCustom").value.trim();
     if (c) return c;
     return document.getElementById("profile").value || "default";
+  }
+
+  function isPipelineProfileMode() {
+    const name = effectiveProfile();
+    return pipelineProfileSet.has(name);
+  }
+
+  function updateComposerMode() {
+    const pipelineMode = isPipelineProfileMode();
+    const btnGen = document.getElementById("btnGen");
+    const runsEl = document.getElementById("generations");
+    const hint = document.getElementById("composerShortcutHint");
+    const busySummary = document.querySelector(".busy-summary");
+    if (pipelineMode) {
+      btnGen.setAttribute("aria-label", "Run pipeline");
+      btnGen.title = "Run full pipeline (T2I → I2V) for this profile";
+      runsEl.disabled = true;
+      runsEl.title = "Pipeline profiles run one prompt chain";
+      if (hint) hint.textContent = "⌘↵ · Ctrl+Enter run pipeline";
+      if (busySummary) busySummary.textContent = "Pipeline request JSON — POST /api/pipeline/run/stream";
+    } else {
+      btnGen.setAttribute("aria-label", "Generate");
+      btnGen.title = "";
+      runsEl.disabled = false;
+      runsEl.title = "Runs — each run sends one entry from the expanded prompts array (see request JSON)";
+      if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate";
+      if (busySummary) busySummary.textContent = "Generate request JSON — POST /api/generate/stream";
+    }
+  }
+
+  function buildPipelineRunBody() {
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const body = Object.assign(connectionPayload(), {
+      profile: effectiveProfile(),
+      prompt: document.getElementById("prompt").value.trim(),
+      negative_prompt: document.getElementById("neg").value,
+    });
+    if (shared) body.shared_secret = shared;
+    return body;
   }
 
   function connectionPayload() {
@@ -1525,6 +1568,149 @@ uv run dts-utils server check</pre>
 
   var generateAbortController = null;
   var generationInFlight = false;
+
+  async function runPipeline() {
+    if (generationInFlight) return;
+    const errEl = document.getElementById("err");
+    const results = document.getElementById("results");
+    const placeholder = document.getElementById("resultPlaceholder");
+    const elapsed = document.getElementById("elapsed");
+    const splitEl = document.querySelector(".split-run-gen");
+    const btnGen = document.getElementById("btnGen");
+    const timerRef = { id: null };
+    errEl.style.display = "none";
+    revokeResultBlobUrls();
+    results.innerHTML = "";
+    btnGen.disabled = true;
+
+    const prompt = document.getElementById("prompt").value.trim();
+    if (!prompt) {
+      errEl.textContent = "Enter a prompt.";
+      errEl.style.display = "block";
+      placeholder.hidden = false;
+      btnGen.disabled = false;
+      return;
+    }
+    if (!isPipelineProfileMode()) {
+      errEl.textContent = "Select a pipeline profile (marked “pipeline” in the list).";
+      errEl.style.display = "block";
+      placeholder.hidden = false;
+      btnGen.disabled = false;
+      return;
+    }
+
+    generationInFlight = true;
+    const ac = new AbortController();
+    generateAbortController = ac;
+    splitEl.classList.add("is-busy");
+    const t0 = performance.now();
+    elapsed.textContent = "";
+    const body = buildPipelineRunBody();
+    setGeneratingUi(true, t0, timerRef, JSON.stringify(body, null, 2));
+
+    try {
+      const r = await fetch("/api/pipeline/run/stream", {
+        method: "POST",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        }),
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      });
+
+      if (r.status === 401) {
+        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+      if (!r.ok) {
+        let msg = r.statusText;
+        try {
+          const j = await r.json();
+          msg = j.detail || msg;
+        } catch (_) {}
+        errEl.textContent = msg;
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+        return;
+      }
+
+      let artifactCount = 0;
+      await readSSEStream(r, async function (msg) {
+        if (msg.type === "meta") {
+          const prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Pipeline " + msg.profile + " · run " + msg.run_id;
+        }
+        if (msg.type === "progress" && msg.message) {
+          const prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = msg.message;
+        }
+        if (msg.type === "artifact" && msg.url) {
+          placeholder.hidden = true;
+          const ar = await fetch(msg.url, { headers: authHeaders() });
+          if (!ar.ok) return;
+          const blob = await ar.blob();
+          const url = URL.createObjectURL(blob);
+          __dtsResultBlobUrls.push(url);
+          const wrap = document.createElement("div");
+          wrap.className = "result-slot";
+          if (msg.kind === "video") {
+            const vid = document.createElement("video");
+            vid.src = url;
+            vid.controls = true;
+            vid.className = "result-inflight";
+            wrap.appendChild(vid);
+          } else {
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = msg.step_id + " " + msg.filename;
+            img.className = "result-inflight";
+            wrap.appendChild(img);
+          }
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = msg.filename || "artifact";
+          a.textContent = "Download";
+          a.className = "result-download";
+          wrap.appendChild(a);
+          results.appendChild(wrap);
+          artifactCount += 1;
+        }
+        if (msg.type === "error") {
+          errEl.textContent = msg.detail || "Pipeline failed.";
+          errEl.style.display = "block";
+        }
+      });
+
+      elapsed.textContent = "Done in " + ((performance.now() - t0) / 1000).toFixed(1) + "s";
+      results.querySelectorAll(".result-inflight").forEach(function (el) {
+        el.classList.remove("result-inflight");
+      });
+      placeholder.hidden = artifactCount > 0;
+    } catch (e) {
+      if (e.name === "AbortError") {
+        elapsed.textContent = "Stopped";
+        placeholder.hidden = false;
+      } else {
+        errEl.textContent = String(e);
+        errEl.style.display = "block";
+        placeholder.hidden = false;
+      }
+    } finally {
+      splitEl.classList.remove("is-busy");
+      generateAbortController = null;
+      generationInFlight = false;
+      setGeneratingUi(false, t0, timerRef);
+      btnGen.disabled = false;
+    }
+  }
+
+  async function runComposerAction() {
+    if (isPipelineProfileMode()) await runPipeline();
+    else await runGenerate();
+  }
 
   async function runGenerate() {
     if (generationInFlight) return;
@@ -1938,7 +2124,7 @@ uv run dts-utils server check</pre>
     if (e.key !== "Enter") return;
     if (!(e.metaKey || e.ctrlKey)) return;
     e.preventDefault();
-    runGenerate();
+    runComposerAction();
   });
 
   (function setupDialog() {
@@ -1966,7 +2152,9 @@ uv run dts-utils server check</pre>
   });
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
-  document.getElementById("btnGen").addEventListener("click", runGenerate);
+  document.getElementById("profile").addEventListener("change", updateComposerMode);
+  document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
+  document.getElementById("btnGen").addEventListener("click", runComposerAction);
   document.getElementById("btnStop").addEventListener("click", function () {
     requestGenerationCancel();
     if (generateAbortController) generateAbortController.abort();

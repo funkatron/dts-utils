@@ -68,6 +68,27 @@ def test_read_configuration_bytes_requires_source():
         read_configuration_bytes()
 
 
+def test_prepare_image_generation_request_attaches_input_image(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        "dts_utils.generate_api.read_configuration_bytes",
+        lambda **kwargs: b"resolved",
+    )
+    monkeypatch.setattr(
+        "dts_utils.generate_api.encode_png_to_dt_tensor",
+        lambda _png: b"tensor-bytes",
+    )
+    image_path = tmp_path / "in.png"
+    image_path.write_bytes(b"png")
+    req, _, _ = prepare_image_generation_request(
+        ImageGenerationRequestOptions(
+            prompt="motion",
+            configuration="default",
+            input_image_path=image_path,
+        )
+    )
+    assert req.image == b"tensor-bytes"
+
+
 def test_build_image_generation_request(monkeypatch, tmp_path):
     config_path = tmp_path / "c.fb"
     config_path.write_bytes(b"fb-bytes")

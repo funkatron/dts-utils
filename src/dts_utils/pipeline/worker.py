@@ -13,19 +13,7 @@ from pathlib import Path
 
 from PIL import Image
 
-_FFMPEG_STUB_ENV = "DTS_PIPELINE_ALLOW_FFMPEG_STUB"
-
-
-def _ffmpeg_stub_allowed() -> bool:
-    return os.environ.get(_FFMPEG_STUB_ENV, "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _raise_ffmpeg_missing(exc: FileNotFoundError) -> None:
-    if _ffmpeg_stub_allowed():
-        return
-    raise RuntimeError(
-        "ffmpeg not found on PATH; install ffmpeg and re-run, or use `dts-utils pipeline check`."
-    ) from exc
+from dts_utils.pipeline.video_encode import raise_ffmpeg_missing
 
 
 def _write_stub_png(path: Path, width: int, height: int, seed: int) -> None:
@@ -140,7 +128,7 @@ def _render_flipbook_motion(
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True)
         except FileNotFoundError as exc:
-            _raise_ffmpeg_missing(exc)
+            raise_ffmpeg_missing(exc)
             video_path.write_bytes(b"INFOMUX-STUB-MP4")
             return
     if proc.returncode != 0:
@@ -180,7 +168,7 @@ def _render_ffmpeg_loop(
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True)
     except FileNotFoundError as exc:
-        _raise_ffmpeg_missing(exc)
+        raise_ffmpeg_missing(exc)
         video_path.write_bytes(b"INFOMUX-STUB-MP4")
         return
     if proc.returncode != 0:
@@ -206,8 +194,8 @@ def _mode_image_to_video_ffmpeg_stub(request: dict[str, object], artifact_path: 
     return {"width": width, "height": height, "fps": fps, "seconds": seconds, "motion": "none"}
 
 
-def _mode_image_to_video_ltx(request: dict[str, object], artifact_path: Path) -> dict[str, object]:
-    # Placeholder LTX adapter: looped still-image render with OOM guard simulation.
+def _mode_image_to_video_placeholder(request: dict[str, object], artifact_path: Path) -> dict[str, object]:
+    # Placeholder adapter: looped still-image render with OOM guard simulation.
     width = int(request.get("width", 1024))
     height = int(request.get("height", 576))
     if bool(request.get("simulate_oom")) and (width * height) > (1024 * 576):
@@ -241,8 +229,8 @@ def main(argv: list[str] | None = None) -> int:
         metadata = _mode_text_to_image_stub(request, args.artifact_path)
     elif args.mode == "image_to_video_ffmpeg_stub":
         metadata = _mode_image_to_video_ffmpeg_stub(request, args.artifact_path)
-    elif args.mode == "image_to_video_ltx":
-        metadata = _mode_image_to_video_ltx(request, args.artifact_path)
+    elif args.mode in {"image_to_video_placeholder", "image_to_video_ltx"}:
+        metadata = _mode_image_to_video_placeholder(request, args.artifact_path)
     else:
         raise ValueError(f"Unsupported worker mode: {args.mode}")
 

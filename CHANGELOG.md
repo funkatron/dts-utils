@@ -23,7 +23,7 @@ Record which Draw Things **`gRPCServerCLI`** build you used for **manual** smoke
 Example snippet for the next release:
 
 ```markdown
-## [0.5.0] - YYYY-MM-DD
+## [0.5.1] - YYYY-MM-DD
 
 ### Tested with
 
@@ -39,12 +39,20 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+---
+
+## [0.5.0] - 2026-06-02
+
+### Tested with
+
+- **gRPCServerCLI:** not smoke-tested for this tag.
+- **pytest:** 365 passed, 7 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+
 ### Changed
 
 - **Docs:** Manual release smoke ([tests/README.md](tests/README.md)), README web command table, and [docs/README.md](docs/README.md) operator notes document **`server tail`** and **`web tail`**.
 - **Pipeline profiles:** Bundled scaffold template renamed from **`infomux`** to **`prompt-to-video`** (name reflects prompt → image → video). Default I2V configuration is **`LTX-2.3-22B-Port`** (checkpoint present on typical Draw Things installs). Re-scaffold with `dts-utils configs scaffold-pipeline prompt-to-video --force` if you still have **`infomux.json`**.
 - **`dts-utils generate --profile`:** Pipeline profiles (saved JSON with **`_dts_utils_pipeline`**) run the full prompt-to-video flow; non-pipeline profile names are treated as **`--configuration`** for a single image. Shorthand **`dts-utils "prompt" prompt-to-video`** uses **`--profile`** when the name is a pipeline profile. **`DTS_UTILS_DEFAULT_PIPELINE_PROFILE`** applies when set to a pipeline profile name.
-- **Removed `pipeline run`:** Use **`dts-utils generate --profile … --prompt "…"`** instead. **`pipeline check`**, **`pipeline profiles`**, and **`pipeline cleanup`** remain. Invoking **`pipeline run`** prints a short migration hint and exits with code **2**.
 - **`dts-utils web`:** One **Generate** button and **`POST /api/generate/stream`** for both PNG and prompt-to-video profiles (`profile` vs `configuration` in the JSON body). Video profiles show as **`(prompt → video)`** in the profile list. **`POST /api/pipeline/run/stream`** remains a backward-compatible alias.
 - **`dts-util web`:** history PNGs are now saved by the web server under the dts-util config directory instead of relying on browser `localStorage`; legacy `localStorage` rows import on first History open.
 - **`dts-util web`:** result cards use a wider responsive grid, the composer is more compact, and expanded prompt details are shown as a slimmer scrollable log.
@@ -84,6 +92,10 @@ Example snippet for the next release:
 - **JSON → FlatBuffer:** **`compressionArtifacts": "disabled"`** (Draw Things export style) maps to enum **`Disabled`** so **`flatc`** accepts configs that previously failed with **`unknown enum value: disabled`**.
 - **`dts-util web`:** Closed image viewer `<dialog>` no longer covered the page and swallowed clicks (fullscreen flex layout is scoped to `[open]` only).
 - **`dts-util web`:** Image viewer **×** stacks above the wide “next” side tap strip so the close control receives clicks.
+
+### Removed
+
+- **`dts-utils pipeline run`:** Use **`dts-utils generate --profile … --prompt "…"`** instead. **`pipeline check`**, **`pipeline profiles`**, and **`pipeline cleanup`** remain. Invoking **`pipeline run`** prints a migration hint and exits with code **2**.
 
 ## [0.4.1] - 2026-05-05
 

@@ -214,6 +214,60 @@ class TestCLICommands:
         assert exc_info.value.code == 0
         mock_installer_methods["is_running"].assert_called_once_with(port=7859, prefer_plaintext=True)
 
+    def test_tail_command_invokes_log_tools(self, monkeypatch, mock_exit):
+        """``server tail`` runs log show (history) then log stream on macOS."""
+        _setup_server_argv(monkeypatch, "tail", "--last", "10m")
+
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, check=False):
+            calls.append(list(cmd))
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(sys, "platform", "darwin")
+        with patch("subprocess.run", side_effect=fake_run):
+            installer = DTSServerInstaller()
+            with pytest.raises(SystemExit) as exc_info:
+                installer.parse_args()
+
+        assert exc_info.value.code == 0
+        assert len(calls) == 2
+        assert calls[0][:3] == ["log", "show", "--predicate"]
+        assert calls[0][3] == 'process == "gRPCServerCLI"'
+        assert calls[0][4:6] == ["--last", "10m"]
+        assert calls[1][:3] == ["log", "stream", "--predicate"]
+
+    def test_tail_command_skips_history_when_last_zero(self, monkeypatch, mock_exit):
+        """``server tail --last 0`` streams only (no log show)."""
+        _setup_server_argv(monkeypatch, "tail", "--last", "0")
+
+        calls: list[list[str]] = []
+
+        def fake_run(cmd, check=False):
+            calls.append(list(cmd))
+            return MagicMock(returncode=0)
+
+        monkeypatch.setattr(sys, "platform", "darwin")
+        with patch("subprocess.run", side_effect=fake_run):
+            installer = DTSServerInstaller()
+            with pytest.raises(SystemExit) as exc_info:
+                installer.parse_args()
+
+        assert exc_info.value.code == 0
+        assert len(calls) == 1
+        assert calls[0][0:2] == ["log", "stream"]
+
+    def test_tail_command_non_macos_exits_one(self, monkeypatch, mock_exit):
+        """``server tail`` refuses to run off macOS."""
+        _setup_server_argv(monkeypatch, "tail")
+
+        monkeypatch.setattr(sys, "platform", "linux")
+        installer = DTSServerInstaller()
+        with pytest.raises(SystemExit) as exc_info:
+            installer.parse_args()
+
+        assert exc_info.value.code == 1
+
 
 if __name__ == "__main__":
     pytest.main(["-v", __file__])

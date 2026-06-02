@@ -60,6 +60,8 @@ Example snippet for the next release:
 
 ### Added
 
+- **`dts-utils server tail`:** macOS Unified Logging wrapper — prints recent **`gRPCServerCLI`** lines (`log show --last`, default **`5m`**) then follows live output (`log stream`). Options **`--last`**, **`--log-style`**; **`--last 0`** streams only.
+- **`dts-utils web tail`:** Follow the web UI log file (default **`~/.config/dts-utils/web.log`**). **`dts-utils web`** appends uvicorn logs there by default (**`--log-file`**, **`DTS_WEB_LOG_FILE`**, **`--no-log-file`**).
 - **`GenerateImage`:** when the server never fills **`generatedImages`** but sends decodable tensor data in **`previewImage`** (seen on some **`gRPCServerCLI`** builds), **`dts-utils`** falls back to the **largest** preview payload that decodes like a Draw Things tensor. See [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md#image-generation-contract).
 - **`DTS_GRPC_GENERATE_DEBUG`:** when set (**`1`** / **`true`** / **`yes`** / **`on`**), each streamed **`GenerateImage`** response logs one **stderr** line with field **counts** (for example **`generatedImages`** vs **`previewImage`** vs **`remoteDownload`**). Documented in [PROTOBUF.md](PROTOBUF.md#debugging-generateimage-streams) and [CLI.md](CLI.md#environment-variables); use with **`GRPC_VERBOSITY`** / **`GRPC_TRACE`** for grpcio low-level tracing.
 - **`dts_utils.configuration_build.configurations_equivalent_for_flatbuffer`:** returns whether two JSON configs normalize to the same **`flatc`** input (aliases, dropped empties, dimensions, `_dts_utils*` stripping); also bound on **`dts_utils.generate`** for callers/tests.

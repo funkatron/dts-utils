@@ -28,7 +28,7 @@ Some invocations omit `<command>` and use [Generate shorthand](#generate-shortha
 
 These commands manage macOS LaunchAgent + `gRPCServerCLI` (not pytest, not Docker).
 
-Required spelling: `dts-utils server <subcommand>` for `install`, `uninstall`, `start`, `stop`, `restart`, `test`, and `check`. Running `dts-utils install` without `server` prints a usage error (stderr, exit code `2`).
+Required spelling: `dts-utils server <subcommand>` for `install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`, and `tail`. Running `dts-utils install` without `server` prints a usage error (stderr, exit code `2`).
 
 Bare `dts-utils server` prints a short summary.
 
@@ -119,6 +119,23 @@ Options:
 On `localhost` / loopback, the default probe tries **TLS** with the server-presented certificate first (same idea as client `--trust-server-cert`), then falls back to plaintext.
 
 `check` is a synonym for `test` (same flags). Both require the `server` prefix, like `install`, `uninstall`, and `restart`.
+
+### tail
+
+Print recent **`gRPCServerCLI`** unified logs, then follow live output (macOS only; uses `log show` + `log stream`). Handy when **`server check`** passes but generation fails, or after a failed **`server install`**.
+
+```bash
+uv run dts-utils server tail
+uv run dts-utils server tail --last 1h
+uv run dts-utils server tail --last 0
+```
+
+Options:
+
+- `--last DURATION`: History window before streaming (default: `5m`). Pass `0` to skip history and stream only.
+- `--log-style {compact,syslog,default}`: `log(1)` output style (default: `compact`).
+
+Stop with **Ctrl+C** (exit code `0`). On non-macOS platforms the command prints an error and exits `1`.
 
 ### reflect
 
@@ -289,6 +306,7 @@ Loopback HTTP UI: the browser talks to `dts-utils`; the tool calls Draw Things o
 
 ```bash
 uv run dts-utils web [--bind ADDR] [--port N] [--log-level LEVEL] [--no-access-log] [--open]
+uv run dts-utils web tail [-n N] [--file PATH] [--no-follow]
 ```
 
 #### Run / defaults
@@ -298,8 +316,27 @@ uv run dts-utils web [--bind ADDR] [--port N] [--log-level LEVEL] [--no-access-l
 | Bind | `127.0.0.1` by default |
 | HTTP port | `8765` |
 | `--log-level` | Uvicorn verbosity: `critical`, `error`, `warning`, `info`, `debug`, `trace` (default **`info`**) |
-| `--no-access-log` | Turn off per-request access lines; errors still print |
+| `--no-access-log` | Turn off per-request access lines on stdout and in the web log file |
 | `--open` | Open the default browser after startup (URL uses `127.0.0.1` when bind is `0.0.0.0` or `::`) |
+| Log file | By default, uvicorn logs append to **`~/.config/dts-utils/web.log`** (override with **`--log-file`**, **`DTS_WEB_LOG_FILE`**, or disable with **`--no-log-file`**) |
+
+#### tail (`dts-utils web tail`)
+
+In a **second terminal**, follow the web UI log while **`dts-utils web`** runs in the first:
+
+```bash
+uv run dts-utils web tail
+uv run dts-utils web tail -n 200
+uv run dts-utils web tail --no-follow
+```
+
+Options:
+
+- **`-n` / `--lines`**: Recent lines to print before following (default: **50**).
+- **`--file PATH`**: Log file (default: same path as **`dts-utils web`** uses).
+- **`--no-follow`**: Print recent lines only (no live follow).
+
+Stop with **Ctrl+C** (exit code **0**). If the log file is missing, start **`dts-utils web`** first (unless you used **`--no-log-file`**).
 
 #### Auth and limits
 
@@ -458,6 +495,8 @@ uv run dts-utils server install --model-browser --debug --no-flash-attention
 ```bash
 uv run dts-utils server test
 uv run dts-utils server test --port 7860
+uv run dts-utils server tail
+uv run dts-utils server tail --last 1h
 uv run dts-utils server stop
 uv run dts-utils server start
 uv run dts-utils reflect --trust-server-cert
@@ -465,6 +504,7 @@ uv run dts-utils configs path
 uv run dts-utils tls path
 uv run dts-utils tls export
 uv run dts-utils web --open
+uv run dts-utils web tail
 uv run dts-utils server restart
 uv run dts-utils server restart --model-browser
 uv run dts-utils server uninstall
@@ -478,6 +518,7 @@ uv run dts-utils server uninstall
 | `DTS_UTILS_DEFAULT_CONFIGURATION` | Shorthand: profile name or path when you omit the second positional. Set automatically to `default` (via `setdefault`) when the tool materializes the implicit profile, unless you already exported another value. |
 | `DTS_UTILS_DEFAULT_MODEL` | Basename (e.g. `my.ckpt`) for the `model` field when creating `default.json` the first time; overrides guessing from the models directory. |
 | `DTS_WEB_TOKEN` | When set, `dts-utils web` requires `Authorization: Bearer …` on `/api/*` except `GET /api/health`. |
+| `DTS_WEB_LOG_FILE` | Override default web log path (`~/.config/dts-utils/web.log`); used by **`dts-utils web`** and **`dts-utils web tail`**. |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web **`/api/generate`** and **`/api/generate/stream`**. |
 | `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Optional override for **`dts-utils models fetch`** when **`RECIPE_ID`** is omitted (otherwise **`registry.json`** **`default_recipe_id`**). |
 | `DTS_GRPC_GENERATE_DEBUG` | When set to **`1`** / **`true`** / **`yes`** / **`on`**, **`GenerateImage`** logs one **stderr** summary line per streamed response (field **counts** only). See [PROTOBUF.md § Debugging](PROTOBUF.md#debugging-generateimage-streams). |

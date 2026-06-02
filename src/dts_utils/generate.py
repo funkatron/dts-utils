@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,11 @@ from dts_utils.exceptions import (
     GenerationEmptyError,
     GenerationRpcError,
 )
+from dts_utils.pipeline.generate_dispatch import (
+    generate_uses_pipeline_profile,
+    run_generate_pipeline,
+)
+from dts_utils.pipeline.profile import DEFAULT_PIPELINE_PROFILE_ENV
 from dts_utils.generate_api import (
     GrpcClientOptions,
     ImageGenerationRequestOptions,
@@ -75,6 +81,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     config_group = parser.add_mutually_exclusive_group()
     config_group.add_argument(
+        "--profile",
+        help=(
+            "Saved profile name. Pipeline profiles (with _dts_utils_pipeline) run prompt-to-video; "
+            "other names are treated as --configuration for a single image."
+        ),
+    )
+    config_group.add_argument(
         "--configuration",
         help=(
             "Draw Things configuration. Existing .json files are converted to FlatBuffer bytes; "
@@ -82,6 +95,18 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     config_group.add_argument("--configuration-json", help="Draw Things JSON configuration file or saved config name.")
+    parser.add_argument(
+        "--image",
+        type=Path,
+        help="Existing image for pipeline image-to-video only (requires a pipeline --profile).",
+    )
+    parser.add_argument("--fps", type=int, default=None, help="Pipeline video FPS (overrides profile).")
+    parser.add_argument("--seconds", type=float, default=None, help="Pipeline video duration in seconds (overrides profile).")
+    parser.add_argument("--video-width", type=int, default=None, help="Pipeline I2V width (overrides profile).")
+    parser.add_argument("--video-height", type=int, default=None, help="Pipeline I2V height (overrides profile).")
+    parser.add_argument("--run-root", type=Path, default=None, help="Pipeline artifact root (default: ~/Movies/infomux-runs).")
+    parser.add_argument("--run-id", default=None, help="Pipeline run id (default: timestamped pipeline-…).")
+    parser.add_argument("--no-cache", action="store_true", help="Disable pipeline step cache for this run.")
     parser.add_argument(
         "--no-tls",
         action="store_true",
@@ -135,6 +160,17 @@ def open_images(paths: list[Path]) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if not args.profile:
+        env_profile = os.environ.get(DEFAULT_PIPELINE_PROFILE_ENV, "").strip()
+        if env_profile and generate_uses_pipeline_profile(env_profile):
+            args.profile = env_profile
+    if args.profile and generate_uses_pipeline_profile(args.profile):
+        return run_generate_pipeline(args)
+    if args.profile and not args.configuration and not args.configuration_json:
+        args.configuration = args.profile
+    if args.image and not (args.profile and generate_uses_pipeline_profile(args.profile)):
+        print("--image requires a pipeline --profile (for example prompt-to-video).", file=sys.stderr)
+        return 2
     client_opts = GrpcClientOptions(
         host=args.host,
         port=args.port,

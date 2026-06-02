@@ -141,10 +141,13 @@ def test_configs_with_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
     profiles = data["pipeline_profiles"]
     assert isinstance(profiles, list)
     assert profiles, "pipeline_profiles should not be empty"
-    # Newer builds may surface saved pipeline profiles (e.g. scaffolded `infomux`);
+    # Newer builds may surface prompt-to-video profiles (e.g. scaffolded `prompt-to-video`);
     # fallback defaults are still valid when none are saved.
+    video_profiles = data.get("video_profiles") or data.get("pipeline_profiles") or []
+    known_video = {"prompt-to-video", "infomux"}
     assert (
-        "infomux" in profiles
+        known_video.intersection(video_profiles)
+        or known_video.intersection(profiles)
         or profiles
         == [
             "sdxl-turbo",

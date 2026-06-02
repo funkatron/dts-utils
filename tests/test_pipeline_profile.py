@@ -17,11 +17,17 @@ from dts_utils.pipeline.profile import (
 
 
 def test_parse_pipeline_profile_fixture() -> None:
-    raw = json.loads((Path(__file__).parent / "fixtures/pipeline_profiles/infomux.json").read_text(encoding="utf-8"))
-    settings = parse_pipeline_settings(profile_stem="infomux", profile_path=Path("infomux.json"), raw=raw)
+    raw = json.loads(
+        (Path(__file__).parent / "fixtures/pipeline_profiles/prompt-to-video.json").read_text(encoding="utf-8")
+    )
+    settings = parse_pipeline_settings(
+        profile_stem="prompt-to-video",
+        profile_path=Path("prompt-to-video.json"),
+        raw=raw,
+    )
     assert settings is not None
     assert settings.t2i_configuration == "default"
-    assert settings.video_configuration == "ltx-2.3-22b-distilled-exact"
+    assert settings.video_configuration == "LTX-2.3-22B-Port"
     assert settings.grpc.trust_server_cert is True
     assert settings.fps == 25
 
@@ -30,11 +36,11 @@ def test_list_pipeline_profile_names_scans_config_dir(tmp_path: Path) -> None:
     config_dir = tmp_path / "configurations"
     config_dir.mkdir()
     (config_dir / "plain.json").write_text('{"model": "x.ckpt"}', encoding="utf-8")
-    (config_dir / "infomux.json").write_text(
+    (config_dir / "prompt-to-video.json").write_text(
         json.dumps({"_dts_utils_pipeline": {"video_configuration": "ltx"}}),
         encoding="utf-8",
     )
-    assert list_pipeline_profile_names(config_dir=config_dir) == ["infomux"]
+    assert list_pipeline_profile_names(config_dir=config_dir) == ["prompt-to-video"]
 
 
 def test_merge_profile_into_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -42,9 +48,11 @@ def test_merge_profile_into_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     config_dir = tmp_path / "configurations"
     config_dir.mkdir()
-    profile_path = config_dir / "infomux.json"
+    profile_path = config_dir / "prompt-to-video.json"
     profile_path.write_text(
-        (Path(__file__).parent / "fixtures/pipeline_profiles/infomux.json").read_text(encoding="utf-8"),
+        (Path(__file__).parent / "fixtures/pipeline_profiles/prompt-to-video.json").read_text(
+            encoding="utf-8"
+        ),
         encoding="utf-8",
     )
     monkeypatch.setattr(
@@ -53,7 +61,7 @@ def test_merge_profile_into_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyP
     )
 
     args = Namespace(
-        profile="infomux",
+        profile="prompt-to-video",
         configuration=None,
         configuration_json=None,
         video_configuration=None,
@@ -82,9 +90,9 @@ def test_merge_profile_into_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyP
         root_cert=None,
     )
     settings = merge_profile_into_run_args(args, config_dir=config_dir)
-    assert settings.profile_stem == "infomux"
+    assert settings.profile_stem == "prompt-to-video"
     assert args.configuration == "default"
-    assert args.video_configuration == "ltx-2.3-22b-distilled-exact"
+    assert args.video_configuration == "LTX-2.3-22B-Port"
     assert args.trust_server_cert is True
     assert args.fps == 25
 

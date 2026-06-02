@@ -196,7 +196,7 @@ Options:
   - **Fills in:** the checkpoint name from **`file`**. If the **`note`** field mentions common resolution or step wording (same rough ideas as the model index), **width**, **height**, and **steps** may be prefilled too.
   - **Otherwise:** you still get the right **model** filename; **width**, **height**, and **steps** stay at the usual starter values until you edit the JSON yourself.
 - **`configs scaffold-from-metadata --scan DIR`:** Same starter profiles as above, but walk **`DIR`** recursively for every **`metadata.json`** (skips **`apis/`** trees — those entries are cloud/API). Writes **one `.json` file per local model folder** into **`configs path`** or **`--directory`**. Use **`--dry-run`** to print **`would write …`** lines without saving; a short summary goes to **stderr**. **`--limit N`** processes only the first **`N`** files after sorting paths (sanity check before a full run). **`--verbose`** prints each profile path written and reasons for skips. **`--force`** overwrites existing **`NAME.json`** files. Do not combine **`--scan`** with a positional **`METADATA.json`** or **`--name`**.
-- **`configs scaffold-pipeline [NAME]`:** Install a bundled **pipeline profile manifest** (`_dts_utils_pipeline` only) into **`configs path`**. Default **`NAME`** is **`infomux`** (T2I via **`default`**, I2V via **`ltx-2.3-22b-distilled-exact`**, loopback gRPC with **`trust_server_cert`**). **`--list`** shows bundled template names. You still need the referenced Draw Things JSON profiles (create **`default`** via normal bootstrap, fetch LTX recipe via **`dts-utils models`**, etc.).
+- **`configs scaffold-pipeline [NAME]`:** Install a bundled **pipeline profile manifest** (`_dts_utils_pipeline` only) into **`configs path`**. Default **`NAME`** is **`prompt-to-video`** (prompt → T2I via **`default`** → I2V via **`LTX-2.3-22B-Port`**, loopback gRPC with **`trust_server_cert`**). **`--list`** shows bundled template names. You still need the referenced Draw Things JSON profiles (create **`default`** via normal bootstrap; import or copy **`LTX-2.3-22B-Port`** from Draw Things, etc.).
 
 Save files such as `portrait.json` in this directory, then use `--configuration portrait` with `dts-utils generate`.
 
@@ -218,13 +218,13 @@ With `server install` (macOS): `uv run dts-utils server install --export-tls-cer
 
 ### pipeline (`dts-utils pipeline`)
 
-Run Apple-first local media pipeline steps (`text_to_image` -> `image_to_video`) and validate runtime prerequisites.
+Runtime checks, profile listing, and run-root cleanup for prompt-to-video workflows. **To run a pipeline**, use **`generate --profile`** (see [generate](#generate) and the profile block below)—not `pipeline run`.
 
 ```bash
-uv run dts-utils configs scaffold-pipeline infomux
+uv run dts-utils configs scaffold-pipeline prompt-to-video
+uv run dts-utils generate --profile prompt-to-video --prompt "a quiet street at dusk" --trust-server-cert
 uv run dts-utils pipeline check
 uv run dts-utils pipeline profiles
-uv run dts-utils pipeline run --profile infomux --prompt "a quiet street at dusk"
 uv run dts-utils pipeline cleanup --older-than 7 --keep-last 20 --dry-run
 ```
 
@@ -232,7 +232,6 @@ Subcommands:
 
 - `pipeline check`: Report `ffmpeg` availability, run-root writability, and Gatekeeper note. Returns non-zero when required runtime prerequisites are missing.
 - `pipeline profiles`: List saved JSON profiles that contain a `_dts_utils_pipeline` block (same idea as picking a profile in the web UI).
-- `pipeline run`: Execute text-to-image → image-to-video and write artifacts + manifests under `--run-root` (default `~/Movies/infomux-runs`).
 - `pipeline cleanup`: Prune old run directories under `--run-root` to control disk usage.
   - `--older-than DAYS`: delete runs older than this age.
   - `--keep-last N`: always preserve newest `N` runs.
@@ -246,7 +245,7 @@ Subcommands:
 {
   "_dts_utils_pipeline": {
     "t2i_configuration": "default",
-    "video_configuration": "ltx-2.3-22b-distilled-exact",
+    "video_configuration": "LTX-2.3-22B-Port",
     "t2i_mode": "drawthings",
     "i2v_backend": "drawthings",
     "fps": 25,
@@ -260,20 +259,27 @@ Subcommands:
 Then run with only the profile name and a prompt (CLI flags override profile fields when set):
 
 ```bash
-uv run dts-utils pipeline run --profile infomux --prompt "your scene"
+uv run dts-utils generate --profile prompt-to-video --prompt "your scene" --trust-server-cert
 ```
 
-Optional env: `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` (same role as `DTS_UTILS_DEFAULT_CONFIGURATION` for generate shorthand).
+Shorthand (same flow when the second token is a pipeline profile):
 
-**Inputs:**
+```bash
+uv run dts-utils "your scene" prompt-to-video
+```
+
+If you still type **`pipeline run`**, the CLI prints a short hint and exits non-zero—use **`generate --profile`** instead.
+
+Optional env: `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` (omit `--profile` on **`generate`** when set to a pipeline profile name).
+
+**Generate inputs (pipeline profiles):**
 
 - `--profile NAME` loads `_dts_utils_pipeline` defaults (T2I/I2V config names, gRPC, sizes, prompts).
-- `--prompt "..."` runs Draw Things T2I when the profile sets `t2i_mode: drawthings` (or when `--configuration` is set).
-- `--image PATH` runs image-to-video only.
+- `--prompt "..."` runs Draw Things T2I when the profile sets `t2i_mode: drawthings`.
+- `--image PATH` runs image-to-video only (with a pipeline profile).
+- `--fps`, `--seconds`, `--video-width`, `--video-height`, `--run-root`, `--run-id`, `--no-cache` override profile fields when set.
 
-**Legacy / overrides:** `--preset`, `--configuration`, `--video-configuration`, `--i2v-backend`, `--host`, `--trust-server-cert`, and related flags still work and override the profile when passed.
-
-**Web UI:** When the selected saved profile includes `_dts_utils_pipeline` (shown as `name (pipeline)` in the profile list), the main action runs the full pipeline via `POST /api/pipeline/run/stream` (SSE progress + image/video artifacts). Single-image **Generate** still uses `/api/generate/stream` for non-pipeline profiles.
+**Web UI:** Profiles with `_dts_utils_pipeline` appear as **`name (prompt → video)`** in the profile list. The **Generate** button always posts to **`POST /api/generate/stream`** — video profiles send **`profile`**, single-image profiles send **`configuration`**. Legacy **`POST /api/pipeline/run/stream`** still works as an alias.
 
 <a id="web-dts-utils-web"></a>
 
@@ -362,9 +368,13 @@ uv run dts-utils generate \
 
 Important options:
 
-- `--output PATH`: Base path for output files. Default: `output/generated.png`. The CLI inserts `-<unix_ms>` before the extension (for example `output/generated.png` → `output/generated-1735123456789.png`). Multiple images append `-2`, `-3`, … before the extension. Success lines print as `Wrote …` on stdout.
+- `--profile NAME`: Saved profile name. When the JSON includes **`_dts_utils_pipeline`** (for example **`prompt-to-video`**), runs the full prompt → image → video flow and writes artifacts under **`--run-root`** (default `~/Movies/infomux-runs`). A non-pipeline name is treated as **`--configuration`** for a single PNG.
+- `--fps`, `--seconds`, `--video-width`, `--video-height`: Override pipeline video timing/size (with **`--profile`**).
+- `--run-root`, `--run-id`, `--no-cache`: Pipeline run layout and caching (with **`--profile`**).
+- `--image PATH`: Existing image for pipeline image-to-video only (with a pipeline **`--profile`**).
+- `--output PATH`: Base path for output files. Default: `output/generated.png`. The CLI inserts `-<unix_ms>` before the extension (for example `output/generated.png` → `output/generated-1735123456789.png`). Multiple images append `-2`, `-3`, … before the extension. Success lines print as `Wrote …` on stdout. Ignored for pipeline profiles (use artifact paths printed after the run).
 - `--configuration VALUE`: Draw Things configuration. Existing `.json` files are converted to FlatBuffer bytes; other existing files are sent as raw FlatBuffer bytes; simple names resolve to saved JSON configs.
-- `--configuration-json VALUE`: JSON configuration file or saved config name (mutually exclusive with `--configuration`).
+- `--configuration-json VALUE`: JSON configuration file or saved config name (mutually exclusive with **`--profile`** / **`--configuration`**).
 - `--trust-server-cert`: Trust the certificate presented by a localhost server for this connection.
 - `--force-trust-server-cert`: Trust the certificate presented by any server (MITM risk).
 - `--root-cert PATH`: Pinned PEM root/server certificate.
@@ -373,12 +383,13 @@ Important options:
 - `--open`: Open written images with the platform default viewer.
 - **Prompt wildcards:** Write **`{option A | option B}`** (or **`{option A, option B}`** when the block has no `|`). Each time a prompt is sent to the server, every `{…}` block picks **one** branch at random—so multi-image runs (**`--generations N`** or **`generations`** in JSON) **re-roll** the whole template for **each** image. Only **depth‑0** delimiters split (nested `{…}` may contain `|` or commas). Choices can nest; expansion repeats until done, with limits on passes (~128) and output length (~100k chars). Bad or stuck templates raise an error (HTTP **400** from **`dts-utils web`**). Use **`POST /api/prompt/expand`** in the web server to sample expansions without generating.
 
-Explicit `generate` requires **`--configuration`** or **`--configuration-json`** (unlike shorthand, which can materialize **`default.json`**).
+Explicit `generate` requires **`--profile`**, **`--configuration`**, or **`--configuration-json`** (unlike shorthand, which can materialize **`default.json`**). Set **`DTS_UTILS_DEFAULT_PIPELINE_PROFILE`** to omit **`--profile`** when it names a pipeline profile.
 
 **Common tasks (explicit `generate`):**
 
 | Goal | Command | What you get |
 | --- | --- | --- |
+| Prompt to video | `uv run dts-utils generate --profile prompt-to-video --prompt "…" --trust-server-cert --fps 10 --seconds 2.5` | MP4 (and intermediates) under `~/Movies/infomux-runs/…` |
 | Saved config | `uv run dts-utils generate --prompt "…" --configuration portrait --trust-server-cert` | PNG under `./output` with default output naming |
 | Draw Things JSON file | `uv run dts-utils generate --prompt "…" --configuration config.json --trust-server-cert` | PNG after JSON → FlatBuffer via [`flatc`](https://github.com/google/flatbuffers) |
 | Open result | `uv run dts-utils generate --prompt "…" --configuration config.json --trust-server-cert --open` | PNG plus viewer launch |
@@ -401,10 +412,10 @@ dts-utils PROMPT [PROFILE] [flags…]
 Rules:
 
 1. `PROMPT` is one shell word unless you quote a multi-word prompt.
-2. Optional `PROFILE` is the second word before any flag; it uses the same resolution as `--configuration` (saved name, path to `.json`, or raw FlatBuffer path).
+2. Optional `PROFILE` is the second word before any flag. Pipeline profiles (saved JSON with **`_dts_utils_pipeline`**, for example **`prompt-to-video`**) expand to **`generate --profile …`**; other names expand to **`--configuration …`**.
 3. Flags and their values must appear after `PROFILE` (if any). Example: `dts-utils "hello" portrait --negative-prompt blur`.
 
-Expansion (conceptually): `generate --prompt PROMPT --configuration … --trust-server-cert --open` plus your trailing flags. `--trust-server-cert` and `--open` are always added for shorthand so local TLS and opening the PNG match the common interactive path.
+Expansion (conceptually): `generate --prompt PROMPT` plus either `--profile …` or `--configuration …`, then `--trust-server-cert --open` and your trailing flags. `--trust-server-cert` and `--open` are always added for shorthand so local TLS and opening the result match the common interactive path.
 
 Configuration when `PROFILE` is omitted:
 
@@ -418,6 +429,7 @@ Configuration when `PROFILE` is omitted:
 | --- | --- | --- |
 | Single-line local generate | `uv run dts-utils "a small robot"` | Same as `generate` with trust + open + implicit `default` profile after first-run materialization |
 | Named saved profile | `uv run dts-utils "a small robot" portrait` | Uses `portrait` (or path) as `--configuration` |
+| Prompt to video | `uv run dts-utils "a rainy street" prompt-to-video` | Full pipeline via `--profile prompt-to-video` |
 | Extra TLS flags | `uv run dts-utils "…" --root-cert ./pem` | Adds your flags after the injected defaults |
 
 Explicit `dts-utils generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `default.json`.

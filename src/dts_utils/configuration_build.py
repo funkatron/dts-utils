@@ -78,6 +78,7 @@ CONFIG_KEY_MAP = {
     "stage2Guidance": "stage_2_guidance",
     "stage2Shift": "stage_2_shift",
     "stage2Steps": "stage_2_steps",
+    "startFrameGuidance": "start_frame_cfg",
     "startFrameCfg": "start_frame_cfg",
     "stochasticSamplingGamma": "stochastic_sampling_gamma",
     "t5Text": "t5_text",

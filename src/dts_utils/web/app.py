@@ -283,7 +283,7 @@ def _parse_pipeline_payload(body: object) -> tuple[dict[str, object], JSONRespon
         return {}, JSONResponse({"detail": "Expected JSON object"}, status_code=400)
     profile = body.get("profile")
     if not isinstance(profile, str) or not profile.strip():
-        return {}, JSONResponse({"detail": "Field 'profile' is required (pipeline profile name)."}, status_code=400)
+        return {}, JSONResponse({"detail": "Field 'profile' is required (prompt-to-video profile name)."}, status_code=400)
     prompt = body.get("prompt")
     if not isinstance(prompt, str) or not prompt.strip():
         return {}, JSONResponse({"detail": "Field 'prompt' is required (non-empty string)."}, status_code=400)
@@ -296,9 +296,10 @@ def _build_pipeline_run_request(data: dict[str, object]) -> tuple[PipelineRunReq
         return PipelineRunRequest(profile=profile, prompt=""), JSONResponse(
             {
                 "detail": (
-                    f"Profile {profile!r} is not a pipeline profile "
+                    f"Profile {profile!r} is not a prompt-to-video profile "
                     "(missing _dts_utils_pipeline in saved JSON). "
-                    "Use dts-utils pipeline profiles to list pipeline-capable profiles."
+                    "Run: dts-utils configs scaffold-pipeline prompt-to-video — "
+                    "or use a single-image profile with configuration instead of profile."
                 )
             },
             status_code=400,
@@ -411,6 +412,7 @@ async def api_configs(request: Request) -> JSONResponse:
             "default_profile": DEFAULT_PROFILE_NAME,
             "config_dir": str(directory),
             "pipeline_profiles": _pipeline_profile_names_for_ui(),
+            "video_profiles": _pipeline_profile_names_for_ui(),
         }
     )
 
@@ -762,6 +764,30 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
     except json.JSONDecodeError:
         return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
 
+    if isinstance(body, dict):
+        profile_raw = body.get("profile")
+        if isinstance(profile_raw, str) and profile_raw.strip():
+            profile_name = profile_raw.strip()
+            if is_pipeline_profile(profile_name):
+                data, err = _parse_pipeline_payload(body)
+                if err:
+                    return err
+                run_request, err = _build_pipeline_run_request(data)
+                if err:
+                    return err
+                return _streaming_prompt_to_video_response(run_request)
+            return JSONResponse(
+                {
+                    "detail": (
+                        f"Profile {profile_name!r} is not a prompt-to-video profile "
+                        "(missing _dts_utils_pipeline in saved JSON). "
+                        "For single-image generation use field 'configuration' instead of 'profile', "
+                        "or run: dts-utils configs scaffold-pipeline prompt-to-video"
+                    )
+                },
+                status_code=400,
+            )
+
     data, err = _parse_generate_payload(body)
     if err:
         return err
@@ -915,22 +941,7 @@ async def api_generate(request: Request) -> Response:
     )
 
 
-async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONResponse:
-    if err := _require_bearer(request):
-        return err
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
-        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
-
-    data, err = _parse_pipeline_payload(body)
-    if err:
-        return err
-
-    run_request, err = _build_pipeline_run_request(data)
-    if err:
-        return err
-
+def _streaming_prompt_to_video_response(run_request: PipelineRunRequest) -> StreamingResponse:
     loop = asyncio.get_running_loop()
     q: queue.Queue[str | None] = queue.Queue(maxsize=_GENERATE_STREAM_QUEUE_MAXSIZE)
     timeout_sec = _generate_timeout_seconds()
@@ -1039,7 +1050,7 @@ async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONR
             if timed_out:
                 _generation_cancel_event.set()
                 err_line = json.dumps(
-                    {"type": "error", "detail": "Pipeline run timed out."},
+                    {"type": "error", "detail": "Prompt-to-video timed out."},
                     ensure_ascii=False,
                 )
                 yield f"data: {err_line}\n\n"
@@ -1059,6 +1070,26 @@ async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONR
             "X-Accel-Buffering": "no",
         },
     )
+
+
+async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONResponse:
+    """Backward-compatible alias for prompt-to-video via ``POST /api/generate/stream``."""
+    if err := _require_bearer(request):
+        return err
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
+
+    data, err = _parse_pipeline_payload(body)
+    if err:
+        return err
+
+    run_request, err = _build_pipeline_run_request(data)
+    if err:
+        return err
+
+    return _streaming_prompt_to_video_response(run_request)
 
 
 async def api_pipeline_artifact(request: Request) -> Response:

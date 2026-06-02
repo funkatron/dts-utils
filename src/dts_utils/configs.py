@@ -542,7 +542,7 @@ def build_parser() -> argparse.ArgumentParser:
   dts-utils configs scaffold-from-metadata ~/.cache/community-models/models/flux-2-klein-base-9b/metadata.json
   dts-utils configs scaffold-from-metadata ./metadata.json --dry-run
   dts-utils configs scaffold-from-metadata --scan ~/.cache/community-models/models --limit 20 --dry-run
-  dts-utils configs scaffold-pipeline infomux
+  dts-utils configs scaffold-pipeline prompt-to-video
   dts-utils configs scaffold-pipeline --list
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -622,8 +622,8 @@ def build_parser() -> argparse.ArgumentParser:
     pipeline_parser.add_argument(
         "name",
         nargs="?",
-        default="infomux",
-        help="Template name (default: infomux). Use --list to see bundled templates.",
+        default="prompt-to-video",
+        help="Template name (default: prompt-to-video). Use --list to see bundled templates.",
     )
     pipeline_parser.add_argument(
         "--list",
@@ -798,9 +798,10 @@ def main(argv: list[str] | None = None) -> int:
         if not args.dry_run:
             print(dest)
             print(
-                "Next: ensure referenced profiles exist (e.g. default, ltx-2.3-22b-distilled-exact). "
-                "Then: dts-utils pipeline run --profile "
-                f"{Path(args.name).stem} --prompt \"…\"  or select it in dts-utils web.",
+                "Next: ensure referenced profiles exist (e.g. default, LTX-2.3-22B-Port). "
+                "Then: dts-utils generate --profile "
+                f"{Path(args.name).stem} --prompt \"…\" --trust-server-cert  "
+                "or select it in dts-utils web.",
                 file=sys.stderr,
             )
         return 0

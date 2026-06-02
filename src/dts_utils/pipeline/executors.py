@@ -14,6 +14,8 @@ from typing import Any
 
 from PIL import Image
 
+from dts_utils.configuration_build import read_configuration_json_dict
+from dts_utils.exceptions import ConfigurationError
 from dts_utils.generate_api import (
     GrpcClientOptions,
     ImageGenerationRequestOptions,
@@ -280,6 +282,16 @@ class DrawThingsGrpcImageToVideoExecutor(SubprocessExecutor):
 
         layout = run_layout_paths(run_root, run_id, step_id, self.artifact_basename)
         layout["step_dir"].mkdir(parents=True, exist_ok=True)
+        requested_fps = int(request["fps"]) if request.get("fps") is not None else 24
+        requested_seconds = float(request["seconds"]) if request.get("seconds") is not None else 1.0
+        configuration, configuration_json = self._materialize_video_configuration(
+            configuration=configuration,
+            configuration_json=configuration_json,
+            requested_fps=requested_fps,
+            requested_seconds=requested_seconds,
+            out_dir=layout["step_dir"],
+            config_dir=Path(str(request["config_dir"])) if request.get("config_dir") else None,
+        )
         gen = ImageGenerationRequestOptions(
             prompt=prompt,
             negative_prompt=str(request.get("negative_prompt", "")),
@@ -293,10 +305,16 @@ class DrawThingsGrpcImageToVideoExecutor(SubprocessExecutor):
             self.client_opts,
             gen,
             input_image_path=image_path,
-            output_fps=int(request["fps"]) if request.get("fps") is not None else None,
+            output_fps=requested_fps,
             scale_width=int(request["width"]) if request.get("width") is not None else None,
             scale_height=int(request["height"]) if request.get("height") is not None else None,
         )
+        frame_count = int(output_meta.get("frame_count", 0) or 0)
+        if frame_count <= 1 and requested_seconds > (1.0 / max(1, requested_fps)):
+            raise RuntimeError(
+                "Draw Things image-to-video returned a single frame. "
+                "Adjust video configuration (numFrames/fps) or prompt/model settings."
+            )
         layout["artifact_path"].write_bytes(mp4)
         layout["artifact_metadata_path"].write_text(json.dumps(output_meta, sort_keys=True), encoding="utf-8")
         artifact = VideoRef(
@@ -322,9 +340,58 @@ class DrawThingsGrpcImageToVideoExecutor(SubprocessExecutor):
             "mode": self.mode,
             "prompt": prompt,
             "negative_prompt": str(request.get("negative_prompt", "")),
+            "requested_seconds": requested_seconds,
+            "requested_fps": requested_fps,
             "output_meta": output_meta,
         }
         return ExecutorResult(artifact=artifact, model=model, metadata=metadata)
+
+    def _materialize_video_configuration(
+        self,
+        *,
+        configuration: str | Path | None,
+        configuration_json: str | Path | None,
+        requested_fps: int,
+        requested_seconds: float,
+        out_dir: Path,
+        config_dir: Path | None,
+    ) -> tuple[str | Path | None, str | Path | None]:
+        """Override fps/numFrames in JSON profiles to request multi-frame video explicitly."""
+        target_fps = max(1, int(requested_fps))
+        target_frames = max(2, int(round(max(requested_seconds, 0.1) * target_fps)))
+        try:
+            cfg = read_configuration_json_dict(
+                configuration=configuration,
+                configuration_json=configuration_json,
+                config_dir=config_dir,
+            )
+        except ConfigurationError:
+            # Raw flatbuffer path or unresolved JSON name; use original input as-is.
+            return configuration, configuration_json
+        cfg = self._maybe_seed_ltx_video_config(cfg, config_dir=config_dir)
+        cfg["numFrames"] = target_frames
+        cfg["fps"] = target_fps
+        override_path = out_dir / "video_configuration.override.json"
+        override_path.write_text(json.dumps(cfg, indent=2, sort_keys=True), encoding="utf-8")
+        return None, override_path
+
+    def _maybe_seed_ltx_video_config(self, cfg: dict[str, Any], *, config_dir: Path | None) -> dict[str, Any]:
+        model = str(cfg.get("model", "")).lower()
+        if "ltx" not in model or "numFrames" in cfg:
+            return cfg
+        for candidate in ("LTX-2.3-22B-Port", "LTX-2.3-22B"):
+            try:
+                seeded = read_configuration_json_dict(configuration=candidate, config_dir=config_dir)
+            except ConfigurationError:
+                continue
+            # Preserve exact checkpoint and explicit scalar controls from the source config.
+            if isinstance(cfg.get("model"), str) and str(cfg["model"]).strip():
+                seeded["model"] = cfg["model"]
+            for key in ("width", "height", "steps"):
+                if key in cfg:
+                    seeded[key] = cfg[key]
+            return seeded
+        return cfg
 
 
 class DrawThingsPromptTextToImageExecutor(SubprocessExecutor):

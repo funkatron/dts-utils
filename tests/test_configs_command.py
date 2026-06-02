@@ -394,26 +394,35 @@ def test_configs_import_draw_things_mirror_goes_to_subdir(monkeypatch: pytest.Mo
     assert (out / configs.DRAW_THINGS_APP_MIRROR_SUBDIR / "custom_lora.json").is_file()
 
 
-def test_scaffold_pipeline_list() -> None:
+def test_scaffold_pipeline_list(capsys) -> None:
     rc = configs.main(["scaffold-pipeline", "--list"])
     assert rc == 0
+    assert "prompt-to-video" in capsys.readouterr().out
 
 
-def test_scaffold_pipeline_writes_infomux(tmp_path: Path, capsys) -> None:
-    rc = configs.main(["scaffold-pipeline", "infomux", "--directory", str(tmp_path)])
+def test_scaffold_pipeline_writes_prompt_to_video(tmp_path: Path, capsys) -> None:
+    rc = configs.main(["scaffold-pipeline", "prompt-to-video", "--directory", str(tmp_path)])
     assert rc == 0
-    dest = tmp_path / "infomux.json"
+    dest = tmp_path / "prompt-to-video.json"
     assert dest.is_file()
     payload = json.loads(dest.read_text(encoding="utf-8"))
     assert "_dts_utils_pipeline" in payload
     assert payload["_dts_utils_pipeline"]["t2i_configuration"] == "default"
+    assert payload["_dts_utils_pipeline"]["video_configuration"] == "LTX-2.3-22B-Port"
     out = capsys.readouterr()
     assert str(dest) in out.out
-    assert "pipeline run" in out.err
+    assert "generate --profile" in out.err
+
+
+def test_scaffold_pipeline_default_is_prompt_to_video(tmp_path: Path) -> None:
+    rc = configs.main(["scaffold-pipeline", "--directory", str(tmp_path)])
+    assert rc == 0
+    dest = tmp_path / "prompt-to-video.json"
+    assert dest.is_file()
 
 
 def test_scaffold_pipeline_refuses_overwrite(tmp_path: Path) -> None:
-    dest = tmp_path / "infomux.json"
+    dest = tmp_path / "prompt-to-video.json"
     dest.write_text("{}", encoding="utf-8")
-    rc = configs.main(["scaffold-pipeline", "infomux", "--directory", str(tmp_path)])
+    rc = configs.main(["scaffold-pipeline", "prompt-to-video", "--directory", str(tmp_path)])
     assert rc == 2

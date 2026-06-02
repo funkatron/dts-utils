@@ -17,21 +17,25 @@ def client() -> TestClient:
     return TestClient(create_app())
 
 
-def test_index_mentions_pipeline_run(client: TestClient) -> None:
+def test_index_uses_generate_stream_for_video_profiles(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert "/api/pipeline/run/stream" in r.text
-    assert "Run pipeline" in r.text
+    assert "/api/generate/stream" in r.text
+    assert "prompt → video" in r.text
+    assert "Run pipeline" not in r.text
 
 
-def test_pipeline_run_stream_requires_pipeline_profile(
+def test_generate_stream_rejects_non_video_profile_with_profile_field(
     monkeypatch: pytest.MonkeyPatch, client: TestClient
 ) -> None:
-    monkeypatch.setattr("dts_utils.web.app.is_pipeline_profile", lambda _name: False)
+    monkeypatch.setattr(
+        "dts_utils.web.app.is_pipeline_profile",
+        lambda name: name == "prompt-to-video",
+    )
     r = client.post(
-        "/api/pipeline/run/stream",
+        "/api/generate/stream",
         json={
-            "profile": "default",
+            "profile": "not-a-video-profile",
             "prompt": "hello",
             "host": "127.0.0.1",
             "port": 7859,
@@ -40,10 +44,10 @@ def test_pipeline_run_stream_requires_pipeline_profile(
         },
     )
     assert r.status_code == 400
-    assert "not a pipeline profile" in r.json()["detail"]
+    assert "not a prompt-to-video profile" in r.json()["detail"]
 
 
-def test_pipeline_run_stream_sse(
+def test_generate_stream_video_profile_sse(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, client: TestClient
 ) -> None:
     monkeypatch.setattr("dts_utils.web.app.is_pipeline_profile", lambda _name: True)
@@ -99,9 +103,9 @@ def test_pipeline_run_stream_sse(
 
     with client.stream(
         "POST",
-        "/api/pipeline/run/stream",
+        "/api/generate/stream",
         json={
-            "profile": "infomux",
+            "profile": "prompt-to-video",
             "prompt": "sunset",
             "host": "127.0.0.1",
             "port": 7859,
@@ -119,3 +123,42 @@ def test_pipeline_run_stream_sse(
     artifact_r = client.get("/api/pipeline/artifact/run-1/t2i/image.png")
     assert artifact_r.status_code == 200
     assert artifact_r.content.startswith(b"\x89PNG")
+
+
+def test_pipeline_run_stream_alias_still_works(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, client: TestClient
+) -> None:
+    monkeypatch.setattr("dts_utils.web.app.is_pipeline_profile", lambda _name: True)
+    monkeypatch.setattr("dts_utils.web.app._pipeline_run_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        "dts_utils.web.app.prepare_pipeline_run",
+        lambda req: (
+            SimpleNamespace(run_id="run-1", run_root=tmp_path, allow_cache=True, max_oom_retries=1),
+            None,
+        ),
+    )
+    monkeypatch.setattr("dts_utils.web.app.build_pipeline_steps", lambda *_a, **_k: [1])
+    monkeypatch.setattr("dts_utils.web.app.validate_pipeline_run", lambda *_a, **_k: None)
+
+    class FakeRunner:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def run(self, *, run_id, steps):
+            return PipelineRunManifest(run_id=run_id, run_root=str(tmp_path), steps=[], artifacts=[])
+
+    monkeypatch.setattr("dts_utils.web.app.PipelineRunner", FakeRunner)
+
+    with client.stream(
+        "POST",
+        "/api/pipeline/run/stream",
+        json={
+            "profile": "prompt-to-video",
+            "prompt": "sunset",
+            "host": "127.0.0.1",
+            "port": 7859,
+            "no_tls": True,
+            "trust_server_cert": True,
+        },
+    ) as response:
+        assert response.status_code == 200

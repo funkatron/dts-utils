@@ -95,3 +95,12 @@ def test_flatc_accepts_stage2_guidance_from_draw_things_camel_case() -> None:
     blob = json_configuration_to_flatbuffer(cfg)
     assert isinstance(blob, bytes)
     assert len(blob) >= 32
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_flatc_accepts_start_frame_guidance_from_draw_things_camel_case() -> None:
+    """Regression: Draw Things exports ``startFrameGuidance`` in some LTX profiles."""
+    cfg = {**_MINIMAL_DRAW_THINGS_STYLE, "startFrameGuidance": 1.0}
+    blob = json_configuration_to_flatbuffer(cfg)
+    assert isinstance(blob, bytes)
+    assert len(blob) >= 32

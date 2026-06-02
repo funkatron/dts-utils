@@ -78,6 +78,11 @@ uv run dts-utils web --open
 # second terminal: uv run dts-utils web tail
 ```
 
+| Goal | Command |
+| --- | --- |
+| Run the browser UI | `uv run dts-utils web` (add `--open` to launch the browser) |
+| Follow web UI logs | `uv run dts-utils web tail` (second terminal; path printed when `web` starts) |
+
 See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
 
 ---

@@ -41,6 +41,7 @@ Example snippet for the next release:
 
 ### Changed
 
+- **Docs:** Manual release smoke ([tests/README.md](tests/README.md)), README web command table, and [docs/README.md](docs/README.md) operator notes document **`server tail`** and **`web tail`**.
 - **Pipeline profiles:** Bundled scaffold template renamed from **`infomux`** to **`prompt-to-video`** (name reflects prompt → image → video). Default I2V configuration is **`LTX-2.3-22B-Port`** (checkpoint present on typical Draw Things installs). Re-scaffold with `dts-utils configs scaffold-pipeline prompt-to-video --force` if you still have **`infomux.json`**.
 - **`dts-utils generate --profile`:** Pipeline profiles (saved JSON with **`_dts_utils_pipeline`**) run the full prompt-to-video flow; non-pipeline profile names are treated as **`--configuration`** for a single image. Shorthand **`dts-utils "prompt" prompt-to-video`** uses **`--profile`** when the name is a pipeline profile. **`DTS_UTILS_DEFAULT_PIPELINE_PROFILE`** applies when set to a pipeline profile name.
 - **Removed `pipeline run`:** Use **`dts-utils generate --profile … --prompt "…"`** instead. **`pipeline check`**, **`pipeline profiles`**, and **`pipeline cleanup`** remain. Invoking **`pipeline run`** prints a short migration hint and exits with code **2**.

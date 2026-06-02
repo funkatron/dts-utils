@@ -31,6 +31,7 @@
 | Implicit profile | Shorthand (`dts-utils "…"`) uses `default` / `default.json` when you omit a second positional profile and leave `DTS_UTILS_DEFAULT_CONFIGURATION` unset. First run may create that file (or rename legacy `zit.json`) and print a hint if it could not infer `model`. |
 | TLS | Default installs use TLS. Clients use `--trust-server-cert` (shorthand adds it) unless you pinned a PEM with `--root-cert`. If the server was installed with `--no-tls`, use `--no-tls` on clients and `server check --no-tls` / `server test --no-tls`. |
 | Reflection | `reflect` may return `UNIMPLEMENTED` while `generate` still works; see README troubleshooting. |
-| Web UI | `dts-utils web` serves a loopback HTTP UI; optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`). Details in [CLI.md § web](../CLI.md#web-dts-utils-web). |
+| Web UI | `dts-utils web` serves a loopback HTTP UI; optional `DTS_WEB_TOKEN` secures `/api/*` (except `/api/health`). Logs default to `~/.config/dts-utils/web.log`; follow with `dts-utils web tail` or read the path from `GET /api/health`. Details in [CLI.md § web](../CLI.md#web-dts-utils-web). |
+| Server / web logs | macOS: `dts-utils server tail` (`gRPCServerCLI` via Unified Logging). Any platform: `dts-utils web tail` (file written by `dts-utils web`). |
 | Pipeline disk usage | Use `dts-utils pipeline cleanup` with `--older-than`, `--keep-last`, or `--max-run-root-gb`; see [apple-infomux-pipeline-ops.md](apple-infomux-pipeline-ops.md). |
 | Stability | 0.x: expect breaking changes; pin a version or commit when depending on this repo ([README.md](../README.md)). |

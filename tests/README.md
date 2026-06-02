@@ -65,11 +65,22 @@ uv run dts-utils "smoke test" --output output/smoke-shorthand.png
 - **`reflect`:** gRPC **server reflection**. Many `gRPCServerCLI` builds do not implement it, so `UNIMPLEMENTED` is common even when generation works; treat this step as optional for Draw Things.
 - **`generate` / shorthand:** streaming decode and PNG write.
 
+**Debugging logs** when a step fails or the server misbehaves:
+
+```bash
+uv run dts-utils server tail              # macOS Unified Logging (gRPCServerCLI)
+uv run dts-utils server tail --last 1h    # more history before live follow
+```
+
 Optional **web UI** (HTTP front-end to the same gRPC stack):
 
 ```bash
 uv run dts-utils web --open
+# second terminal:
+uv run dts-utils web tail
 ```
+
+`dts-utils web` prints the log file path on **stdout** (default `~/.config/dts-utils/web.log`; override with `DTS_WEB_LOG_FILE` or `--log-file`). The Setup panel and `GET /api/health` expose the same path and a ready-made `tail_cli` command.
 
 In the browser, match TLS mode to your server (`no-TLS` vs trust loopback cert), pick a profile, generate, and confirm a PNG downloads. See [CLI.md § web](../CLI.md#web-dts-utils-web).
 

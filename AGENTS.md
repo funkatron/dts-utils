@@ -58,6 +58,7 @@ Shorthand and the web UI use **`default`** as the saved profile stem (**`default
 
 - **`reflect` and `UNIMPLEMENTED`:** Draw Things `gRPCServerCLI` often does not expose gRPC reflection. That is expected; image generation can still work. README troubleshooting covers this.
 - **`server check` / `server test`:** Probes try TLS against loopback (trust server-presented cert), then plaintext. Installs with `--no-tls` need **`server check --no-tls`** (or `server test --no-tls`).
+- **`server tail` / `web tail`:** **`server tail`** wraps macOS **`log show`** + **`log stream`** for **`gRPCServerCLI`**. **`web tail`** follows **`~/.config/dts-utils/web.log`** ( **`dts-utils web`** appends there by default; path also on **stdout** at web startup and in **`GET /api/health`**).
 - **Shorthand:** `dts-utils "prompt"` implies `--trust-server-cert` and `--open` for local happy paths; explicit `generate` still requires `--configuration` when not using shorthand.
 
 ## Documentation boundaries

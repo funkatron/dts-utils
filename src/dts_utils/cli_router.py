@@ -15,7 +15,9 @@ from dts_utils.configs import (
     main as configs_main,
 )
 from dts_utils.generate import main as generate_main
+from dts_utils.pipeline.generate_dispatch import generate_uses_pipeline_profile
 from dts_utils.grpc.reflect import main as reflect_main
+from dts_utils.pipeline.cli import main as pipeline_main
 from dts_utils.web.cli import main as web_main
 from dts_utils.installer.server_installer import DTSServerInstaller
 from dts_utils.tls_export import main as tls_main
@@ -48,6 +50,7 @@ _CLIENT_HANDLER_ATTR: dict[str, str] = {
     "tls": "tls_main",
     "models": "models_main",
     "web": "web_main",
+    "pipeline": "pipeline_main",
 }
 
 
@@ -92,7 +95,10 @@ def _split_shorthand_argv(argv: list[str]) -> tuple[list[str], str | None]:
     if err:
         return [], err
     assert config_value is not None  # set whenever err is None
-    expanded = ["--prompt", prompt, "--configuration", config_value, "--trust-server-cert", "--open"]
+    if profile and generate_uses_pipeline_profile(profile):
+        expanded = ["--prompt", prompt, "--profile", profile, "--trust-server-cert", "--open"]
+    else:
+        expanded = ["--prompt", prompt, "--configuration", config_value, "--trust-server-cert", "--open"]
     expanded.extend(flags)
     return expanded, None
 

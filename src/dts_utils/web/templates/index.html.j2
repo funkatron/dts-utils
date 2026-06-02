@@ -802,7 +802,7 @@
   <div id="stage" role="region" aria-label="Generation output">
     <div id="resultPane" aria-live="polite">
       <p id="resultPlaceholder" class="result-placeholder">
-        Built render lands here. Enter a prompt below and run Generate.
+        Built render lands here. Enter a prompt and choose a profile — Generate makes a PNG or a short video (prompt-to-video profiles).
       </p>
       <div id="resultBusy" class="result-busy" hidden>
         <div class="result-busy-head">
@@ -827,7 +827,7 @@
     <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
-        <span class="hint" style="font-size:0.65rem;margin:0">⌘↵ · Ctrl+Enter generate</span>
+        <span class="hint" style="font-size:0.65rem;margin:0" id="composerShortcutHint">⌘↵ · Ctrl+Enter generate</span>
       </div>
       <div class="composer-input-row">
         <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
@@ -1127,34 +1127,77 @@ uv run dts-utils server check</pre>
         return;
       }
       const defaultProfile = j.default_profile || "default";
-      const pipelineProfiles = Array.isArray(j.pipeline_profiles) ? j.pipeline_profiles : [];
-      const preferredPipelineDefault = "sdxl-turbo";
-      const uiDefaultProfile = pipelineProfiles.includes(preferredPipelineDefault)
-        ? preferredPipelineDefault
+      const videoProfiles = Array.isArray(j.video_profiles)
+        ? j.video_profiles
+        : (Array.isArray(j.pipeline_profiles) ? j.pipeline_profiles : []);
+      videoProfileSet = new Set(videoProfiles);
+      const preferredVideoDefault = "prompt-to-video";
+      const uiDefaultProfile = videoProfiles.includes(preferredVideoDefault)
+        ? preferredVideoDefault
         : defaultProfile;
       const rawNames = j.names;
       const nameList = Array.isArray(rawNames) ? rawNames : [];
       if (rawNames != null && !Array.isArray(rawNames)) {
         console.warn("loadConfigs: expected names array, got", typeof rawNames, rawNames);
       }
-      const names = [...new Set([...pipelineProfiles, ...nameList, defaultProfile])].sort();
+      const names = [...new Set([...videoProfiles, ...nameList, defaultProfile])].sort();
       for (const n of names) {
         const o = document.createElement("option");
         o.value = n;
-        o.textContent = n;
+        o.textContent = videoProfileSet.has(n) ? n + " (prompt → video)" : n;
         if (n === uiDefaultProfile) o.selected = true;
         sel.appendChild(o);
       }
+      updateComposerMode();
     } catch (e) {
       console.error("loadConfigs:", e);
       appendDefaultProfileFallback("default — network error (see console)");
     }
   }
 
+  var videoProfileSet = new Set();
+
   function effectiveProfile() {
     const c = document.getElementById("profileCustom").value.trim();
     if (c) return c;
     return document.getElementById("profile").value || "default";
+  }
+
+  function isVideoProfileMode() {
+    const name = effectiveProfile();
+    return videoProfileSet.has(name);
+  }
+
+  function updateComposerMode() {
+    const videoMode = isVideoProfileMode();
+    const btnGen = document.getElementById("btnGen");
+    const runsEl = document.getElementById("generations");
+    const hint = document.getElementById("composerShortcutHint");
+    const busySummary = document.querySelector(".busy-summary");
+    btnGen.setAttribute("aria-label", "Generate");
+    if (videoMode) {
+      btnGen.title = "Generate prompt → image → video for this profile";
+      runsEl.disabled = true;
+      runsEl.title = "Prompt-to-video profiles use one prompt chain (runs disabled)";
+      if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate video";
+    } else {
+      btnGen.title = "Generate a PNG for this profile";
+      runsEl.disabled = false;
+      runsEl.title = "Runs — each run sends one entry from the expanded prompts array (see request JSON)";
+      if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate";
+    }
+    if (busySummary) busySummary.textContent = "Generate request JSON — POST /api/generate/stream";
+  }
+
+  function buildVideoGenerateBody() {
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const body = Object.assign(connectionPayload(), {
+      profile: effectiveProfile(),
+      prompt: document.getElementById("prompt").value.trim(),
+      negative_prompt: document.getElementById("neg").value,
+    });
+    if (shared) body.shared_secret = shared;
+    return body;
   }
 
   function connectionPayload() {
@@ -1526,6 +1569,98 @@ uv run dts-utils server check</pre>
   var generateAbortController = null;
   var generationInFlight = false;
 
+  async function runPromptToVideoStream(ac, t0, timerRef, body) {
+    const errEl = document.getElementById("err");
+    const results = document.getElementById("results");
+    const placeholder = document.getElementById("resultPlaceholder");
+    const elapsed = document.getElementById("elapsed");
+
+    const r = await fetch("/api/generate/stream", {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      }),
+      body: JSON.stringify(body),
+      signal: ac.signal,
+    });
+
+    if (r.status === 401) {
+      errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+      errEl.style.display = "block";
+      placeholder.hidden = false;
+      return;
+    }
+    if (!r.ok) {
+      let msg = r.statusText;
+      try {
+        const j = await r.json();
+        msg = j.detail || msg;
+      } catch (_) {}
+      errEl.textContent = msg;
+      errEl.style.display = "block";
+      placeholder.hidden = false;
+      return;
+    }
+
+    let artifactCount = 0;
+    await readSSEStream(r, async function (msg) {
+      if (msg.type === "meta") {
+        const prog = document.getElementById("busyProgress");
+        if (prog) prog.textContent = msg.profile + " · run " + msg.run_id;
+      }
+      if (msg.type === "progress" && msg.message) {
+        const prog = document.getElementById("busyProgress");
+        if (prog) prog.textContent = msg.message;
+      }
+      if (msg.type === "artifact" && msg.url) {
+        placeholder.hidden = true;
+        const ar = await fetch(msg.url, { headers: authHeaders() });
+        if (!ar.ok) return;
+        const blob = await ar.blob();
+        const url = URL.createObjectURL(blob);
+        __dtsResultBlobUrls.push(url);
+        const wrap = document.createElement("div");
+        wrap.className = "result-slot";
+        if (msg.kind === "video") {
+          const vid = document.createElement("video");
+          vid.src = url;
+          vid.controls = true;
+          vid.className = "result-inflight";
+          wrap.appendChild(vid);
+        } else {
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = msg.step_id + " " + msg.filename;
+          img.className = "result-inflight";
+          wrap.appendChild(img);
+        }
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = msg.filename || "artifact";
+        a.textContent = "Download";
+        a.className = "result-download";
+        wrap.appendChild(a);
+        results.appendChild(wrap);
+        artifactCount += 1;
+      }
+      if (msg.type === "error") {
+        errEl.textContent = msg.detail || "Generate failed.";
+        errEl.style.display = "block";
+      }
+    });
+
+    elapsed.textContent = "Done in " + ((performance.now() - t0) / 1000).toFixed(1) + "s";
+    results.querySelectorAll(".result-inflight").forEach(function (el) {
+      el.classList.remove("result-inflight");
+    });
+    placeholder.hidden = artifactCount > 0;
+  }
+
+  async function runComposerAction() {
+    await runGenerate();
+  }
+
   async function runGenerate() {
     if (generationInFlight) return;
     const errEl = document.getElementById("err");
@@ -1561,8 +1696,33 @@ uv run dts-utils server check</pre>
     generateAbortController = ac;
     splitEl.classList.add("is-busy");
     var runsEl = document.getElementById("generations");
-    runsEl.disabled = true;
 
+    if (isVideoProfileMode()) {
+      runsEl.disabled = true;
+      const body = buildVideoGenerateBody();
+      setGeneratingUi(true, t0, timerRef, JSON.stringify(body, null, 2));
+      try {
+        await runPromptToVideoStream(ac, t0, timerRef, body);
+      } catch (e) {
+        if (e.name === "AbortError") {
+          elapsed.textContent = "Stopped";
+          placeholder.hidden = false;
+        } else {
+          errEl.textContent = String(e);
+          errEl.style.display = "block";
+          placeholder.hidden = false;
+        }
+      } finally {
+        splitEl.classList.remove("is-busy");
+        generateAbortController = null;
+        generationInFlight = false;
+        setGeneratingUi(false, t0, timerRef);
+        btnGen.disabled = false;
+      }
+      return;
+    }
+
+    runsEl.disabled = false;
     var generations = parseInt(runsEl.value, 10);
     if (!Number.isFinite(generations) || generations < 1) generations = 1;
     if (generations > 25) generations = 25;
@@ -1938,7 +2098,7 @@ uv run dts-utils server check</pre>
     if (e.key !== "Enter") return;
     if (!(e.metaKey || e.ctrlKey)) return;
     e.preventDefault();
-    runGenerate();
+    runComposerAction();
   });
 
   (function setupDialog() {
@@ -1966,7 +2126,9 @@ uv run dts-utils server check</pre>
   });
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
-  document.getElementById("btnGen").addEventListener("click", runGenerate);
+  document.getElementById("profile").addEventListener("change", updateComposerMode);
+  document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
+  document.getElementById("btnGen").addEventListener("click", runComposerAction);
   document.getElementById("btnStop").addEventListener("click", function () {
     requestGenerationCancel();
     if (generateAbortController) generateAbortController.abort();

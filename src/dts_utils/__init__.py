@@ -13,6 +13,17 @@ from dts_utils.generate_api import (
     generate_png_bytes,
     generate_to_paths,
 )
+from dts_utils.pipeline import (
+    ImageRef,
+    LtxImageToVideoExecutor,
+    PipelineRunner,
+    PipelineStep,
+    SdxlTextToImageExecutor,
+    StepRun,
+    StubTextToImageExecutor,
+    VideoRef,
+    ZImageTurboTextToImageExecutor,
+)
 
 __all__ = [
     "ChannelSetupError",
@@ -22,6 +33,15 @@ __all__ = [
     "GenerationRpcError",
     "GrpcClientOptions",
     "ImageGenerationRequestOptions",
+    "ImageRef",
+    "LtxImageToVideoExecutor",
+    "PipelineRunner",
+    "PipelineStep",
+    "SdxlTextToImageExecutor",
+    "StepRun",
+    "StubTextToImageExecutor",
+    "VideoRef",
+    "ZImageTurboTextToImageExecutor",
     "generate_png_bytes",
     "generate_to_paths",
 ]

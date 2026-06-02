@@ -41,6 +41,10 @@ Example snippet for the next release:
 
 ### Changed
 
+- **Pipeline profiles:** Bundled scaffold template renamed from **`infomux`** to **`prompt-to-video`** (name reflects prompt → image → video). Default I2V configuration is **`LTX-2.3-22B-Port`** (checkpoint present on typical Draw Things installs). Re-scaffold with `dts-utils configs scaffold-pipeline prompt-to-video --force` if you still have **`infomux.json`**.
+- **`dts-utils generate --profile`:** Pipeline profiles (saved JSON with **`_dts_utils_pipeline`**) run the full prompt-to-video flow; non-pipeline profile names are treated as **`--configuration`** for a single image. Shorthand **`dts-utils "prompt" prompt-to-video`** uses **`--profile`** when the name is a pipeline profile. **`DTS_UTILS_DEFAULT_PIPELINE_PROFILE`** applies when set to a pipeline profile name.
+- **Removed `pipeline run`:** Use **`dts-utils generate --profile … --prompt "…"`** instead. **`pipeline check`**, **`pipeline profiles`**, and **`pipeline cleanup`** remain. Invoking **`pipeline run`** prints a short migration hint and exits with code **2**.
+- **`dts-utils web`:** One **Generate** button and **`POST /api/generate/stream`** for both PNG and prompt-to-video profiles (`profile` vs `configuration` in the JSON body). Video profiles show as **`(prompt → video)`** in the profile list. **`POST /api/pipeline/run/stream`** remains a backward-compatible alias.
 - **`dts-util web`:** history PNGs are now saved by the web server under the dts-util config directory instead of relying on browser `localStorage`; legacy `localStorage` rows import on first History open.
 - **`dts-util web`:** result cards use a wider responsive grid, the composer is more compact, and expanded prompt details are shown as a slimmer scrollable log.
 - **`dts-util web`:** results area scrolls reliably (including Safari): `#resultPane` is the scroll container with a proper flex `min-height` chain instead of `#stage` scrolling a `height: 100%` pane that failed to extend scroll height.

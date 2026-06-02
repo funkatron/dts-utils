@@ -45,8 +45,8 @@ Example snippet for the next release:
 
 ### Tested with
 
-- **gRPCServerCLI:** not smoke-tested for this tag.
-- **pytest:** 365 passed, 7 skipped (maintainer, local). **CI:** `pytest` on Ubuntu (`ci.yml`).
+- **gRPCServerCLI:** [`v1.20260430.0`](https://github.com/drawthingsai/draw-things-community/releases/tag/v1.20260430.0) — local `gRPCServerCLI-macOS` matches release asset size (188 166 336 bytes). Manual smoke on macOS (2026-06-02): `server check`, `reflect` (**UNIMPLEMENTED**, expected for Draw Things), `generate` with saved profile **`default`** → PNG.
+- **pytest:** 365 passed, 7 skipped (at release cut). **CI:** `pytest` on Ubuntu (`ci.yml`).
 
 ### Changed
 

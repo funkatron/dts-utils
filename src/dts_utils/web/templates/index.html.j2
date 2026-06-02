@@ -931,9 +931,15 @@
       <div class="tools-footer">
         <p><a href="https://github.com/funkatron/dts-utils/blob/main/CLI.md" target="_blank" rel="noopener">CLI reference</a></p>
         <details>
+          <summary>Web logs (second terminal)</summary>
+          <p class="hint" style="margin:0.35rem 0 0.2rem" id="webLogFileLabel">Log file: <code id="webLogFilePath">…</code></p>
+          <pre id="webLogTailCmd" style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.2rem">uv run dts-utils web tail</pre>
+        </details>
+        <details>
           <summary>Server not installed?</summary>
           <pre style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.35rem">uv run dts-utils server install
-uv run dts-utils server check</pre>
+uv run dts-utils server check
+uv run dts-utils server tail</pre>
         </details>
       </div>
     </div>
@@ -2133,6 +2139,22 @@ uv run dts-utils server check</pre>
     requestGenerationCancel();
     if (generateAbortController) generateAbortController.abort();
   });
+  async function loadWebLogPath() {
+    var pathEl = document.getElementById("webLogFilePath");
+    var cmdEl = document.getElementById("webLogTailCmd");
+    if (!pathEl || !cmdEl) return;
+    try {
+      var r = await fetch("/api/health");
+      if (!r.ok) return;
+      var j = await r.json();
+      if (j.log_file) pathEl.textContent = j.log_file;
+      if (j.tail_cli) cmdEl.textContent = j.tail_cli;
+    } catch (e) {
+      console.warn("loadWebLogPath:", e);
+    }
+  }
+
+  loadWebLogPath();
   loadConfigs().then(function () { refreshStatus(); });
   </script>
 </body>

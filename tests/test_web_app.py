@@ -22,13 +22,18 @@ def test_health_never_requires_token(monkeypatch: pytest.MonkeyPatch, client: Te
     monkeypatch.setenv("DTS_WEB_TOKEN", "secret")
     r = client.get("/api/health")
     assert r.status_code == 200
-    assert r.json() == {"ok": True}
+    body = r.json()
+    assert body["ok"] is True
+    assert "log_file" in body
+    assert body["tail_cli"].endswith("web tail")
 
 
 def test_index_loads(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
     assert "dts-utils web" in r.text
+    assert "webLogFilePath" in r.text
+    assert "web tail" in r.text
     assert 'id="historyDialog"' in r.text
     assert "Ctrl+Enter" in r.text
     assert 'id="btnStop"' in r.text

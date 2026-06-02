@@ -75,6 +75,7 @@ Optional **browser UI** (same gRPC server; loopback HTTP only by default):
 
 ```bash
 uv run dts-utils web --open
+# second terminal: uv run dts-utils web tail
 ```
 
 See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
@@ -150,6 +151,7 @@ Commands assume the LaunchAgent layout and use local probes (`pgrep` / `lsof`). 
 | --- | --- |
 | Install with defaults | `uv run dts-utils server install` |
 | Confirm process and port | `uv run dts-utils server check` (or `server test`) |
+| Follow server logs (macOS) | `uv run dts-utils server tail` |
 | Custom port, secret, or models path | `uv run dts-utils server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
 | Enable model browsing on an existing install | `uv run dts-utils server restart --model-browser` |
 | Stop / start without removing install | `uv run dts-utils server stop` · `uv run dts-utils server start` |
@@ -232,7 +234,7 @@ Output paths:
 
 | Symptom | Where to look |
 | --- | --- |
-| `server check` fails | Wrong port; or use `dts-utils server check --no-tls` when the server runs with `--no-tls`. Otherwise logs / plist; `dts-utils server restart`, or `server stop` then `server start` |
+| `server check` fails | Wrong port; or use `dts-utils server check --no-tls` when the server runs with `--no-tls`. Otherwise `dts-utils server tail`, plist, `server restart`, or `server stop` then `server start` |
 | TLS error against `localhost` | Add `--trust-server-cert` for loopback on `generate`. See [TLS](#tls) |
 | `generate` exits before streaming | For explicit `generate`, pass `--configuration` / `--configuration-json`. For shorthand, see [Shorthand profile (default)](#shorthand-profile-default). Wrong or missing `model` in JSON often fails at the server |
 | `reflect` returns `UNIMPLEMENTED` | Draw Things `gRPCServerCLI` often omits gRPC reflection; generation can still work |

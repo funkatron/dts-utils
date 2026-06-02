@@ -27,6 +27,7 @@ from dts_utils.configs import (
     list_configuration_names,
     user_config_dir,
 )
+from dts_utils.web.log_io import web_log_info
 from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
@@ -367,7 +368,7 @@ def _manifest_artifact_events(manifest: object) -> list[dict[str, object]]:
 
 
 async def health(_: Request) -> JSONResponse:
-    return JSONResponse({"ok": True})
+    return JSONResponse({"ok": True, **web_log_info()})
 
 
 async def server_status(request: Request) -> JSONResponse:

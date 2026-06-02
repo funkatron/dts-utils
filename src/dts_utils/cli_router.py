@@ -23,7 +23,7 @@ from dts_utils.installer.server_installer import DTSServerInstaller
 from dts_utils.tls_export import main as tls_main
 
 SERVER_LIFECYCLE_SUBCOMMANDS = frozenset(
-    {"install", "uninstall", "start", "stop", "restart", "test", "check"}
+    {"install", "uninstall", "start", "stop", "restart", "test", "check", "tail"}
 )
 
 def server_subcommand_help_text() -> str:
@@ -39,6 +39,7 @@ Lifecycle commands require the ``server`` prefix so they stay distinct from clie
     {p} server stop                   Boot out job (plist stays on disk)
     {p} server restart [--model-browser]
     {p} server test|check [--port PORT]    Probe localhost listener (check = alias for test)
+    {p} server tail [--last DURATION]      Follow gRPCServerCLI logs (macOS Unified Logging)
 """.strip()
 
 

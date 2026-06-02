@@ -66,6 +66,7 @@ Usage:
     dts-utils server stop
     dts-utils server restart [--model-browser]
     dts-utils server test|check [--port PORT]
+    dts-utils server tail [--last DURATION]
     dts-utils generate --prompt PROMPT --configuration CONFIG [...]
     dts-utils \"PROMPT\" [PROFILE] [...]   Shorthand: same as generate with --trust-server-cert --open; PROFILE optional — missing default.json is auto-created (legacy zit.json renamed if present; model guessed from Draw Things Models dir) and $DTS_UTILS_DEFAULT_CONFIGURATION is set
     dts-utils reflect [--host HOST] [--port PORT] [--json] [TLS options]
@@ -87,6 +88,7 @@ Commands:
     server stop           Boot job out of ``launchd`` (plist remains)
     server restart        Stop then start (optional ``--model-browser``)
     server test|check     Probe localhost listener; ``check`` aliases ``test``
+    server tail           Follow ``gRPCServerCLI`` logs via macOS ``log show`` + ``log stream``
     generate …            Client RPC: image generation (see upstream ``GenerateImage``)
     reflect …             Client RPC: reflection
     configs …             Saved JSON configs for ``generate``
@@ -167,6 +169,11 @@ Examples:
     dts-utils server test --port 7859
     dts-utils server check
 
+    # Tail server logs (macOS Unified Logging)
+    dts-utils server tail
+    dts-utils server tail --last 1h
+    dts-utils server tail --last 0    # live stream only, no history
+
     # Generate an image using a saved JSON config
     dts-utils generate --prompt "a small robot painting clouds" --configuration portrait --trust-server-cert
 
@@ -230,10 +237,10 @@ Examples:
         parser.add_argument(
             'action',
             nargs='?',
-            choices=['install', 'uninstall', 'start', 'stop', 'restart', 'test', 'check'],
+            choices=['install', 'uninstall', 'start', 'stop', 'restart', 'test', 'check', 'tail'],
             help=(
-                'Action (install | uninstall | start | stop | restart | test | check); '
-                'test|check probes the listener'
+                'Action (install | uninstall | start | stop | restart | test | check | tail); '
+                'test|check probes the listener; tail follows logs (macOS)'
             ),
         )
 
@@ -289,6 +296,22 @@ Examples:
             action='store_true',
             help='Overwrite an existing PEM when using --export-tls-cert.',
         )
+        parser.add_argument(
+            '--last',
+            default='5m',
+            metavar='DURATION',
+            help=(
+                'For server tail: history window before live stream (log show --last; default: 5m). '
+                'Use 0 to skip history and stream only.'
+            ),
+        )
+        parser.add_argument(
+            '--log-style',
+            dest='log_style',
+            choices=['compact', 'syslog', 'default'],
+            default='compact',
+            help='For server tail: log(1) output style (default: compact).',
+        )
 
         args = parser.parse_args()
 
@@ -319,6 +342,9 @@ Examples:
             else:
                 print("Could not connect to server")
                 sys.exit(1)
+
+        if args.action == 'tail':
+            sys.exit(self.tail_server_logs(last=args.last, log_style=args.log_style))
 
         self.quiet = args.quiet
         self.model_path = Path(args.model_path) if args.model_path else self.get_default_model_path()
@@ -569,6 +595,43 @@ Examples:
         except (OSError, subprocess.CalledProcessError) as e:
             print(f"Failed to create or load service: {e}")
             sys.exit(1)
+
+    _LOG_PREDICATE = 'process == "gRPCServerCLI"'
+
+    def tail_server_logs(self, *, last: str, log_style: str) -> int:
+        """Print recent ``gRPCServerCLI`` unified logs, then follow live output (macOS only)."""
+        prog = cli_command_name()
+        if sys.platform != "darwin":
+            print(f"{prog} server tail requires macOS (Unified Logging).", file=sys.stderr)
+            return 1
+
+        style_args: list[str] = []
+        if log_style and log_style != "default":
+            style_args = ["--style", log_style]
+
+        show_history = last.strip() not in ("", "0")
+        try:
+            if show_history:
+                print(f"--- gRPCServerCLI logs (last {last}) ---", file=sys.stderr, flush=True)
+                show = subprocess.run(
+                    ["log", "show", "--predicate", self._LOG_PREDICATE, "--last", last, *style_args],
+                    check=False,
+                )
+                if show.returncode != 0:
+                    print(
+                        f"{prog} server tail: log show exited {show.returncode} "
+                        "(history may be empty or unavailable).",
+                        file=sys.stderr,
+                    )
+            print("--- following (Ctrl+C to stop) ---", file=sys.stderr, flush=True)
+            stream = subprocess.run(
+                ["log", "stream", "--predicate", self._LOG_PREDICATE, *style_args],
+                check=False,
+            )
+            return stream.returncode if stream.returncode is not None else 0
+        except KeyboardInterrupt:
+            print("\nStopped.", file=sys.stderr)
+            return 0
 
     def test_server_running(self):
         """Test if the gRPCServerCLI is running and accepting connections"""
@@ -894,7 +957,7 @@ Examples:
                     print("\nWARNING: Installation completed but server may not be running correctly.")
                     print("Try these troubleshooting steps:")
                     print("1. Check the system log for errors:")
-                    print("    log show --predicate 'process == \"gRPCServerCLI\"' --last 5m")
+                    print(f"    uv run {cli_command_name()} server tail")
                     print("2. Restart the service:")
                     uid = os.getuid()
                     print(f"    uv run {cli_command_name()} server restart")

@@ -30,7 +30,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 
 | Subcommand | Implementation |
 | --- | --- |
-| `server …` | [`installer/server_installer.py`](src/dts_utils/installer/server_installer.py) (`install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`) |
+| `server …` | [`installer/server_installer.py`](src/dts_utils/installer/server_installer.py) (`install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`, `tail`) |
 | `generate` | [`generate.py`](src/dts_utils/generate.py) |
 | Prompt-first shorthand (`dts-utils "…"`) | Same as `generate` after argv rewrite in `cli_router` |
 | `configs` | [`configs.py`](src/dts_utils/configs.py) |
@@ -48,7 +48,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 - `src/dts_utils/grpc/` — channels, stubs, `is_server_running` (TLS-first loopback probe, plaintext fallback; `prefer_plaintext` for `--no-tls` servers).
 - `src/dts_utils/model_index/` — community metadata index (`dts-utils models`); **`fetch`** loads bundled recipes from `dts_utils/model_fetch/recipe_files/` (optional **`uv sync --extra download`** for Hugging Face sources).
 - `src/dts_utils/tls_export.py` — PEM path/export (`dts-utils tls`).
-- `src/dts_utils/web/` — loopback Starlette UI (`dts-utils web`); see [CLI.md](CLI.md#web-dts-utils-web).
+- `src/dts_utils/web/` — loopback Starlette UI (`dts-utils web`, `dts-utils web tail`); see [CLI.md](CLI.md#web-dts-utils-web).
 
 ## Implicit profile: `default` / `default.json`
 

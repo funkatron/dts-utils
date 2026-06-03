@@ -379,7 +379,12 @@ class DrawThingsGrpcImageToVideoExecutor(SubprocessExecutor):
         model = str(cfg.get("model", "")).lower()
         if "ltx" not in model or "numFrames" in cfg:
             return cfg
-        for candidate in ("LTX-2.3-22B-Port", "LTX-2.3-22B"):
+        for candidate in (
+            "ltx-2.3-portrait",
+            "ltx-2.3-landscape",
+            "LTX-2.3-22B-Port",
+            "LTX-2.3-22B",
+        ):
             try:
                 seeded = read_configuration_json_dict(configuration=candidate, config_dir=config_dir)
             except ConfigurationError:

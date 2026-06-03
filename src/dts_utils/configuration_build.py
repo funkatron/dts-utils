@@ -118,6 +118,31 @@ _COMPRESSION_METHOD_JSON_ALIASES = {
     "jpeg": "Jpeg",
 }
 
+# Draw Things JSON uses lowercase LoRA mode strings; flatc expects ``LoRAMode`` PascalCase labels.
+_LORA_MODE_JSON_ALIASES = {
+    "all": "All",
+    "base": "Base",
+    "refiner": "Refiner",
+}
+
+
+def _normalize_loras_for_flatc(value: object) -> object:
+    if not isinstance(value, list):
+        return value
+    normalized: list[object] = []
+    for item in value:
+        if not isinstance(item, dict):
+            normalized.append(item)
+            continue
+        lora = dict(item)
+        mode = lora.get("mode")
+        if isinstance(mode, str):
+            aliased = _LORA_MODE_JSON_ALIASES.get(mode.strip().lower())
+            if aliased is not None:
+                lora["mode"] = aliased
+        normalized.append(lora)
+    return normalized
+
 
 def normalize_configuration_for_flatc(configuration: dict) -> dict:
     normalized = {}
@@ -134,6 +159,8 @@ def normalize_configuration_for_flatc(configuration: dict) -> dict:
             aliased = _COMPRESSION_METHOD_JSON_ALIASES.get(value.strip().lower())
             if aliased is not None:
                 value = aliased
+        if mapped_key == "loras":
+            value = _normalize_loras_for_flatc(value)
         normalized[mapped_key] = value
     return normalized
 

@@ -1,7 +1,7 @@
 {
   "_dts_utils_pipeline": {
     "t2i_configuration": "default",
-    "video_configuration": "LTX-2.3-22B-Port",
+    "video_configuration": "ltx-2.3-portrait",
     "t2i_mode": "drawthings",
     "i2v_backend": "drawthings",
     "fps": 25,

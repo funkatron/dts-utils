@@ -123,7 +123,7 @@ def test_drawthings_i2v_executor_seeds_ltx_video_profile_when_missing_numframes(
     }
 
     def _fake_read_configuration_json_dict(*, configuration=None, configuration_json=None, config_dir=None):
-        if configuration == "LTX-2.3-22B-Port":
+        if configuration == "ltx-2.3-portrait":
             return dict(seed_cfg)
         return dict(minimal_cfg)
 

@@ -98,6 +98,36 @@ def test_flatc_accepts_stage2_guidance_from_draw_things_camel_case() -> None:
 
 
 @pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_flatc_accepts_lora_mode_lowercase_from_draw_things() -> None:
+    """Regression: Draw Things exports loras[].mode as lowercase; flatc expects LoRAMode labels."""
+    cfg = {
+        **_MINIMAL_DRAW_THINGS_STYLE,
+        "loras": [{"file": "example_lora_f16.ckpt", "weight": 0.6, "mode": "all"}],
+    }
+    blob = json_configuration_to_flatbuffer(cfg)
+    assert isinstance(blob, bytes)
+    assert len(blob) >= 32
+
+
+def test_lora_mode_aliases_normalize_to_pascal_case() -> None:
+    out = normalize_configuration_for_flatc(
+        {
+            "model": "m.ckpt",
+            "loras": [
+                {"file": "a.ckpt", "mode": "all"},
+                {"file": "b.ckpt", "mode": "base"},
+                {"file": "c.ckpt", "mode": "refiner"},
+            ],
+        }
+    )
+    assert out["loras"] == [
+        {"file": "a.ckpt", "mode": "All"},
+        {"file": "b.ckpt", "mode": "Base"},
+        {"file": "c.ckpt", "mode": "Refiner"},
+    ]
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
 def test_flatc_accepts_start_frame_guidance_from_draw_things_camel_case() -> None:
     """Regression: Draw Things exports ``startFrameGuidance`` in some LTX profiles."""
     cfg = {**_MINIMAL_DRAW_THINGS_STYLE, "startFrameGuidance": 1.0}

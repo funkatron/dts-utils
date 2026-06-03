@@ -39,6 +39,12 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+### Changed
+
+- **Saved profile naming:** **`configs import-draw-things`** normalizes preset stems to lowercase kebab-case via **`normalize_profile_stem`**. Bundled **`prompt-to-video`** references **`ltx-2.3-portrait`** (legacy **`LTX-2.3-22B-Port`** still works as a pipeline I2V seed fallback).
+- **`generate` / flatc:** Draw Things JSON **`loras[].mode`** values **`all`**, **`base`**, and **`refiner`** are mapped to flatc **`LoRAMode`** labels (**`All`**, **`Base`**, **`Refiner`**) during normalization (fixes imported presets such as **`pikon-pony-lora`**).
+- **`dts-utils web`:** Composer shows profile, Image/Video mode, and listener status; defaults to **`default`** image profile; persists last choices in **`localStorage`**; grouped profile menu; human-first busy state (request JSON under collapsed **Technical details**); video pipeline **run folder** copy path on completion; Setup dialog split into Connection vs Advanced.
+
 ---
 
 ## [0.5.0] - 2026-06-02

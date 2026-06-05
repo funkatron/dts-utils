@@ -54,6 +54,15 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 
 Shorthand and the web UI use **`default`** as the saved profile stem (**`default.json`** under **`dts-utils configs path`**). Legacy **`zit.json`** in that directory is renamed to **`default.json`** on first bootstrap when **`default.json`** is missing (`ensure_default_generation_json_config`). Docs and tests should say **`default`** unless discussing historical **`zit`** releases (see [CHANGELOG.md](CHANGELOG.md)).
 
+## Saved profile naming
+
+Use **lowercase kebab-case** stems (letters, digits, hyphens; optional dots for version segments). Examples: **`default`**, **`pikon-tall`**, **`ltx-2.3-portrait`**, **`prompt-to-video`**.
+
+- **`default`** and bundled pipeline names (**`prompt-to-video`**) are reserved — do not rename them.
+- Prefer **`{model-family}-{qualifier}`**: step count (**`-8step`**, **`-40step`**), aspect (**`-tall`**, **`-9x16`**, **`-landscape`**, **`-portrait`**), tuning (**`-gs-2.1`**), or feature (**`-pony-lora`**, **`-2x-up`**).
+- **`configs import-draw-things`** applies mechanical normalization via **`normalize_profile_stem`** (lowercase, underscores → hyphens). Draw Things preset titles may still need manual renaming for clarity.
+- Pipeline manifests reference other profile stems in **`t2i_configuration`** / **`video_configuration`** — update those when renaming video/T2I JSON profiles.
+
 ## Behaviour agents often trip over
 
 - **`reflect` and `UNIMPLEMENTED`:** Draw Things `gRPCServerCLI` often does not expose gRPC reflection. That is expected; image generation can still work. README troubleshooting covers this.

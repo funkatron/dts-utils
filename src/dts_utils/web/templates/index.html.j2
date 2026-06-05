@@ -53,6 +53,19 @@
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
+    .fab-dot {
+      position: absolute;
+      bottom: 0.2rem;
+      right: 0.2rem;
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 50%;
+      background: var(--muted);
+      border: 1px solid var(--panel);
+      pointer-events: none;
+    }
+    .fab-setup.fab-dot-ok .fab-dot { background: var(--ok); }
+    .fab-setup.fab-dot-bad .fab-dot { background: var(--bad); }
     .fab-history {
       position: fixed;
       top: calc(max(0.6rem, env(safe-area-inset-top, 0px)) + 2.75rem + 0.45rem);
@@ -436,6 +449,123 @@
       outline: 2px solid var(--accent);
       outline-offset: 1px;
     }
+    .composer-status {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem 0.65rem;
+      margin-bottom: 0.35rem;
+      font-size: 0.72rem;
+      color: var(--muted);
+    }
+    .output-toggle {
+      display: inline-flex;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #25262b;
+    }
+    .output-toggle label {
+      display: inline-flex;
+      align-items: center;
+      margin: 0;
+      padding: 0.2rem 0.45rem;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.72rem;
+    }
+    .output-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+    .output-toggle input:checked + span {
+      color: var(--fg);
+      font-weight: 600;
+    }
+    .output-toggle label:has(input:checked) {
+      background: rgba(74, 158, 255, 0.15);
+    }
+    .composer-status select#profile {
+      flex: 1 1 8rem;
+      min-width: 6rem;
+      max-width: 100%;
+      font-size: 0.78rem;
+      padding: 0.25rem 0.4rem;
+    }
+    #statusComposerListener {
+      white-space: nowrap;
+      flex: 0 0 auto;
+    }
+    #statusComposerListener.ok { color: var(--ok); }
+    #statusComposerListener.bad { color: var(--bad); }
+    .composer-neg {
+      margin-bottom: 0.25rem;
+      font-size: 0.78rem;
+    }
+    .composer-neg summary {
+      cursor: pointer;
+      color: var(--muted);
+      list-style-position: outside;
+    }
+    .composer-neg textarea#neg {
+      margin-top: 0.35rem;
+      min-height: 2.5rem;
+      width: 100%;
+      font-size: 0.82rem;
+    }
+    .runs-hint {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      padding: 0 0.45rem;
+      align-self: stretch;
+      display: none;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .split-run-gen.runs-locked select#generations { display: none; }
+    .split-run-gen.runs-locked .runs-hint { display: inline-flex; }
+    .split-run-gen > button.split-action .btn-gen-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin-left: 0.25rem;
+    }
+    .composer .status.bad {
+      margin: 0 0 0.35rem;
+      font-size: 0.82rem;
+    }
+    .video-done-panel {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.65rem 0.75rem;
+      background: var(--panel);
+      font-size: 0.82rem;
+      max-width: min(100%, 42rem);
+      margin: 0 auto;
+    }
+    .video-done-panel code {
+      font-size: 0.75rem;
+      word-break: break-all;
+    }
+    .video-done-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.45rem;
+    }
+    .video-done-actions button {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--bg);
+      color: var(--fg);
+      padding: 0.3rem 0.55rem;
+      font: inherit;
+      font-size: 0.78rem;
+      cursor: pointer;
+    }
+    .setup-section-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--fg);
+      margin: 0 0 0.5rem;
+    }
     .composer-elapsed-row {
       display: flex;
       justify-content: flex-end;
@@ -785,12 +915,13 @@
 <body>
   <span class="sr-only">dts-utils web</span>
 
-  <button type="button" class="fab-setup" id="btnOpenSetup" aria-label="Setup: connection and profile" aria-haspopup="dialog" aria-controls="toolsDialog" aria-expanded="false">
+  <button type="button" class="fab-setup" id="btnOpenSetup" aria-label="Setup: connection and advanced options" aria-haspopup="dialog" aria-controls="toolsDialog" aria-expanded="false">
     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
       <path d="M9 22v-4h6v4"/>
       <path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M12 6h.01"/><path d="M12 10h.01"/><path d="M12 14h.01"/><path d="M16 10h.01"/><path d="M16 14h.01"/><path d="M8 10h.01"/><path d="M8 14h.01"/>
     </svg>
+    <span class="fab-dot" aria-hidden="true"></span>
   </button>
 
   <button type="button" class="fab-history" id="btnOpenHistory" aria-label="Generation history" aria-haspopup="dialog" aria-controls="historyDialog" aria-expanded="false">
@@ -802,28 +933,41 @@
   <div id="stage" role="region" aria-label="Generation output">
     <div id="resultPane" aria-live="polite">
       <p id="resultPlaceholder" class="result-placeholder">
-        Built render lands here. Enter a prompt and choose a profile — Generate makes a PNG or a short video (prompt-to-video profiles).
+        Your image or video appears here. Pick a profile below, write a prompt, and press Generate.
       </p>
       <div id="resultBusy" class="result-busy" hidden>
         <div class="result-busy-head">
           <span class="spinner" aria-hidden="true"></span>
           <span class="sr-only">Generating</span>
           <span id="busyElapsed" class="hint"></span>
-          <span id="busyProgress" class="hint" aria-live="polite"></span>
+          <span id="busyProgress" class="hint" aria-live="polite">Starting…</span>
         </div>
-        <details class="busy-payload" open>
-          <summary class="busy-summary">Generate request JSON — POST /api/generate/stream</summary>
+        <details class="busy-payload">
+          <summary class="busy-summary">Technical details (request JSON)</summary>
           <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON body"></pre>
         </details>
       </div>
+      <div id="videoDonePanel" class="video-done-panel" hidden aria-live="polite"></div>
       <div id="results" class="results"></div>
       <div id="expandedPromptsNote" class="expanded-prompts-panel" hidden aria-live="polite"></div>
     </div>
   </div>
 
-  <div id="err" class="status bad" role="alert"></div>
-
   <footer class="composer">
+    <div id="err" class="status bad" role="alert" hidden></div>
+    <div class="composer-status" id="composerStatus" aria-label="Generation settings">
+      <div class="output-toggle" role="radiogroup" aria-label="Output type">
+        <label><input type="radio" name="outputMode" id="outputModeImage" value="image" checked /><span>Image</span></label>
+        <label><input type="radio" name="outputMode" id="outputModeVideo" value="video" /><span>Video</span></label>
+      </div>
+      <label class="sr-only" for="profile">Saved JSON profile</label>
+      <select id="profile" aria-label="Saved JSON profile"></select>
+      <span id="statusComposerListener" aria-live="polite">Listener unchecked</span>
+    </div>
+    <details class="composer-neg">
+      <summary>Negative prompt (optional)</summary>
+      <textarea id="neg" class="field" placeholder="Things to avoid in the image…"></textarea>
+    </details>
     <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
@@ -832,18 +976,19 @@
       <div class="composer-input-row">
         <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
         <div class="split-run-gen" role="group" aria-label="Runs, generate, or stop">
-          <select id="generations" autocomplete="off" aria-label="Runs" title="Runs — each run sends one entry from the expanded prompts array (see request JSON)">
+          <select id="generations" autocomplete="off" aria-label="Runs" title="Runs — each run sends one entry from the expanded prompts array">
             {% for n in range(1, 26) %}
             <option value="{{ n }}"{% if n == 1 %} selected{% endif %}>{{ n }}</option>
             {% endfor %}
           </select>
+          <span id="runsHint" class="runs-hint" aria-hidden="true">1 run (video pipeline)</span>
           <button type="button" class="split-action" id="btnGen" aria-label="Generate">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
               <path d="m18 15 4-4"/>
               <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/>
             </svg>
-            <span class="sr-only">Generate</span>
+            <span class="btn-gen-label">Generate</span>
           </button>
           <button type="button" class="split-action" id="btnStop" aria-label="Stop generation">
             <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -873,9 +1018,10 @@
 
   <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title" inert>
     <div class="tools-dialog-inner">
-      <h2 id="tools-dialog-title">Connection &amp; profile</h2>
+      <h2 id="tools-dialog-title">Connection &amp; advanced</h2>
 
       <section aria-label="gRPC connection">
+        <p class="setup-section-title">Connection</p>
         <div class="tools-row">
           <div>
             <label for="host">Host</label><br/>
@@ -897,19 +1043,12 @@
         <p class="hint">Probe only (listener). Generation can still fail (config, flatc, model, TLS).</p>
       </section>
 
-      <section aria-label="Profile">
-        <label for="profile">Saved JSON profile</label><br/>
-        <select id="profile"></select>
-        <input id="profileCustom" type="text" placeholder="Or custom name/path…" style="margin-top:0.35rem;width:100%" autocomplete="off" class="field" />
-      </section>
-
-      <details class="advanced">
-        <summary>Negative prompt, secret, TLS paths</summary>
-        <div style="margin-top:0.6rem">
-          <label for="neg">Negative prompt</label>
-          <textarea id="neg" class="field" style="min-height:3rem;width:100%;margin-top:0.25rem"></textarea>
-        </div>
-        <div class="tools-row" style="margin-top:0.5rem">
+      <section aria-label="Advanced options">
+        <p class="setup-section-title">Advanced</p>
+        <p class="hint" style="margin-top:0">Profile and negative prompt live in the composer. Override paths here when needed.</p>
+        <label for="profileCustom">Custom profile name or path</label><br/>
+        <input id="profileCustom" type="text" placeholder="Overrides the profile menu when set…" style="margin-top:0.25rem;width:100%;margin-bottom:0.65rem" autocomplete="off" class="field" />
+        <div class="tools-row" style="margin-top:0.25rem">
           <div style="flex:1;min-width:12rem">
             <label for="sharedSecret">Shared secret</label><br/>
             <input id="sharedSecret" type="text" style="width:100%" autocomplete="off" class="field" />
@@ -926,7 +1065,7 @@
           <label for="configDir">Config directory override</label><br/>
           <input id="configDir" type="text" style="width:100%" placeholder="Default: dts-utils configs path" autocomplete="off" class="field" />
         </div>
-      </details>
+      </section>
 
       <div class="tools-footer">
         <p><a href="https://github.com/funkatron/dts-utils/blob/main/CLI.md" target="_blank" rel="noopener">CLI reference</a></p>
@@ -1070,9 +1209,26 @@ uv run dts-utils server tail</pre>
 
   function formatListenerLine(j) {
     const probe = j.probe ? " (" + j.probe + ")" : "";
-    if (j.listener_ok)
-      return { text: "Listener OK — " + (j.message || "") + probe, ok: true };
+    if (j.listener_ok) {
+      var raw = String(j.message || "").trim();
+      raw = raw.replace(/^Listener OK\s*[—-]\s*/i, "").trim();
+      if (!raw) raw = "probe only — generation may still fail";
+      return { text: "Listener OK — " + raw + probe, ok: true };
+    }
     return { text: "Unreachable — " + (j.message || "") + probe, ok: false };
+  }
+
+  function setComposerListenerStatus(text, ok) {
+    var el = document.getElementById("statusComposerListener");
+    var fab = document.getElementById("btnOpenSetup");
+    if (!el) return;
+    el.textContent = text;
+    el.className = ok === true ? "ok" : ok === false ? "bad" : "";
+    if (fab) {
+      fab.classList.remove("fab-dot-ok", "fab-dot-bad");
+      if (ok === true) fab.classList.add("fab-dot-ok");
+      else if (ok === false) fab.classList.add("fab-dot-bad");
+    }
   }
 
   async function refreshStatus() {
@@ -1082,33 +1238,204 @@ uv run dts-utils server tail</pre>
     const el = document.getElementById("statusLine");
     el.textContent = "Checking…";
     el.className = "status";
+    setComposerListenerStatus("Checking…", null);
     const q = new URLSearchParams({ host, port, no_tls: noTls ? "true" : "false" });
     const r = await fetch("/api/server-status?" + q.toString(), { headers: authHeaders() });
     if (r.status === 401) {
       el.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
       el.className = "status bad";
+      setComposerListenerStatus("Unauthorized", false);
       return;
     }
     const j = await r.json();
     if (!r.ok) {
       el.textContent = j.detail || "Error";
       el.className = "status bad";
+      setComposerListenerStatus("Error", false);
       return;
     }
     const fmt = formatListenerLine(j);
     el.textContent = fmt.text;
     el.className = "status " + (fmt.ok ? "ok" : "bad");
+    setComposerListenerStatus(fmt.ok ? "Listener OK" : "Unreachable", fmt.ok);
+  }
+
+  var UI_PREFS_KEY = "dts_web_ui_v1";
+  var videoProfileSet = new Set();
+  var pipelineProfileSet = new Set();
+  var allProfileNames = [];
+  var defaultProfileName = "default";
+  var configCatalog = { image: [], video: [], recent: [] };
+
+  function loadUiPrefs() {
+    try {
+      var s = localStorage.getItem(UI_PREFS_KEY);
+      if (!s) return {};
+      var o = JSON.parse(s);
+      return o && typeof o === "object" ? o : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveUiPrefs(partial) {
+    var merged = Object.assign(loadUiPrefs(), partial || {});
+    try {
+      localStorage.setItem(UI_PREFS_KEY, JSON.stringify(merged));
+    } catch (e) {}
+    return merged;
+  }
+
+  function isVideoConfigName(name) {
+    return pipelineProfileSet.has(name);
+  }
+
+  function imageProfileGroup(name) {
+    var lower = String(name || "").toLowerCase();
+    if (lower.indexOf("ltx") === 0 || lower.indexOf("wan") === 0) return "Video configs (I2V)";
+    if (name === "default" || name.indexOf("zit") === 0) return "ZIT & default";
+    if (name.indexOf("pikon") === 0) return "Pikon";
+    if (name.indexOf("ddm") === 0) return "DDM";
+    if (name.indexOf("flux") === 0) return "Flux";
+    if (name.indexOf("big-love") === 0 || name.indexOf("hyphoria") === 0) return "Mixes";
+    return "Other images";
+  }
+
+  function getOutputMode() {
+    var v = document.querySelector('input[name="outputMode"]:checked');
+    return v && v.value === "video" ? "video" : "image";
+  }
+
+  function profilesForOutputMode(mode) {
+    if (mode === "video") return configCatalog.video.slice();
+    return configCatalog.image.slice();
+  }
+
+  function trackRecentProfile(name) {
+    if (!name || typeof name !== "string") return;
+    var prefs = loadUiPrefs();
+    var recent = Array.isArray(prefs.recentProfiles) ? prefs.recentProfiles.slice() : [];
+    recent = recent.filter(function (n) { return n !== name; });
+    recent.unshift(name);
+    if (recent.length > 5) recent.length = 5;
+    saveUiPrefs({ recentProfiles: recent });
+    configCatalog.recent = recent.filter(function (n) {
+      return allProfileNames.indexOf(n) !== -1;
+    });
+  }
+
+  function appendProfileOption(sel, name, selectedName) {
+    var o = document.createElement("option");
+    o.value = name;
+    if (pipelineProfileSet.has(name)) {
+      o.textContent = name + " (prompt → video)";
+    } else {
+      o.textContent = name;
+    }
+    if (name === selectedName) o.selected = true;
+    sel.appendChild(o);
+  }
+
+  function populateProfileSelect(selectedName) {
+    var sel = document.getElementById("profile");
+    if (!sel) return;
+    sel.innerHTML = "";
+    var mode = getOutputMode();
+    var pool = profilesForOutputMode(mode);
+    if (!pool.length) {
+      appendProfileOption(sel, defaultProfileName, selectedName || defaultProfileName);
+      return;
+    }
+    var recent = configCatalog.recent.filter(function (n) {
+      return pool.indexOf(n) !== -1;
+    });
+    if (recent.length) {
+      var ogR = document.createElement("optgroup");
+      ogR.label = "Recent";
+      sel.appendChild(ogR);
+      recent.forEach(function (n) {
+        appendProfileOption(ogR, n, selectedName);
+      });
+    }
+    if (mode === "video") {
+      var pipes = pool.filter(function (n) { return pipelineProfileSet.has(n); });
+      if (pipes.length) {
+        var ogP = document.createElement("optgroup");
+        ogP.label = "Pipeline";
+        sel.appendChild(ogP);
+        pipes.forEach(function (n) { appendProfileOption(ogP, n, selectedName); });
+      }
+    } else {
+      var groups = {};
+      pool.forEach(function (n) {
+        var g = imageProfileGroup(n);
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(n);
+      });
+      Object.keys(groups).sort().forEach(function (label) {
+        var og = document.createElement("optgroup");
+        og.label = label;
+        sel.appendChild(og);
+        groups[label].sort().forEach(function (n) {
+          appendProfileOption(og, n, selectedName);
+        });
+      });
+    }
+    if (selectedName && !sel.value) {
+      appendProfileOption(sel, selectedName, selectedName);
+    }
+  }
+
+  function pickInitialProfile(prefs) {
+    var mode = prefs.outputMode === "video" ? "video" : "image";
+    var pool = mode === "video" ? configCatalog.video : configCatalog.image;
+    if (prefs.profileCustom && String(prefs.profileCustom).trim()) {
+      return { mode: mode, profile: String(prefs.profileCustom).trim(), custom: true };
+    }
+    var want = prefs.profile;
+    if (want && pool.indexOf(want) !== -1) {
+      return { mode: mode, profile: want, custom: false };
+    }
+    if (mode === "video" && pool.length) {
+      return { mode: "video", profile: pool.indexOf("prompt-to-video") !== -1 ? "prompt-to-video" : pool[0], custom: false };
+    }
+    return { mode: "image", profile: defaultProfileName, custom: false };
+  }
+
+  function applyOutputMode(mode, profileName) {
+    var imageRadio = document.getElementById("outputModeImage");
+    var videoRadio = document.getElementById("outputModeVideo");
+    if (mode === "video" && videoRadio) videoRadio.checked = true;
+    else if (imageRadio) imageRadio.checked = true;
+    populateProfileSelect(profileName);
+    var sel = document.getElementById("profile");
+    if (sel && profileName) {
+      var found = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === profileName) {
+          sel.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+      if (!found && sel.options.length) sel.selectedIndex = 0;
+    }
+    updateComposerMode();
   }
 
   async function loadConfigs() {
     const sel = document.getElementById("profile");
-    sel.innerHTML = "";
     function appendDefaultProfileFallback(label) {
+      sel.innerHTML = "";
       const o = document.createElement("option");
       o.value = "default";
       o.textContent = label;
       o.selected = true;
       sel.appendChild(o);
+      defaultProfileName = "default";
+      allProfileNames = ["default"];
+      configCatalog = { image: ["default"], video: [], recent: [] };
+      updateComposerMode();
     }
     try {
       const r = await fetch("/api/configs", { headers: authHeaders() });
@@ -1132,67 +1459,144 @@ uv run dts-utils server tail</pre>
         );
         return;
       }
-      const defaultProfile = j.default_profile || "default";
+      defaultProfileName = j.default_profile || "default";
       const videoProfiles = Array.isArray(j.video_profiles)
         ? j.video_profiles
         : (Array.isArray(j.pipeline_profiles) ? j.pipeline_profiles : []);
       videoProfileSet = new Set(videoProfiles);
-      const preferredVideoDefault = "prompt-to-video";
-      const uiDefaultProfile = videoProfiles.includes(preferredVideoDefault)
-        ? preferredVideoDefault
-        : defaultProfile;
+      pipelineProfileSet = new Set(videoProfiles);
       const rawNames = j.names;
       const nameList = Array.isArray(rawNames) ? rawNames : [];
-      if (rawNames != null && !Array.isArray(rawNames)) {
-        console.warn("loadConfigs: expected names array, got", typeof rawNames, rawNames);
+      allProfileNames = [...new Set([...nameList, defaultProfileName, ...videoProfiles])].sort();
+      configCatalog.video = allProfileNames.filter(isVideoConfigName);
+      configCatalog.image = allProfileNames.filter(function (n) {
+        return !isVideoConfigName(n);
+      });
+      if (configCatalog.image.indexOf(defaultProfileName) === -1) {
+        configCatalog.image.unshift(defaultProfileName);
       }
-      const names = [...new Set([...videoProfiles, ...nameList, defaultProfile])].sort();
-      for (const n of names) {
-        const o = document.createElement("option");
-        o.value = n;
-        o.textContent = videoProfileSet.has(n) ? n + " (prompt → video)" : n;
-        if (n === uiDefaultProfile) o.selected = true;
-        sel.appendChild(o);
+      var prefs = loadUiPrefs();
+      configCatalog.recent = (Array.isArray(prefs.recentProfiles) ? prefs.recentProfiles : []).filter(function (n) {
+        return allProfileNames.indexOf(n) !== -1;
+      });
+      var init = pickInitialProfile(prefs);
+      if (init.custom) {
+        document.getElementById("profileCustom").value = init.profile;
       }
-      updateComposerMode();
+      applyOutputMode(init.mode, init.custom ? null : init.profile);
     } catch (e) {
       console.error("loadConfigs:", e);
       appendDefaultProfileFallback("default — network error (see console)");
     }
   }
 
-  var videoProfileSet = new Set();
-
   function effectiveProfile() {
     const c = document.getElementById("profileCustom").value.trim();
     if (c) return c;
-    return document.getElementById("profile").value || "default";
+    return document.getElementById("profile").value || defaultProfileName || "default";
   }
 
   function isVideoProfileMode() {
     const name = effectiveProfile();
-    return videoProfileSet.has(name);
+    return pipelineProfileSet.has(name);
+  }
+
+  function outputLabelForProfile(name) {
+    if (pipelineProfileSet.has(name)) return "Video pipeline";
+    if (isVideoConfigName(name)) return "Video (I2V)";
+    return "PNG";
+  }
+
+  function persistUiPrefsFromComposer() {
+    var custom = document.getElementById("profileCustom").value.trim();
+    saveUiPrefs({
+      outputMode: getOutputMode(),
+      profile: custom ? "" : effectiveProfile(),
+      profileCustom: custom,
+    });
   }
 
   function updateComposerMode() {
     const videoMode = isVideoProfileMode();
     const btnGen = document.getElementById("btnGen");
     const runsEl = document.getElementById("generations");
+    const splitEl = document.querySelector(".split-run-gen");
     const hint = document.getElementById("composerShortcutHint");
     const busySummary = document.querySelector(".busy-summary");
+    const profName = effectiveProfile();
     btnGen.setAttribute("aria-label", "Generate");
     if (videoMode) {
       btnGen.title = "Generate prompt → image → video for this profile";
+      if (splitEl) splitEl.classList.add("runs-locked");
       runsEl.disabled = true;
       runsEl.title = "Prompt-to-video profiles use one prompt chain (runs disabled)";
       if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate video";
     } else {
       btnGen.title = "Generate a PNG for this profile";
+      if (splitEl) splitEl.classList.remove("runs-locked");
       runsEl.disabled = false;
-      runsEl.title = "Runs — each run sends one entry from the expanded prompts array (see request JSON)";
+      runsEl.title = "Runs — each run sends one entry from the expanded prompts array";
       if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate";
     }
-    if (busySummary) busySummary.textContent = "Generate request JSON — POST /api/generate/stream";
+    if (busySummary) busySummary.textContent = "Technical details (request JSON)";
+    persistUiPrefsFromComposer();
+  }
+
+  function onOutputModeChange() {
+    var mode = getOutputMode();
+    var pool = profilesForOutputMode(mode);
+    var prefs = loadUiPrefs();
+    var pick = mode === "video"
+      ? (pool.indexOf("prompt-to-video") !== -1 ? "prompt-to-video" : pool[0] || defaultProfileName)
+      : (pool.indexOf(defaultProfileName) !== -1 ? defaultProfileName : pool[0] || defaultProfileName);
+    if (prefs.profile && pool.indexOf(prefs.profile) !== -1 && mode === (prefs.outputMode === "video" ? "video" : "image")) {
+      pick = prefs.profile;
+    }
+    document.getElementById("profileCustom").value = "";
+    populateProfileSelect(pick);
+    updateComposerMode();
+  }
+
+  function showComposerError(message) {
+    var errEl = document.getElementById("err");
+    if (!errEl) return;
+    if (message) {
+      errEl.textContent = message;
+      errEl.hidden = false;
+      errEl.style.display = "block";
+    } else {
+      errEl.textContent = "";
+      errEl.hidden = true;
+      errEl.style.display = "none";
+    }
+  }
+
+  function renderVideoDonePanel(msg) {
+    var panel = document.getElementById("videoDonePanel");
+    if (!panel) return;
+    panel.replaceChildren();
+    if (!msg || !msg.run_root) {
+      panel.hidden = true;
+      return;
+    }
+    var title = document.createElement("p");
+    title.style.margin = "0";
+    title.textContent = "Video run finished. Artifacts are under:";
+    panel.appendChild(title);
+    var code = document.createElement("code");
+    code.textContent = String(msg.run_root);
+    panel.appendChild(code);
+    var actions = document.createElement("div");
+    actions.className = "video-done-actions";
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copy path";
+    copyBtn.addEventListener("click", function () {
+      navigator.clipboard.writeText(String(msg.run_root)).catch(function () {});
+    });
+    actions.appendChild(copyBtn);
+    panel.appendChild(actions);
+    panel.hidden = false;
   }
 
   function buildVideoGenerateBody() {
@@ -1576,10 +1980,10 @@ uv run dts-utils server tail</pre>
   var generationInFlight = false;
 
   async function runPromptToVideoStream(ac, t0, timerRef, body) {
-    const errEl = document.getElementById("err");
     const results = document.getElementById("results");
     const placeholder = document.getElementById("resultPlaceholder");
     const elapsed = document.getElementById("elapsed");
+    renderVideoDonePanel(null);
 
     const r = await fetch("/api/generate/stream", {
       method: "POST",
@@ -1592,8 +1996,7 @@ uv run dts-utils server tail</pre>
     });
 
     if (r.status === 401) {
-      errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
-      errEl.style.display = "block";
+      showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
       placeholder.hidden = false;
       return;
     }
@@ -1603,8 +2006,7 @@ uv run dts-utils server tail</pre>
         const j = await r.json();
         msg = j.detail || msg;
       } catch (_) {}
-      errEl.textContent = msg;
-      errEl.style.display = "block";
+      showComposerError(msg);
       placeholder.hidden = false;
       return;
     }
@@ -1613,7 +2015,7 @@ uv run dts-utils server tail</pre>
     await readSSEStream(r, async function (msg) {
       if (msg.type === "meta") {
         const prog = document.getElementById("busyProgress");
-        if (prog) prog.textContent = msg.profile + " · run " + msg.run_id;
+        if (prog) prog.textContent = "Building video · " + msg.profile + " · run " + msg.run_id;
       }
       if (msg.type === "progress" && msg.message) {
         const prog = document.getElementById("busyProgress");
@@ -1650,9 +2052,12 @@ uv run dts-utils server tail</pre>
         results.appendChild(wrap);
         artifactCount += 1;
       }
+      if (msg.type === "done") {
+        renderVideoDonePanel(msg);
+        trackRecentProfile(effectiveProfile());
+      }
       if (msg.type === "error") {
-        errEl.textContent = msg.detail || "Generate failed.";
-        errEl.style.display = "block";
+        showComposerError(msg.detail || "Generate failed.");
       }
     });
 
@@ -1669,16 +2074,16 @@ uv run dts-utils server tail</pre>
 
   async function runGenerate() {
     if (generationInFlight) return;
-    const errEl = document.getElementById("err");
     const results = document.getElementById("results");
     const placeholder = document.getElementById("resultPlaceholder");
     const elapsed = document.getElementById("elapsed");
     const splitEl = document.querySelector(".split-run-gen");
     const btnGen = document.getElementById("btnGen");
     const timerRef = { id: null };
-    errEl.style.display = "none";
+    showComposerError("");
     revokeResultBlobUrls();
     results.innerHTML = "";
+    renderVideoDonePanel(null);
     var expNoteClear = document.getElementById("expandedPromptsNote");
     if (expNoteClear) {
       expNoteClear.hidden = true;
@@ -1690,8 +2095,7 @@ uv run dts-utils server tail</pre>
 
     const prompt = document.getElementById("prompt").value.trim();
     if (!prompt) {
-      errEl.textContent = "Enter a prompt.";
-      errEl.style.display = "block";
+      showComposerError("Enter a prompt.");
       placeholder.hidden = false;
       btnGen.disabled = false;
       return;
@@ -1714,8 +2118,7 @@ uv run dts-utils server tail</pre>
           elapsed.textContent = "Stopped";
           placeholder.hidden = false;
         } else {
-          errEl.textContent = String(e);
-          errEl.style.display = "block";
+          showComposerError(String(e));
           placeholder.hidden = false;
         }
       } finally {
@@ -1748,8 +2151,7 @@ uv run dts-utils server tail</pre>
       });
 
       if (expandRes.status === 401) {
-        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
-        errEl.style.display = "block";
+        showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
         placeholder.hidden = false;
         return;
       }
@@ -1760,8 +2162,7 @@ uv run dts-utils server tail</pre>
           const ej = await expandRes.json();
           msg = ej.detail || msg;
         } catch (_) {}
-        errEl.textContent = msg;
-        errEl.style.display = "block";
+        showComposerError(msg);
         placeholder.hidden = false;
         return;
       }
@@ -1782,8 +2183,7 @@ uv run dts-utils server tail</pre>
       });
 
       if (r.status === 401) {
-        errEl.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
-        errEl.style.display = "block";
+        showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
         placeholder.hidden = false;
         return;
       }
@@ -1794,16 +2194,14 @@ uv run dts-utils server tail</pre>
           const j = await r.json();
           msg = j.detail || msg;
         } catch (_) {}
-        errEl.textContent = msg;
-        errEl.style.display = "block";
+        showComposerError(msg);
         placeholder.hidden = false;
         return;
       }
 
       const ct = r.headers.get("content-type") || "";
       if (!ct.includes("text/event-stream")) {
-        errEl.textContent = "Expected text/event-stream from server, got: " + ct;
-        errEl.style.display = "block";
+        showComposerError("Expected text/event-stream from server, got: " + ct);
         placeholder.hidden = false;
         return;
       }
@@ -1867,6 +2265,7 @@ uv run dts-utils server tail</pre>
           historyBuffers,
           body.configuration,
         );
+        trackRecentProfile(body.configuration);
       }
 
       var expNote = document.getElementById("expandedPromptsNote");
@@ -1886,21 +2285,20 @@ uv run dts-utils server tail</pre>
     } catch (e) {
       if (e.name === "AbortError") {
         requestGenerationCancel();
-        errEl.style.display = "none";
+        showComposerError("");
         elapsed.textContent = "Stopped";
         placeholder.hidden = false;
       } else {
-        errEl.textContent = String(e);
-        errEl.style.display = "block";
+        showComposerError(String(e));
         placeholder.hidden = false;
       }
     } finally {
       splitEl.classList.remove("is-busy");
-      runsEl.disabled = false;
       generateAbortController = null;
       generationInFlight = false;
       setGeneratingUi(false, t0, timerRef);
       btnGen.disabled = false;
+      updateComposerMode();
     }
   }
 
@@ -2132,7 +2530,13 @@ uv run dts-utils server tail</pre>
   });
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
-  document.getElementById("profile").addEventListener("change", updateComposerMode);
+  document.getElementById("outputModeImage").addEventListener("change", onOutputModeChange);
+  document.getElementById("outputModeVideo").addEventListener("change", onOutputModeChange);
+  document.getElementById("profile").addEventListener("change", function () {
+    document.getElementById("profileCustom").value = "";
+    trackRecentProfile(document.getElementById("profile").value);
+    updateComposerMode();
+  });
   document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
   document.getElementById("btnGen").addEventListener("click", runComposerAction);
   document.getElementById("btnStop").addEventListener("click", function () {

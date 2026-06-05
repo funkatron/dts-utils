@@ -17,6 +17,7 @@ from dts_utils.web.log_io import (
 
 def test_default_web_log_path_under_user_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     monkeypatch.delenv(WEB_LOG_ENV, raising=False)
     assert default_web_log_path() == tmp_path / ".config" / "dts-utils" / "web.log"
 
@@ -72,6 +73,7 @@ def test_web_main_dispatches_serve(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_run_web_server_uses_log_config(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     captured: dict[str, object] = {}
 
     class FakeServer:

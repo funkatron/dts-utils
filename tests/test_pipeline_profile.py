@@ -27,7 +27,7 @@ def test_parse_pipeline_profile_fixture() -> None:
     )
     assert settings is not None
     assert settings.t2i_configuration == "default"
-    assert settings.video_configuration == "LTX-2.3-22B-Port"
+    assert settings.video_configuration == "ltx-2.3-portrait"
     assert settings.grpc.trust_server_cert is True
     assert settings.fps == 25
 
@@ -92,7 +92,7 @@ def test_merge_profile_into_run_args(tmp_path: Path, monkeypatch: pytest.MonkeyP
     settings = merge_profile_into_run_args(args, config_dir=config_dir)
     assert settings.profile_stem == "prompt-to-video"
     assert args.configuration == "default"
-    assert args.video_configuration == "LTX-2.3-22B-Port"
+    assert args.video_configuration == "ltx-2.3-portrait"
     assert args.trust_server_cert is True
     assert args.fps == 25
 

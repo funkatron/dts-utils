@@ -14,6 +14,13 @@ from dts_utils import configs
 from dts_utils import cli_router
 
 
+def test_normalize_profile_stem_lowercase_kebab_case() -> None:
+    assert configs.normalize_profile_stem("Pikon-Tall") == "pikon-tall"
+    assert configs.normalize_profile_stem("flux29b_kv") == "flux29b-kv"
+    assert configs.normalize_profile_stem("Big Love 8steps") == "big-love-8steps"
+    assert configs.normalize_profile_stem("LTX-2.3-22B-Port") == "ltx-2.3-22b-port"
+
+
 def test_resolve_configuration_value_prefers_existing_file(tmp_path):
     """Verify explicit paths are used before named config lookup."""
     config_path = tmp_path / "custom.fb"
@@ -362,9 +369,9 @@ def test_configs_import_draw_things_writes_profiles(tmp_path: Path, capsys: pyte
     captured = capsys.readouterr()
     assert rc == 0
     assert "Imported presets may not work immediately" in captured.err
-    assert json.loads((out / "Alpha.json").read_text())["model"] == "a.ckpt"
-    assert (out / "Same.json").is_file()
-    assert (out / "Same-2.json").is_file()
+    assert json.loads((out / "alpha.json").read_text())["model"] == "a.ckpt"
+    assert (out / "same.json").is_file()
+    assert (out / "same-2.json").is_file()
 
 
 def test_configs_import_draw_things_missing_file_returns_2(tmp_path: Path) -> None:
@@ -390,7 +397,7 @@ def test_configs_import_draw_things_mirror_goes_to_subdir(monkeypatch: pytest.Mo
         ["import-draw-things", "--source", str(src), "--directory", str(out), "--mirror-app-json"],
     )
     assert rc == 0
-    assert (out / "Alpha.json").is_file()
+    assert (out / "alpha.json").is_file()
     assert (out / configs.DRAW_THINGS_APP_MIRROR_SUBDIR / "custom_lora.json").is_file()
 
 
@@ -408,7 +415,7 @@ def test_scaffold_pipeline_writes_prompt_to_video(tmp_path: Path, capsys) -> Non
     payload = json.loads(dest.read_text(encoding="utf-8"))
     assert "_dts_utils_pipeline" in payload
     assert payload["_dts_utils_pipeline"]["t2i_configuration"] == "default"
-    assert payload["_dts_utils_pipeline"]["video_configuration"] == "LTX-2.3-22B-Port"
+    assert payload["_dts_utils_pipeline"]["video_configuration"] == "ltx-2.3-portrait"
     out = capsys.readouterr()
     assert str(dest) in out.out
     assert "generate --profile" in out.err

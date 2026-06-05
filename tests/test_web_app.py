@@ -40,9 +40,21 @@ def test_index_loads(client: TestClient) -> None:
     assert 'id="busyProgress"' in r.text
     assert 'id="busyRequestJson"' in r.text
     assert 'id="expandedPromptsNote"' in r.text
-    assert "Generate request JSON" in r.text
-    assert "/api/generate/stream" in r.text
+    assert "Technical details (request JSON)" in r.text
+    assert 'id="composerStatus"' in r.text
+    assert 'id="outputModeImage"' in r.text
+    assert 'id="videoDonePanel"' in r.text
+    assert 'class="btn-gen-label"' in r.text
+    assert 'id="statusComposerListener"' in r.text
     assert 'id="dtsLightbox"' in r.text
+
+
+def test_index_no_longer_prefers_prompt_to_video_default(client: TestClient) -> None:
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "preferredVideoDefault" not in r.text
+    assert 'id="outputModeImage"' in r.text
+    assert "outputModeImage" in r.text and "checked" in r.text
 
 
 def test_index_history_rows_can_reuse_prompt_and_profile(client: TestClient) -> None:

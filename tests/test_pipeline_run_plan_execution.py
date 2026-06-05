@@ -106,4 +106,4 @@ def test_execute_pipeline_run_profile_applies_defaults(
     assert captured["steps"][0].executor.name == "drawthings_prompt_text_to_image"
     assert captured["steps"][0].request["configuration"] == "default"
     assert captured["steps"][1].executor.name == "drawthings_grpc_image_to_video"
-    assert captured["steps"][1].request["configuration"] == "LTX-2.3-22B-Port"
+    assert captured["steps"][1].request["configuration"] == "ltx-2.3-portrait"

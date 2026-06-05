@@ -390,19 +390,24 @@ def draw_things_custom_configs_path() -> Path:
 DRAW_THINGS_APP_MIRROR_SUBDIR = "draw-things-app"
 
 
+def normalize_profile_stem(stem: str, *, fallback: str = "profile") -> str:
+    """Normalize a saved profile stem to lowercase kebab-case (``a-z``, digits, ``-``, ``.``)."""
+    parts: list[str] = []
+    for ch in stem.strip():
+        if ch.isalnum() or ch in "-.":
+            parts.append(ch.lower() if ch.isalpha() else ch)
+        elif ch.isspace() or ch == "_":
+            parts.append("-")
+        else:
+            parts.append("-")
+    normalized = re.sub(r"-+", "-", "".join(parts)).strip("._-")
+    return (normalized or fallback)[:120]
+
+
 def _stem_from_draw_things_preset_name(name: object | None, idx: int) -> str:
     raw = name if isinstance(name, str) else ""
     base = raw.strip() or f"draw-things-{idx}"
-    parts: list[str] = []
-    for ch in base:
-        if ch.isalnum() or ch in "-_.":
-            parts.append(ch)
-        elif ch.isspace():
-            parts.append("-")
-        else:
-            parts.append("_")
-    stem = "".join(parts).strip("._-") or f"draw-things-{idx}"
-    return stem[:120]
+    return normalize_profile_stem(base, fallback=f"draw-things-{idx}")
 
 
 def import_draw_things_saved_configs(
@@ -798,7 +803,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.dry_run:
             print(dest)
             print(
-                "Next: ensure referenced profiles exist (e.g. default, LTX-2.3-22B-Port). "
+                "Next: ensure referenced profiles exist (e.g. default, ltx-2.3-portrait). "
                 "Then: dts-utils generate --profile "
                 f"{Path(args.name).stem} --prompt \"…\" --trust-server-cert  "
                 "or select it in dts-utils web.",

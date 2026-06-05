@@ -1287,12 +1287,12 @@ uv run dts-utils server tail</pre>
   }
 
   function isVideoConfigName(name) {
-    if (pipelineProfileSet.has(name)) return true;
-    var lower = String(name || "").toLowerCase();
-    return lower.indexOf("ltx") === 0 || lower.indexOf("wan") === 0 || lower.indexOf("prompt-to-video") === 0;
+    return pipelineProfileSet.has(name);
   }
 
   function imageProfileGroup(name) {
+    var lower = String(name || "").toLowerCase();
+    if (lower.indexOf("ltx") === 0 || lower.indexOf("wan") === 0) return "Video configs (I2V)";
     if (name === "default" || name.indexOf("zit") === 0) return "ZIT & default";
     if (name.indexOf("pikon") === 0) return "Pikon";
     if (name.indexOf("ddm") === 0) return "DDM";
@@ -1329,8 +1329,6 @@ uv run dts-utils server tail</pre>
     o.value = name;
     if (pipelineProfileSet.has(name)) {
       o.textContent = name + " (prompt → video)";
-    } else if (isVideoConfigName(name) && !pipelineProfileSet.has(name)) {
-      o.textContent = name + " (I2V config)";
     } else {
       o.textContent = name;
     }
@@ -1366,15 +1364,6 @@ uv run dts-utils server tail</pre>
         ogP.label = "Pipeline";
         sel.appendChild(ogP);
         pipes.forEach(function (n) { appendProfileOption(ogP, n, selectedName); });
-      }
-      var i2v = pool.filter(function (n) {
-        return !pipelineProfileSet.has(n);
-      });
-      if (i2v.length) {
-        var ogV = document.createElement("optgroup");
-        ogV.label = "Video configs";
-        sel.appendChild(ogV);
-        i2v.forEach(function (n) { appendProfileOption(ogV, n, selectedName); });
       }
     } else {
       var groups = {};

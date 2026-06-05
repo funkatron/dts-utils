@@ -382,6 +382,8 @@ class DrawThingsGrpcImageToVideoExecutor(SubprocessExecutor):
         for candidate in (
             "ltx-2.3-portrait",
             "ltx-2.3-landscape",
+            "ltx-2.3-22b-port",
+            "ltx-2.3-22b",
             "LTX-2.3-22B-Port",
             "LTX-2.3-22B",
         ):

@@ -397,7 +397,7 @@ def test_configs_import_draw_things_mirror_goes_to_subdir(monkeypatch: pytest.Mo
         ["import-draw-things", "--source", str(src), "--directory", str(out), "--mirror-app-json"],
     )
     assert rc == 0
-    assert (out / "Alpha.json").is_file()
+    assert (out / "alpha.json").is_file()
     assert (out / configs.DRAW_THINGS_APP_MIRROR_SUBDIR / "custom_lora.json").is_file()
 
 

@@ -23,7 +23,7 @@ Record which Draw Things **`gRPCServerCLI`** build you used for **manual** smoke
 Example snippet for the next release:
 
 ```markdown
-## [0.5.1] - YYYY-MM-DD
+## [0.5.2] - YYYY-MM-DD
 
 ### Tested with
 
@@ -38,6 +38,15 @@ Example snippet for the next release:
 ---
 
 ## [Unreleased]
+
+---
+
+## [0.5.1] - 2026-06-17
+
+### Tested with
+
+- **pytest:** 369 passed, 7 skipped (release cut). **CI:** `pytest` on Ubuntu (`ci.yml`).
+- **gRPCServerCLI:** not re-smoke-tested for this tag; see **[0.5.0](#050---2026-06-02)** tested baseline.
 
 ### Changed
 

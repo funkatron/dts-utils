@@ -13,6 +13,14 @@ from dts_utils.generate_api import (
     generate_png_bytes,
     generate_to_paths,
 )
+from dts_utils.model_index.local import InstalledModelSummary
+from dts_utils.models_api import (
+    InstalledModelsOptions,
+    InstalledModelsResult,
+    list_installed_model_filenames,
+    list_installed_models,
+    resolve_draw_things_models_dir,
+)
 from dts_utils.pipeline import (
     ImageRef,
     LtxImageToVideoExecutor,
@@ -34,6 +42,9 @@ __all__ = [
     "GrpcClientOptions",
     "ImageGenerationRequestOptions",
     "ImageRef",
+    "InstalledModelSummary",
+    "InstalledModelsOptions",
+    "InstalledModelsResult",
     "LtxImageToVideoExecutor",
     "PipelineRunner",
     "PipelineStep",
@@ -44,4 +55,7 @@ __all__ = [
     "ZImageTurboTextToImageExecutor",
     "generate_png_bytes",
     "generate_to_paths",
+    "list_installed_model_filenames",
+    "list_installed_models",
+    "resolve_draw_things_models_dir",
 ]

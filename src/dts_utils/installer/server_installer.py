@@ -54,6 +54,7 @@ class DTSServerInstaller:
         self.model_path = None
         self.server_args = None
         self.quiet = False
+        self.install_yes = False
         self.usage_text = f"""
 Draw Things gRPCServerCLI Installer
 
@@ -64,7 +65,7 @@ Usage:
     dts-utils server uninstall
     dts-utils server start
     dts-utils server stop
-    dts-utils server restart [--model-browser]
+    dts-utils server restart [--no-model-browser]
     dts-utils server test|check [--port PORT]
     dts-utils server tail [--last DURATION]
     dts-utils generate --prompt PROMPT --configuration CONFIG [...]
@@ -86,7 +87,7 @@ Commands:
     server uninstall      Stop service, remove plist + binary paths this tool manages
     server start          Bootstrap plist into your GUI ``launchd`` domain (start job)
     server stop           Boot job out of ``launchd`` (plist remains)
-    server restart        Stop then start (optional ``--model-browser``)
+    server restart        Stop then start (optional ``--no-model-browser`` to disable browsing)
     server test|check     Probe localhost listener; ``check`` aliases ``test``
     server tail           Follow ``gRPCServerCLI`` logs via macOS ``log show`` + ``log stream``
     generate …            Client RPC: image generation (see upstream ``GenerateImage``)
@@ -114,7 +115,7 @@ gRPCServerCLI Options:
     -s, --shared-secret    Authentication key
     --no-tls               Disable encryption (not recommended)
     --no-response-compression  Disable compression
-    --model-browser        Enable model browser
+    --no-model-browser     Disable model browsing (enabled by default)
     --no-flash-attention   Disable Flash Attention
     --debug                Enable verbose logging
     --join                 JSON configuration for proxy setup (see below)
@@ -148,8 +149,8 @@ Examples:
     # Install with security options (recommended for public networks)
     dts-utils server install -s "mysecret"
 
-    # Install with model browser enabled
-    dts-utils server install --model-browser
+    # Install without model browsing (enabled by default)
+    dts-utils server install --no-model-browser
 
     # Install with proxy configuration
     dts-utils server install --join '{{"host":"proxy.local", "port":7859}}'
@@ -159,8 +160,8 @@ Examples:
     dts-utils server stop
     dts-utils server restart
 
-    # Enable model browser for an existing service and restart
-    dts-utils server restart --model-browser
+    # Disable model browsing on an existing service and restart
+    dts-utils server restart --no-model-browser
 
     # Probe server connection
     dts-utils server test
@@ -237,10 +238,10 @@ Examples:
         parser.add_argument(
             'action',
             nargs='?',
-            choices=['install', 'uninstall', 'start', 'stop', 'restart', 'test', 'check', 'tail'],
+            choices=['install', 'uninstall', 'start', 'stop', 'restart', 'test', 'check', 'status', 'tail'],
             help=(
-                'Action (install | uninstall | start | stop | restart | test | check | tail); '
-                'test|check probes the listener; tail follows logs (macOS)'
+                'Action (install | uninstall | start | stop | restart | test | check | status | tail); '
+                'test|check probes the listener; status prints LaunchAgent flags; tail follows logs (macOS)'
             ),
         )
 
@@ -250,6 +251,11 @@ Examples:
                           help='Model directory path')
         parser.add_argument('-q', '--quiet', action='store_true',
                           help='Minimize output and assume default answers to prompts')
+        parser.add_argument(
+            '-y', '--yes',
+            action='store_true',
+            help='Non-interactive install: overwrite an existing LaunchAgent plist without prompting',
+        )
 
         # gRPCServerCLI arguments
         parser.add_argument('-n', '--name', default=None,
@@ -268,8 +274,17 @@ Examples:
                           help='Disable TLS for connections')
         parser.add_argument('--no-response-compression', action='store_true',
                           help='Disable response compression')
-        parser.add_argument('--model-browser', action='store_true',
-                          help='Enable model browsing')
+        model_browser_group = parser.add_mutually_exclusive_group()
+        model_browser_group.add_argument(
+            '--model-browser',
+            action='store_true',
+            help='Enable model browsing (default unless --no-model-browser is set)',
+        )
+        model_browser_group.add_argument(
+            '--no-model-browser',
+            action='store_true',
+            help='Disable model browsing on gRPCServerCLI (Echo file list)',
+        )
         parser.add_argument('--no-flash-attention', action='store_true',
                           help='Disable Flash Attention')
         parser.add_argument('--debug', action='store_true',
@@ -326,7 +341,7 @@ Examples:
             self.stop_service()
             sys.exit(0)
         if args.action == 'restart':
-            self.restart_service(enable_model_browser=args.model_browser)
+            self.restart_service(ensure_model_browser=not args.no_model_browser)
             sys.exit(0)
 
         # Handle uninstall action
@@ -346,7 +361,11 @@ Examples:
         if args.action == 'tail':
             sys.exit(self.tail_server_logs(last=args.last, log_style=args.log_style))
 
+        if args.action == 'status':
+            sys.exit(self.show_service_status())
+
         self.quiet = args.quiet
+        self.install_yes = args.yes
         self.model_path = Path(args.model_path) if args.model_path else self.get_default_model_path()
 
         # Validate join configuration if provided
@@ -375,7 +394,7 @@ Examples:
             'shared_secret': args.shared_secret,
             'no_tls': args.no_tls,
             'no_response_compression': args.no_response_compression,
-            'model_browser': args.model_browser,
+            'model_browser': not args.no_model_browser,
             'no_flash_attention': args.no_flash_attention,
             'debug': args.debug,
             'join': args.join
@@ -518,9 +537,14 @@ Examples:
         # Check if service already exists
         if service_path.exists():
             print(f"\nFound existing service at {service_path}")
-            response = input("Would you like to update it? (y/N): ")
-            if response.lower() != 'y':
+            if not (self.install_yes or self.prompt_user("Would you like to update it? (y/N): ", default='n')):
                 print("Service installation cancelled.")
+                if self.server_args and self.server_args.get('model_browser'):
+                    print(
+                        "Tip: existing plist was left unchanged. Model browser is on by default — apply with:\n"
+                        f"    uv run {cli_command_name()} server install -y\n"
+                        f"    # or: uv run {cli_command_name()} server restart",
+                    )
                 return
 
             # Stop existing service
@@ -584,7 +608,7 @@ Examples:
                 'shared_secret': None,
                 'no_tls': False,
                 'no_response_compression': False,
-                'model_browser': False,
+                'model_browser': True,
                 'no_flash_attention': False,
                 'debug': False,
                 'join': None
@@ -592,6 +616,8 @@ Examples:
             for key, value in self.server_args.items():
                 if value != defaults[key]:
                     print(f"  {key}: {value}")
+            if self.server_args.get('model_browser'):
+                print("  model_browser: enabled (default)")
         except (OSError, subprocess.CalledProcessError) as e:
             print(f"Failed to create or load service: {e}")
             sys.exit(1)
@@ -763,7 +789,6 @@ Examples:
             sys.exit(1)
 
         if '--model-browser' in cmd_args:
-            print("Model browser is already enabled")
             return False
 
         cmd_args.append('--model-browser')
@@ -777,6 +802,145 @@ Examples:
         print("Model browser enabled in service configuration")
         return True
 
+    def disable_model_browser_for_service(self, service_path: Path) -> bool:
+        """Remove ``--model-browser`` from the installed LaunchAgent when present."""
+        try:
+            with open(service_path, 'rb') as f:
+                service_config = plistlib.load(f)
+        except (OSError, plistlib.InvalidFileException) as e:
+            print(f"Failed to read service configuration: {e}")
+            sys.exit(1)
+
+        cmd_args = service_config.get('ProgramArguments')
+        if not isinstance(cmd_args, list) or not cmd_args:
+            print("Error: Service configuration is missing ProgramArguments")
+            sys.exit(1)
+
+        if '--model-browser' not in cmd_args:
+            return False
+
+        service_config['ProgramArguments'] = [arg for arg in cmd_args if arg != '--model-browser']
+        try:
+            with open(service_path, 'wb') as f:
+                plistlib.dump(service_config, f)
+        except OSError as e:
+            print(f"Failed to update service configuration: {e}")
+            sys.exit(1)
+
+        print("Model browser disabled in service configuration")
+        return True
+
+    @staticmethod
+    def read_service_program_arguments(service_path: Path | None = None) -> list[str] | None:
+        """Return ``ProgramArguments`` from the installed LaunchAgent plist."""
+        path = service_path
+        if path is None:
+            path = Path.home() / "Library/LaunchAgents" / f"{DTSServerInstaller.SERVICE_NAME}.plist"
+        if not path.is_file():
+            return None
+        try:
+            with path.open("rb") as handle:
+                payload = plistlib.load(handle)
+        except (OSError, plistlib.InvalidFileException):
+            return None
+        program_args = payload.get("ProgramArguments")
+        if not isinstance(program_args, list):
+            return None
+        return [str(x) for x in program_args]
+
+    @staticmethod
+    def parse_program_argument_flags(program_args: list[str]) -> dict[str, object]:
+        """Extract a few settings from a gRPCServerCLI ``ProgramArguments`` list."""
+        flags: dict[str, object] = {
+            "model_browser": False,
+            "no_tls": False,
+            "port": DTSServerInstaller.DEFAULT_PORT,
+            "shared_secret": None,
+        }
+        for index, token in enumerate(program_args):
+            if token == "--model-browser":
+                flags["model_browser"] = True
+            elif token == "--no-tls":
+                flags["no_tls"] = True
+            elif token == "--port" and index + 1 < len(program_args):
+                try:
+                    flags["port"] = int(program_args[index + 1])
+                except ValueError:
+                    pass
+            elif token == "--shared-secret" and index + 1 < len(program_args):
+                flags["shared_secret"] = program_args[index + 1]
+        return flags
+
+    @staticmethod
+    def echo_model_file_count(*, host: str, port: int, no_tls: bool, shared_secret: str | None = None) -> int | None:
+        """Return Echo ``files`` count when the server exposes model browsing."""
+        try:
+            from dts_utils.grpc.connection import create_channel
+            from dts_utils.grpc.proto.upstream import imageService_pb2 as pb
+            from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as stubs
+
+            channel = create_channel(
+                host,
+                port,
+                no_tls,
+                trust_server_cert=not no_tls,
+            )
+            stub = stubs.ImageGenerationServiceStub(channel)
+            request = pb.EchoRequest(name=cli_command_name())
+            if shared_secret:
+                request.sharedSecret = shared_secret
+            reply = stub.Echo(request, timeout=5)
+            channel.close()
+            return len(reply.files)
+        except Exception:
+            return None
+
+    def show_service_status(self) -> int:
+        """Print installed LaunchAgent settings and whether model browsing is active."""
+        prog = cli_command_name()
+        service_path = self.AGENTS_DIR / f"{self.SERVICE_NAME}.plist"
+        program_args = self.read_service_program_arguments(service_path)
+        if program_args is None:
+            print(f"{prog} server status: LaunchAgent not installed ({service_path})")
+            print(f"Install with: uv run {prog} server install")
+            return 1
+
+        flags = self.parse_program_argument_flags(program_args)
+        port = int(flags["port"])
+        no_tls = bool(flags["no_tls"])
+        model_browser = bool(flags["model_browser"])
+        shared_secret = flags["shared_secret"]
+
+        print(f"Plist: {service_path}")
+        print(f"ProgramArguments: {' '.join(program_args)}")
+        print(f"model-browser: {'enabled' if model_browser else 'disabled'}")
+        if not model_browser:
+            print(
+                f"Enable with: uv run {prog} server restart "
+                f"(or `server install -y`; model browser is on by default)"
+            )
+
+        listener_up = is_server_running(port=port, prefer_plaintext=no_tls)
+        print(f"Listener ({port}, {'plaintext' if no_tls else 'TLS'}): {'up' if listener_up else 'down'}")
+
+        if listener_up and model_browser:
+            file_count = self.echo_model_file_count(
+                host="localhost",
+                port=port,
+                no_tls=no_tls,
+                shared_secret=str(shared_secret) if shared_secret else None,
+            )
+            if file_count is None:
+                print("Echo model files: unavailable (RPC error)")
+            elif file_count == 0:
+                print("Echo model files: 0 (model browser flag set but server returned no files yet)")
+            else:
+                print(f"Echo model files: {file_count} (model browsing active)")
+        elif listener_up and not model_browser:
+            print("Echo model files: n/a until --model-browser is enabled and the job restarted")
+
+        return 0 if listener_up else 2
+
     def _launchd_gui_domain(self) -> str:
         """launchd domain for per-user GUI agents (``gui/<uid>``)."""
         return f"gui/{os.getuid()}"
@@ -784,19 +948,35 @@ Examples:
     def _launchctl_stop_job(self, service_path: Path) -> None:
         """Boot the LaunchAgent out of launchd; plist may remain on disk.
 
-        Prefer ``launchctl bootout`` (current macOS). Fall back to unload/remove for
-        older hosts or odd registration states.
+        Prefer ``launchctl bootout`` by service label, then by plist path. Avoid
+        legacy ``unload`` — it prints noisy errors on modern macOS when the job
+        was registered with ``bootstrap``.
         """
         domain = self._launchd_gui_domain()
-        out = subprocess.run(
+        label_target = f"{domain}/{self.SERVICE_NAME}"
+        for args in (
+            ["launchctl", "bootout", label_target],
             ["launchctl", "bootout", domain, str(service_path)],
+        ):
+            out = subprocess.run(args, capture_output=True, text=True)
+            if out.returncode == 0:
+                return
+        subprocess.run(
+            ["launchctl", "remove", self.SERVICE_NAME],
             capture_output=True,
             text=True,
+            check=False,
         )
-        if out.returncode == 0:
-            return
-        subprocess.run(["launchctl", "unload", str(service_path)], check=False)
-        subprocess.run(["launchctl", "remove", self.SERVICE_NAME], check=False)
+
+    def _launchctl_kickstart_job(self, *, kill: bool = False) -> bool:
+        """Restart a registered job in place (``kickstart -k`` when ``kill``)."""
+        domain = self._launchd_gui_domain()
+        cmd = ["launchctl", "kickstart"]
+        if kill:
+            cmd.append("-k")
+        cmd.extend(["-p", f"{domain}/{self.SERVICE_NAME}"])
+        out = subprocess.run(cmd, capture_output=True, text=True)
+        return out.returncode == 0
 
     def _launchctl_start_job(self, service_path: Path) -> None:
         """Load plist into the user's GUI domain and ensure the job runs.
@@ -845,21 +1025,28 @@ Examples:
         self._launchctl_stop_job(service_path)
         print("Service stopped successfully")
 
-    def restart_service(self, enable_model_browser=False):
-        """Restart the gRPCServerCLI service"""
+    def restart_service(self, *, ensure_model_browser: bool = True):
+        """Restart the gRPCServerCLI service."""
         print("Restarting gRPCServerCLI service...")
         service_path = self.AGENTS_DIR / f'{self.SERVICE_NAME}.plist'
         if not service_path.exists():
             print("Error: Service not installed")
             sys.exit(1)
 
-        if enable_model_browser:
-            self.enable_model_browser_for_service(service_path)
+        if ensure_model_browser:
+            plist_changed = self.enable_model_browser_for_service(service_path)
+        else:
+            plist_changed = self.disable_model_browser_for_service(service_path)
 
         try:
-            self._launchctl_stop_job(service_path)
-            time.sleep(1)  # Give the service time to stop
-            self._launchctl_start_job(service_path)
+            if plist_changed:
+                self._launchctl_stop_job(service_path)
+                time.sleep(1)
+                self._launchctl_start_job(service_path)
+            elif not self._launchctl_kickstart_job(kill=True):
+                self._launchctl_stop_job(service_path)
+                time.sleep(1)
+                self._launchctl_start_job(service_path)
             print("Service restarted successfully")
         except subprocess.CalledProcessError as e:
             print(f"Failed to restart service: {e}")

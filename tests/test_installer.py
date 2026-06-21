@@ -102,7 +102,16 @@ def test_restart_service(installer, mock_subprocess, mock_home_dir):
     # Create service file using temp home directory
     service_path = Path(mock_home_dir) / "Library/LaunchAgents" / f'{installer.SERVICE_NAME}.plist'
     service_path.parent.mkdir(parents=True, exist_ok=True)
-    service_path.touch()
+    with service_path.open("wb") as handle:
+        plistlib.dump(
+            {
+                "Label": installer.SERVICE_NAME,
+                "ProgramArguments": ["/usr/local/bin/gRPCServerCLI", "/tmp/Models"],
+                "RunAtLoad": True,
+                "KeepAlive": True,
+            },
+            handle,
+        )
 
     # Update installer's AGENTS_DIR to use temp home
     installer.AGENTS_DIR = Path(mock_home_dir) / "Library/LaunchAgents"
@@ -114,8 +123,38 @@ def test_restart_service(installer, mock_subprocess, mock_home_dir):
     domain = f"gui/{uid}"
     stop_cmd = list(mock_subprocess.call_args_list[0].args[0])
     start_cmd = list(mock_subprocess.call_args_list[1].args[0])
-    assert stop_cmd == ["launchctl", "bootout", domain, str(service_path)]
+    assert stop_cmd == ["launchctl", "bootout", f"{domain}/{installer.SERVICE_NAME}"]
     assert start_cmd == ["launchctl", "bootstrap", domain, str(service_path)]
+
+
+def test_restart_service_uses_kickstart_when_plist_unchanged(installer, mock_subprocess, mock_home_dir):
+    """When model browser is already enabled, restart via kickstart -k (no bootout/unload noise)."""
+    service_path = Path(mock_home_dir) / "Library/LaunchAgents" / f"{installer.SERVICE_NAME}.plist"
+    service_path.parent.mkdir(parents=True, exist_ok=True)
+    with service_path.open("wb") as handle:
+        plistlib.dump(
+            {
+                "Label": installer.SERVICE_NAME,
+                "ProgramArguments": [
+                    "/usr/local/bin/gRPCServerCLI",
+                    "/tmp/Models",
+                    "--model-browser",
+                ],
+                "RunAtLoad": True,
+                "KeepAlive": True,
+            },
+            handle,
+        )
+    installer.AGENTS_DIR = Path(mock_home_dir) / "Library/LaunchAgents"
+
+    installer.restart_service()
+
+    uid = os.getuid()
+    mock_subprocess.assert_called_once_with(
+        ["launchctl", "kickstart", "-k", "-p", f"gui/{uid}/{installer.SERVICE_NAME}"],
+        capture_output=True,
+        text=True,
+    )
 
 def test_restart_service_can_enable_model_browser(installer, mock_subprocess, mock_home_dir):
     """Test enabling model browser while restarting the installed service."""
@@ -133,7 +172,7 @@ def test_restart_service_can_enable_model_browser(installer, mock_subprocess, mo
         )
     installer.AGENTS_DIR = Path(mock_home_dir) / "Library/LaunchAgents"
 
-    installer.restart_service(enable_model_browser=True)
+    installer.restart_service(ensure_model_browser=True)
 
     with service_path.open('rb') as f:
         service_config = plistlib.load(f)
@@ -143,6 +182,45 @@ def test_restart_service_can_enable_model_browser(installer, mock_subprocess, mo
         '--model-browser',
     ]
     assert mock_subprocess.call_count == 2
+
+def test_install_defaults_model_browser_on(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    models = tmp_path / "Library/Containers/com.liuliu.draw-things/Data/Documents/Models"
+    models.mkdir(parents=True)
+    monkeypatch.setattr("sys.argv", ["dts-utils", "install"])
+    installer = DTSServerInstaller()
+    args = installer.parse_args()
+    assert args.action == "install"
+    assert installer.server_args["model_browser"] is True
+
+
+def test_install_no_model_browser_flag(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    models = tmp_path / "Library/Containers/com.liuliu.draw-things/Data/Documents/Models"
+    models.mkdir(parents=True)
+    monkeypatch.setattr("sys.argv", ["dts-utils", "install", "--no-model-browser"])
+    installer = DTSServerInstaller()
+    args = installer.parse_args()
+    assert args.action == "install"
+    assert installer.server_args["model_browser"] is False
+
+
+def test_disable_model_browser_for_service(installer, tmp_path: Path) -> None:
+    service_path = tmp_path / f"{installer.SERVICE_NAME}.plist"
+    with service_path.open("wb") as handle:
+        plistlib.dump(
+            {
+                "Label": installer.SERVICE_NAME,
+                "ProgramArguments": ["/bin/gRPCServerCLI", "/tmp/Models", "--model-browser"],
+            },
+            handle,
+        )
+    changed = installer.disable_model_browser_for_service(service_path)
+    assert changed is True
+    with service_path.open("rb") as handle:
+        payload = plistlib.load(handle)
+    assert "--model-browser" not in payload["ProgramArguments"]
+
 
 def test_enable_model_browser_for_service_is_idempotent(installer, tmp_path):
     """Test that model browser is not appended twice."""
@@ -186,7 +264,7 @@ def test_stop_service(installer, mock_subprocess, mock_home_dir):
     uid = os.getuid()
     mock_subprocess.assert_called_once()
     cmd = list(mock_subprocess.call_args.args[0])
-    assert cmd == ["launchctl", "bootout", f"gui/{uid}", str(service_path)]
+    assert cmd == ["launchctl", "bootout", f"gui/{uid}/{installer.SERVICE_NAME}"]
 
 
 def test_restart_service_not_installed(installer, mock_subprocess, mock_home_dir):
@@ -487,7 +565,7 @@ def test_create_launchd_service_existing(installer, monkeypatch, tmp_path):
     uid = os.getuid()
     domain = f"gui/{uid}"
     assert mock_subprocess.call_args_list == [
-        call(['launchctl', 'bootout', domain, str(service_path)], capture_output=True, text=True),
+        call(['launchctl', 'bootout', f'{domain}/{installer.SERVICE_NAME}'], capture_output=True, text=True),
         call(['launchctl', 'bootstrap', domain, str(service_path)], capture_output=True, text=True),
     ]
 

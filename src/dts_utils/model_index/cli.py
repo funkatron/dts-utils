@@ -115,6 +115,12 @@ def build_parser() -> argparse.ArgumentParser:
     installed_parser.add_argument("--model-dir", type=Path, default=_default_models_dir())
     installed_parser.add_argument("--data-dir", type=Path, default=_default_data_dir())
     installed_parser.add_argument("--limit", type=int, default=50)
+    installed_parser.add_argument(
+        "--no-index",
+        action="store_true",
+        help="Skip community index lookup (no MATCHED column; no build required).",
+    )
+    installed_parser.add_argument("--json", action="store_true", help="Print JSON for scripting.")
 
     status_parser = subparsers.add_parser("status", help="Compare the local model directory against the index.")
     status_parser.add_argument("--model-dir", type=Path, default=_default_models_dir())
@@ -306,20 +312,26 @@ def handle_report(args: argparse.Namespace) -> int:
 
 
 def handle_installed(args: argparse.Namespace) -> int:
-    local_files = scan_local_models(args.model_dir)
-    records = _load_index_or_exit(args.data_dir)
-    if records is None:
-        return 1
-    summaries = summarize_installed_models(local_files, indexed_records=records)
-    summaries = sorted(
-        summaries,
-        key=lambda summary: (summary.total_size_bytes, summary.base_name.lower()),
-        reverse=True,
-    )[: args.limit]
-    print(f"Model Directory: {args.model_dir}")
-    print(f"Local Files: {len(local_files)}")
+    import json
+
+    from dts_utils.models_api import InstalledModelsOptions, installed_models_result_to_dict, list_installed_models
+
+    result = list_installed_models(
+        InstalledModelsOptions(
+            models_dir=args.model_dir,
+            data_dir=args.data_dir,
+            limit=args.limit,
+            use_index=not args.no_index,
+        )
+    )
+    if args.json:
+        print(json.dumps(installed_models_result_to_dict(result), indent=2))
+        return 0
+
+    print(f"Model Directory: {result.models_dir}")
+    print(f"Local Files: {result.local_file_count}")
     print("")
-    print(format_installed_summaries(summaries))
+    print(format_installed_summaries(result.summaries))
     return 0
 
 

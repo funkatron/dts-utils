@@ -41,6 +41,25 @@ Example snippet for the next release:
 
 ---
 
+## [0.5.2] - 2026-06-20
+
+### Tested with
+
+- **pytest:** 389 passed, 7 skipped (release cut). **CI:** `pytest` on Ubuntu (`ci.yml`).
+- **gRPCServerCLI:** macOS smoke — **`server status`**, **`server restart`** (quiet **`kickstart`** when plist unchanged), model browser Echo file list; see **[0.5.0](#050---2026-06-02)** for full generate baseline.
+
+### Added
+
+- **`dts-utils web` (macOS):** LaunchAgent lifecycle — **`web install`**, **`start`**, **`stop`**, **`restart`**, **`uninstall`**, **`status`**.
+- **Installed models API:** **`dts_utils.list_installed_models()`** / **`list_installed_model_filenames()`** scan the Draw Things **`Models`** folder; **`models installed`** no longer requires **`models build`** (optional index for **`MATCHED`** ids; **`--json`** for scripting).
+- **`dts-utils server status`:** Plist **`ProgramArguments`**, model-browser flag, listener probe, Echo model file count when browsing is enabled.
+
+### Changed
+
+- **`dts-utils server`:** **`--model-browser`** is **on by default** for **`install`** and ensured on **`restart`** unless **`--no-model-browser`** is passed. **`server install -y`** overwrites an existing LaunchAgent plist non-interactively. **`server restart`** uses **`launchctl kickstart -k`** when the plist is unchanged (quieter than **`bootout`** + legacy **`unload`**).
+
+---
+
 ## [0.5.1] - 2026-06-17
 
 ### Tested with

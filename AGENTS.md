@@ -37,13 +37,14 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 | `reflect` | [`grpc/reflect.py`](src/dts_utils/grpc/reflect.py) |
 | `tls` | [`tls_export.py`](src/dts_utils/tls_export.py) |
 | `models` | [`model_index/cli.py`](src/dts_utils/model_index/cli.py) |
-| `web` | [`web/cli.py`](src/dts_utils/web/cli.py) |
+| `web` | [`web/cli.py`](src/dts_utils/web/cli.py) (`serve`, `tail`, macOS LaunchAgent **`install` / `start` / `stop` / …** via [`web/launch_agent.py`](src/dts_utils/web/launch_agent.py)) |
 
 ## Layout
 
 - `src/dts_utils/cli_router.py` — top-level dispatch and prompt-first shorthand.
 - `src/dts_utils/configs.py` — saved JSON configs; implicit shorthand profile **`default`** (`DEFAULT_PROFILE_NAME` → **`default.json`**), env `DTS_UTILS_DEFAULT_CONFIGURATION` / `DTS_UTILS_DEFAULT_MODEL`.
 - `src/dts_utils/generate*.py` — generation pipeline and public Python API (see package `__init__`).
+- `src/dts_utils/models_api.py` — programmatic installed-model listing (`list_installed_models`, `list_installed_model_filenames`).
 - `src/dts_utils/installer/` — macOS LaunchAgent install lifecycle.
 - `src/dts_utils/grpc/` — channels, stubs, `is_server_running` (TLS-first loopback probe, plaintext fallback; `prefer_plaintext` for `--no-tls` servers).
 - `src/dts_utils/model_index/` — community metadata index (`dts-utils models`); **`fetch`** loads bundled recipes from `dts_utils/model_fetch/recipe_files/` (optional **`uv sync --extra download`** for Hugging Face sources).

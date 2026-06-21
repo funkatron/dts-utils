@@ -46,6 +46,7 @@ Options:
 
 - `-m, --model-path PATH`: Custom path to store models (default: Draw Things app models directory)
 - `-q, --quiet`: Minimize output and assume default answers to prompts
+- `-y, --yes`: Overwrite an existing LaunchAgent plist without prompting (use with **`install`** when updating settings)
 - `-n, --name NAME`: Server name in local network (default: machine name)
 - `-p, --port PORT`: Port to run the server on (default: 7859)
 - `-a, --address ADDR`: Address to bind to (default: 0.0.0.0)
@@ -54,7 +55,8 @@ Options:
 - `-s, --shared-secret SECRET`: Authentication key for secure connections
 - `--no-tls`: Disable encryption (not recommended)
 - `--no-response-compression`: Disable compression
-- `--model-browser`: Enable model browser
+- `--model-browser`: Explicitly enable model browsing (on by default)
+- `--no-model-browser`: Disable model browsing on **gRPCServerCLI** (Echo file list). Omit both flags to keep the default (**enabled**). Verify with **`server status`**.
 - `--no-flash-attention`: Disable Flash Attention
 - `--debug`: Enable verbose logging
 - `--join JSON`: JSON configuration for proxy setup
@@ -92,15 +94,25 @@ uv run dts-utils server stop
 
 ### restart
 
-Stops then starts the Draw Things gRPC server service (same effect as `server stop` then `server start`). **Settings are whatever is already in** `~/Library/LaunchAgents/com.drawthings.grpcserver.plist` **`ProgramArguments`** — `restart` does not take install flags; only `--model-browser` mutates the plist (appends that flag) before the stop/start cycle.
+Stops then starts the Draw Things gRPC server service (same effect as `server stop` then `server start`). **Settings are whatever is already in** `~/Library/LaunchAgents/com.drawthings.grpcserver.plist` **`ProgramArguments`**, except **`restart`** ensures **`--model-browser`** is present unless you pass **`--no-model-browser`** (model browsing is on by default).
 
 ```bash
-uv run dts-utils server restart [--model-browser]
+uv run dts-utils server restart [--no-model-browser]
 ```
 
 Options:
 
-- `--model-browser`: Enable model browser in the installed service before restarting
+- `--no-model-browser`: Remove **`--model-browser`** from the plist before restarting
+
+### status
+
+Print the installed LaunchAgent **`ProgramArguments`**, whether **`--model-browser`** is set, listener state, and (when enabled) how many model files **Echo** returns.
+
+```bash
+uv run dts-utils server status
+```
+
+Exit code **0** when the listener is up; **2** when the plist exists but nothing is listening.
 
 ### test
 
@@ -175,7 +187,11 @@ uv run dts-utils models fetch ltx-2.3-22b-distilled-exact --yes
 uv run dts-utils models fetch --from-metadata ~/.cache/community-models/models/SOME_MODEL/metadata.json
 uv run dts-utils models fetch --from-metadata "$META" --manifest          # stdout: basename + SHA; stderr: URL hints once
 uv run dts-utils models fetch --from-metadata "$META" --manifest --manifest-wide   # legacy four-column stdout rows
+uv run dts-utils models installed
+uv run dts-utils models installed --no-index --json
 ```
+
+**`installed`:** List checkpoint and companion files under the Draw Things **`Models`** directory (default: **`DRAW_THINGS_MODEL_PATH`** or the macOS container **`Models`** folder). Runs without **`models build`**; when **`data/drawthings_uncurated_models.json`** exists, rows include community **`MATCHED`** ids. **`--no-index`** skips catalog lookup. **`--json`** prints a machine-readable object for scripts. Python: **`from dts_utils import list_installed_models, list_installed_model_filenames`**.
 
 **`fetch`:**
 
@@ -306,8 +322,12 @@ Loopback HTTP UI: the browser talks to `dts-utils`; the tool calls Draw Things o
 
 ```bash
 uv run dts-utils web [--bind ADDR] [--port N] [--log-level LEVEL] [--no-access-log] [--open]
+uv run dts-utils web install [--port N] [--bind ADDR] [-y]   # macOS LaunchAgent
+uv run dts-utils web start|stop|restart|uninstall|status     # macOS LaunchAgent lifecycle
 uv run dts-utils web tail [-n N] [--file PATH] [--no-follow]
 ```
+
+**macOS LaunchAgent:** **`web install`** writes **`~/Library/LaunchAgents/com.dts-utils.web.plist`**, runs **`dts-utils web`** at login (**`RunAtLoad`** + **`KeepAlive`**), and uses the same **`dts-utils`** console script that was on **`PATH`** at install time (override with **`--executable`**). **`web status`** probes the listener and **`GET /api/health`**. Lifecycle commands are macOS-only; on Linux use a terminal session or your own unit file.
 
 #### Run / defaults
 
@@ -488,7 +508,7 @@ uv run dts-utils server install -m /path/to/models
 ```bash
 uv run dts-utils server install -p 7860 -n "MyServer" -m /path/to/models
 uv run dts-utils server install -s "your-secret-here"
-uv run dts-utils server install --model-browser --debug --no-flash-attention
+uv run dts-utils server install --debug --no-flash-attention
 ```
 
 ### Server management
@@ -507,7 +527,7 @@ uv run dts-utils tls export
 uv run dts-utils web --open
 uv run dts-utils web tail
 uv run dts-utils server restart
-uv run dts-utils server restart --model-browser
+uv run dts-utils server restart
 uv run dts-utils server uninstall
 ```
 

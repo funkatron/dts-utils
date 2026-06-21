@@ -150,7 +150,11 @@ def run_web_tail(argv: list[str] | None = None) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     """Entry for ``dts-utils web`` — serve UI by default; ``tail`` follows the web log file."""
+    from dts_utils.web.launch_agent import WEB_LIFECYCLE_SUBCOMMANDS, run_web_lifecycle
+
     tokens = list(argv if argv is not None else sys.argv[1:])
     if tokens and tokens[0] == "tail":
         return run_web_tail(tokens[1:])
+    if tokens and tokens[0] in WEB_LIFECYCLE_SUBCOMMANDS:
+        return run_web_lifecycle(tokens[0], tokens[1:])
     return run_web_server(tokens)

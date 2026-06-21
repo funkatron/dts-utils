@@ -158,7 +158,8 @@ Commands assume the LaunchAgent layout and use local probes (`pgrep` / `lsof`). 
 | Confirm process and port | `uv run dts-utils server check` (or `server test`) |
 | Follow server logs (macOS) | `uv run dts-utils server tail` |
 | Custom port, secret, or models path | `uv run dts-utils server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
-| Enable model browsing on an existing install | `uv run dts-utils server restart --model-browser` |
+| Enable model browsing on an existing install | `uv run dts-utils server restart` (default) or `server install -y` |
+| Disable model browsing | `uv run dts-utils server install --no-model-browser -y` or `server restart --no-model-browser` |
 | Stop / start without removing install | `uv run dts-utils server stop` · `uv run dts-utils server start` |
 | Restart or fully remove | `uv run dts-utils server restart` · `uv run dts-utils server uninstall` |
 

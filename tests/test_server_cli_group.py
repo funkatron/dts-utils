@@ -45,6 +45,12 @@ def test_prepare_rejects_unknown_server_subcommand():
     assert prepare_argv_for_installer_dispatch(argv) == 2
 
 
+def test_prepare_server_status_rewrites_argv():
+    argv = ["dts-utils", "server", "status"]
+    assert prepare_argv_for_installer_dispatch(argv) is None
+    assert argv == ["dts-utils", "status"]
+
+
 def test_server_help_text_documents_prefix():
     text = server_subcommand_help_text()
     assert "server install" in text
@@ -52,3 +58,4 @@ def test_server_help_text_documents_prefix():
     assert "server stop" in text
     assert "check" in text
     assert "server tail" in text
+    assert "server status" in text

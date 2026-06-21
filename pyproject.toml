@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dts-utils"
-version = "0.5.1"
+version = "0.5.2"
 description = "Utilities for installing and interacting with Draw Things gRPCServerCLI."
 readme = "README.md"
 requires-python = ">=3.12,<4"

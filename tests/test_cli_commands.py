@@ -124,18 +124,18 @@ class TestCLICommands:
             installer.parse_args()
 
         assert exc_info.value.code == 0
-        mock_installer_methods["restart"].assert_called_once_with(enable_model_browser=False)
+        mock_installer_methods["restart"].assert_called_once_with(ensure_model_browser=True)
 
-    def test_restart_command_can_enable_model_browser(self, mock_installer_methods, monkeypatch, mock_exit):
-        """Test restarting while enabling model browser."""
-        _setup_server_argv(monkeypatch, "restart", "--model-browser")
+    def test_restart_command_can_disable_model_browser(self, mock_installer_methods, monkeypatch, mock_exit):
+        """Test restarting while disabling model browser."""
+        _setup_server_argv(monkeypatch, "restart", "--no-model-browser")
 
         installer = DTSServerInstaller()
         with pytest.raises(SystemExit) as exc_info:
             installer.parse_args()
 
         assert exc_info.value.code == 0
-        mock_installer_methods["restart"].assert_called_once_with(enable_model_browser=True)
+        mock_installer_methods["restart"].assert_called_once_with(ensure_model_browser=False)
 
     def test_test_command_server_running(self, mock_installer_methods, monkeypatch, mock_exit):
         """Test the test command when server is running."""

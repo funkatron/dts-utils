@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 import shutil
 import tempfile
+import urllib.error
 import urllib.request
 import plistlib
 import time
@@ -15,6 +16,8 @@ from subprocess import PIPE
 import json
 from ..grpc.utils import is_server_running
 from ..cli_prog import cli_command_name
+
+_DOWNLOAD_USER_AGENT = "dts-utils-server-installer"
 
 
 class DTSServerInstaller:
@@ -440,15 +443,78 @@ Examples:
             print("Falling back to hardcoded latest known version...")
             return f"https://github.com/drawthingsai/draw-things-community/releases/download/{self.FALLBACK_VERSION}/{self.BINARY_NAME}-macOS"
 
+    def _http_request_headers(self) -> dict[str, str]:
+        return {"User-Agent": _DOWNLOAD_USER_AGENT, "Accept": "*/*"}
+
+    def _probe_download_size(self, url: str) -> int | None:
+        """Best-effort Content-Length for progress (follows GitHub redirects)."""
+        try:
+            req = urllib.request.Request(url, method="HEAD", headers=self._http_request_headers())
+            with urllib.request.urlopen(req, timeout=30) as response:
+                length = response.headers.get("Content-Length")
+                if length:
+                    return int(length)
+        except Exception:
+            pass
+        return None
+
+    @staticmethod
+    def _format_download_progress(downloaded: int, total_size: int, *, bar_width: int = 28) -> str:
+        downloaded_mib = downloaded / (1024 * 1024)
+        if total_size <= 0:
+            return f"{downloaded_mib:.1f} MiB downloaded"
+        pct = min(100, downloaded * 100 // total_size)
+        filled = pct * bar_width // 100
+        if pct >= 100:
+            bar = "=" * bar_width
+        else:
+            arrow = filled < bar_width
+            used = filled + (1 if arrow else 0)
+            bar = ("=" * filled) + (">" if arrow else "") + (" " * (bar_width - used))
+        total_mib = total_size / (1024 * 1024)
+        return f"[{bar}] {pct:3d}%  {downloaded_mib:.1f}/{total_mib:.1f} MiB"
+
+    def _download_url_to_path(self, url: str, dest_path: Path) -> None:
+        """Download *url* to *dest_path* with an in-terminal progress meter."""
+        total_size = self._probe_download_size(url)
+        if total_size:
+            print(
+                f"Downloading gRPCServerCLI ({total_size / (1024 * 1024):.1f} MiB)\n"
+                f"  {url}"
+            )
+        else:
+            print(f"Downloading gRPCServerCLI from:\n  {url}")
+
+        last_report = 0.0
+
+        def reporthook(block_num: int, block_size: int, hook_total: int) -> None:
+            nonlocal last_report
+            if self.quiet:
+                return
+            now = time.monotonic()
+            downloaded = block_num * block_size
+            effective_total = hook_total if hook_total > 0 else (total_size or 0)
+            if now - last_report < 0.2 and (effective_total <= 0 or downloaded < effective_total):
+                return
+            last_report = now
+            line = self._format_download_progress(downloaded, effective_total)
+            print(f"\r{line}", end="", flush=True)
+
+        urllib.request.urlretrieve(url, dest_path, reporthook=reporthook)
+        if not self.quiet:
+            if total_size:
+                print(f"\r{self._format_download_progress(total_size, total_size)}")
+            else:
+                print()
+
     def download_grpcserver(self):
         """Download and install the gRPCServerCLI binary"""
-        print("Downloading gRPCServerCLI...")
         with tempfile.TemporaryDirectory() as tmp_dir:
             binary_path = Path(tmp_dir) / self.BINARY_NAME
             url = self.get_latest_release_url()
 
             try:
-                urllib.request.urlretrieve(url, binary_path)
+                self._download_url_to_path(url, binary_path)
             except urllib.error.URLError as e:
                 print(f"Failed to download gRPCServerCLI: {e}")
                 sys.exit(1)
@@ -717,9 +783,14 @@ Examples:
             "*draw-things*grpc*.plist"
         ]
 
-        existing_services = []
+        existing_services: list[Path] = []
+        seen_services: set[Path] = set()
         for pattern in service_patterns:
-            existing_services.extend(list(self.AGENTS_DIR.glob(pattern)))
+            for service in self.AGENTS_DIR.glob(pattern):
+                if service in seen_services:
+                    continue
+                seen_services.add(service)
+                existing_services.append(service)
 
         if existing_services:
             has_existing = True

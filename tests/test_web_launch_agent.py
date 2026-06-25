@@ -83,8 +83,9 @@ def test_start_and_stop_use_launchctl(agent: DTSWebLaunchAgent, mock_subprocess)
     uid = os.getuid()
     domain = f"gui/{uid}"
 
-    assert agent.start() == 0
-    assert agent.stop() == 0
+    with patch.object(DTSWebLaunchAgent, "_require_darwin", return_value=None):
+        assert agent.start() == 0
+        assert agent.stop() == 0
     assert mock_subprocess.call_count == 2
     assert list(mock_subprocess.call_args_list[0].args[0]) == [
         "launchctl",

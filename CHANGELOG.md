@@ -39,6 +39,15 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+### Added
+
+- **Web UI (`/api/generate/stream`):** SSE **`preview`** events stream decodable **`previewImage`** frames during generation; the stage shows a live preview panel and promotes preview-only runs when the server never sends a final **`image`** event.
+
+### Changed
+
+- **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.
+- **Tests:** default **`uv run pytest`** deselects **`live_grpc_cli`** tests; opt in with **`pytest -m live_grpc_cli`** and **`DTS_GRPC_TEST_SPAWN_SERVER=1`**.
+
 ---
 
 ## [0.5.2] - 2026-06-20

@@ -460,8 +460,12 @@ def test_iter_generate_stream_dicts_sequence(monkeypatch: pytest.MonkeyPatch, tm
     cfg = tmp_path / "c.fb"
     cfg.write_bytes(b"x")
     monkeypatch.setattr("dts_utils.generate_api.read_configuration_bytes", lambda **k: b"x")
-    monkeypatch.setattr("dts_utils.generate_api.collect_raw_generation_tensors", lambda _c, _r: [b"t"])
-    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+
+    def fake_run_stream(_client, _request, _cancel):
+        yield ("preview", b"\x89PNG\r\n")
+        yield ("image", b"\x89PNG\r\n")
+
+    monkeypatch.setattr("dts_utils.generate_api._iter_generation_run_png_stream", fake_run_stream)
 
     gen = ImageGenerationRequestOptions(prompt="{a|b}", configuration=cfg)
     events = list(
@@ -470,6 +474,7 @@ def test_iter_generate_stream_dicts_sequence(monkeypatch: pytest.MonkeyPatch, tm
     types = [e["type"] for e in events]
     assert types[0] == "meta"
     assert types.count("progress") == 2
+    assert types.count("preview") == 2
     assert types.count("image") == 2
     assert types[-1] == "done"
     done = events[-1]

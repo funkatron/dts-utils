@@ -41,12 +41,16 @@ def create_channel(
     """Create a gRPC channel with consistent local TLS handling."""
     target = f"{host}:{port}"
     max_message_bytes = max_message_mb * 1024 * 1024
-    options = [
+    options: list[tuple[str, int | str]] = [
         ("grpc.max_send_message_length", max_message_bytes),
         ("grpc.max_receive_message_length", max_message_bytes),
     ]
     if insecure:
         return grpc.insecure_channel(target, options=options)
+
+    # gRPCServerCLI presents CN=localhost even when bound to LAN/Tailscale addresses.
+    if not is_loopback_host(host):
+        options.append(("grpc.ssl_target_name_override", "localhost"))
 
     trust_presented_cert = trust_server_cert or force_trust_server_cert
     if root_cert and trust_presented_cert:

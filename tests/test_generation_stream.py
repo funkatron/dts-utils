@@ -6,7 +6,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from dts_utils.generation_stream import collect_generated_images
+from dts_utils.generation_stream import (
+    collect_generated_images,
+    iter_generate_image_stream,
+    preview_payload_to_png_bytes,
+)
 from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
 from tests.test_generate_image_script import make_uncompressed_dt_tensor
 
@@ -116,3 +120,30 @@ def test_collect_generated_images_preview_fallback_picks_largest_decodable():
     out = collect_generated_images(stub, SimpleNamespace())
     assert len(out) == 1
     assert out[0] == large
+
+
+def test_preview_payload_to_png_bytes_accepts_raw_png():
+    png = b"\x89PNG\r\n\x1a\n" + b"x" * 32
+    assert preview_payload_to_png_bytes(png) == png
+
+
+def test_iter_generate_image_stream_yields_preview_before_image():
+    tensor = make_uncompressed_dt_tensor()
+    stub = _FakeStub(
+        [
+            SimpleNamespace(
+                generatedImages=[],
+                chunkState=up_pb2.LAST_CHUNK,
+                previewImage=tensor,
+            ),
+            SimpleNamespace(
+                generatedImages=[tensor],
+                chunkState=up_pb2.LAST_CHUNK,
+                previewImage=b"",
+            ),
+        ]
+    )
+    events = list(iter_generate_image_stream(stub, SimpleNamespace()))
+    assert [kind for kind, _payload in events] == ["preview", "image"]
+    assert events[0][1].startswith(b"\x89PNG\r\n\x1a\n")
+    assert events[1][1] == tensor

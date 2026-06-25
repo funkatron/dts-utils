@@ -397,6 +397,7 @@ One line per event: `data: <json>\n\n`.
 | --- | --- |
 | **`meta`** | `total_runs` |
 | **`progress`** | `run`, `total_runs` (one event per generation RPC). |
+| **`preview`** | `run`, `seq`, `png_b64` — live **`previewImage`** frame while the RPC is in flight. |
 | **`image`** | `run`, `index` (global image counter), `png_b64`. Multiple **`image`** events per run if the server returns several tensors. |
 | **`done`** | `expanded_prompts`, `expanded_negative_prompts`, `total_images` — only after full success. |
 | **`error`** | `detail` — validation, RPC failure, cancel, or timeout. No **`done`** after **`error`**. |

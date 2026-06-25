@@ -176,6 +176,41 @@
       color: var(--fg);
     }
     .result-busy[hidden] { display: none !important; }
+    .generation-preview {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      min-height: 0;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .generation-preview[hidden] { display: none !important; }
+    .generation-preview-label {
+      margin: 0 0 0.35rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+    #generationPreviewImage {
+      display: block;
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      max-height: min(58vh, 620px);
+      object-fit: contain;
+      border-radius: max(5px, calc(var(--dts-display-radius) * 0.45));
+      border: 1px solid var(--border);
+      outline: 2px dashed var(--accent);
+      outline-offset: 2px;
+      opacity: 0.94;
+    }
     .spinner {
       width: 1.25rem;
       height: 1.25rem;
@@ -942,6 +977,10 @@
           <span id="busyElapsed" class="hint"></span>
           <span id="busyProgress" class="hint" aria-live="polite">Starting…</span>
         </div>
+        <div id="generationPreview" class="generation-preview" hidden aria-live="polite">
+          <p class="generation-preview-label">Preview</p>
+          <img id="generationPreviewImage" alt="Generation preview in progress" />
+        </div>
         <details class="busy-payload">
           <summary class="busy-summary">Technical details (request JSON)</summary>
           <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON body"></pre>
@@ -1651,6 +1690,7 @@ uv run dts-utils server tail</pre>
 
   /** Blob URLs from the current result pane; must revoke before dropping DOM or each leaks until tab exit. */
   var __dtsResultBlobUrls = [];
+  var __dtsPreviewBlobUrl = null;
 
   function revokeResultBlobUrls() {
     __dtsResultBlobUrls.forEach(function (u) {
@@ -1659,6 +1699,74 @@ uv run dts-utils server tail</pre>
       } catch (e) {}
     });
     __dtsResultBlobUrls.length = 0;
+  }
+
+  function clearGenerationPreview() {
+    var pane = document.getElementById("generationPreview");
+    var img = document.getElementById("generationPreviewImage");
+    if (__dtsPreviewBlobUrl) {
+      try {
+        URL.revokeObjectURL(__dtsPreviewBlobUrl);
+      } catch (e) {}
+      __dtsPreviewBlobUrl = null;
+    }
+    if (img) img.removeAttribute("src");
+    if (pane) pane.hidden = true;
+  }
+
+  function showGenerationPreview(pngB64, run, seq) {
+    var pane = document.getElementById("generationPreview");
+    var img = document.getElementById("generationPreviewImage");
+    var placeholder = document.getElementById("resultPlaceholder");
+    if (!pane || !img || !pngB64) return;
+    var bin = atob(pngB64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var blob = new Blob([bytes], { type: "image/png" });
+    if (__dtsPreviewBlobUrl) {
+      try {
+        URL.revokeObjectURL(__dtsPreviewBlobUrl);
+      } catch (e) {}
+    }
+    __dtsPreviewBlobUrl = URL.createObjectURL(blob);
+    img.src = __dtsPreviewBlobUrl;
+    img.alt = "Preview run " + run + ", frame " + seq;
+    pane.hidden = false;
+    if (placeholder) placeholder.hidden = true;
+    var prog = document.getElementById("busyProgress");
+    if (prog) prog.textContent = "Run " + run + " — preview " + seq;
+  }
+
+  function promoteGenerationPreviewToResults(results, historyBuffers) {
+    if (historyBuffers.length || !__dtsPreviewBlobUrl) return false;
+    var previewImg = document.getElementById("generationPreviewImage");
+    if (!previewImg || !previewImg.src) return false;
+    var url = __dtsPreviewBlobUrl;
+    __dtsPreviewBlobUrl = null;
+    __dtsResultBlobUrls.push(url);
+    var img = document.createElement("img");
+    img.src = url;
+    img.alt = "Generated preview";
+    var wrap = document.createElement("div");
+    wrap.className = "result-slot";
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "generated_preview.png";
+    a.textContent = "Download";
+    a.className = "result-download";
+    wrap.appendChild(img);
+    wrap.appendChild(a);
+    results.appendChild(wrap);
+    fetch(url)
+      .then(function (r) {
+        return r.arrayBuffer();
+      })
+      .then(function (buf) {
+        historyBuffers.push(buf);
+      })
+      .catch(function () {});
+    clearGenerationPreview();
+    return true;
   }
 
   function arrayBufferToBase64(buf) {
@@ -2082,6 +2190,7 @@ uv run dts-utils server tail</pre>
     const timerRef = { id: null };
     showComposerError("");
     revokeResultBlobUrls();
+    clearGenerationPreview();
     results.innerHTML = "";
     renderVideoDonePanel(null);
     var expNoteClear = document.getElementById("expandedPromptsNote");
@@ -2217,8 +2326,12 @@ uv run dts-utils server tail</pre>
           var prog = document.getElementById("busyProgress");
           if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
         }
+        if (msg.type === "preview") {
+          showGenerationPreview(msg.png_b64, msg.run, msg.seq);
+        }
         if (msg.type === "image") {
           placeholder.hidden = true;
+          clearGenerationPreview();
           var bin = atob(msg.png_b64);
           var bytes = new Uint8Array(bin.length);
           for (var j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
@@ -2256,6 +2369,8 @@ uv run dts-utils server tail</pre>
       results.querySelectorAll("img.result-inflight").forEach(function (im) {
         im.classList.remove("result-inflight");
       });
+
+      promoteGenerationPreviewToResults(results, historyBuffers);
 
       if (historyBuffers.length) {
         await historyAppend(

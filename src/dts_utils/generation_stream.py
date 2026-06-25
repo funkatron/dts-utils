@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import io
 import os
 import sys
+from collections.abc import Iterator
+
+from PIL import Image
 
 from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 from dts_utils.tensor_png import decode_dt_tensor_to_png
+
+_PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
 
 _DEBUG_ENV = "DTS_GRPC_GENERATE_DEBUG"
 _DEBUG_PREFIX = "[dts-utils] GenerateImage stream:"
@@ -72,8 +78,36 @@ def _preview_payload_if_decodable_tensor(preview: bytes) -> bytes | None:
     return preview
 
 
-def collect_generated_images(stub: up_grpc.ImageGenerationServiceStub, request: up_pb2.ImageGenerationRequest) -> list[bytes]:
-    images = []
+def preview_payload_to_png_bytes(preview: bytes) -> bytes | None:
+    """Decode streamed ``previewImage`` bytes to PNG file bytes when possible."""
+    if not preview:
+        return None
+    if preview.startswith(_PNG_MAGIC):
+        return preview
+    if len(preview) >= 68:
+        try:
+            return decode_dt_tensor_to_png(preview)
+        except Exception:
+            pass
+    try:
+        with Image.open(io.BytesIO(preview)) as img:
+            buf = io.BytesIO()
+            img.convert("RGB").save(buf, format="PNG")
+            return buf.getvalue()
+    except Exception:
+        return None
+
+
+def iter_generate_image_stream(
+    stub: up_grpc.ImageGenerationServiceStub,
+    request: up_pb2.ImageGenerationRequest,
+) -> Iterator[tuple[str, bytes]]:
+    """Yield ``(kind, payload)`` events from a ``GenerateImage`` RPC stream.
+
+    * ``preview`` payloads are PNG file bytes suitable for inline display.
+    * ``image`` payloads are Draw Things tensor bytes (final frames).
+    """
+    images: list[bytes] = []
     pending_chunk = b""
     debug = _grpc_generate_debug_enabled()
     best_preview: bytes | None = None
@@ -83,6 +117,9 @@ def collect_generated_images(stub: up_grpc.ImageGenerationServiceStub, request: 
             _debug_log_stream_message(seq, response)
         pv = getattr(response, "previewImage", b"") or b""
         if pv:
+            preview_png = preview_payload_to_png_bytes(pv)
+            if preview_png is not None:
+                yield ("preview", preview_png)
             ok = _preview_payload_if_decodable_tensor(pv)
             if ok is not None and len(pv) > best_preview_len:
                 best_preview_len = len(pv)
@@ -100,6 +137,16 @@ def collect_generated_images(stub: up_grpc.ImageGenerationServiceStub, request: 
             response_images[0] = pending_chunk + response_images[0]
             pending_chunk = b""
         images.extend(response_images)
-    if not images and best_preview is not None:
-        images.append(best_preview)
+    if images:
+        for tensor in images:
+            yield ("image", tensor)
+    elif best_preview is not None:
+        yield ("image", best_preview)
+
+
+def collect_generated_images(stub: up_grpc.ImageGenerationServiceStub, request: up_pb2.ImageGenerationRequest) -> list[bytes]:
+    images: list[bytes] = []
+    for kind, payload in iter_generate_image_stream(stub, request):
+        if kind == "image":
+            images.append(payload)
     return images

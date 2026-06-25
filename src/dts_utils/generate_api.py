@@ -22,7 +22,7 @@ from dts_utils.exceptions import (
     GenerationRpcError,
 )
 from dts_utils.prompt_wildcards import expand_prompt_wildcards
-from dts_utils.generation_stream import collect_generated_images
+from dts_utils.generation_stream import collect_generated_images, iter_generate_image_stream
 from dts_utils.grpc.connection import create_channel
 from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
@@ -195,6 +195,31 @@ def collect_raw_generation_tensors(
             close()
 
 
+def _iter_generation_run_png_stream(
+    client: GrpcClientOptions,
+    request: up_pb2.ImageGenerationRequest,
+    cancel_event: threading.Event | None,
+) -> Iterator[tuple[str, bytes]]:
+    """Yield ``(kind, payload)`` where *kind* is ``preview`` (PNG bytes) or ``image`` (PNG bytes)."""
+    channel = _open_channel(client)
+    try:
+        stub = up_grpc.ImageGenerationServiceStub(channel)
+        try:
+            for kind, payload in iter_generate_image_stream(stub, request):
+                if cancel_event is not None and cancel_event.is_set():
+                    raise GenerationCancelledError("Generation cancelled.")
+                if kind == "preview":
+                    yield ("preview", payload)
+                else:
+                    yield ("image", decode_dt_tensor_to_png(payload))
+        except grpc.RpcError as e:
+            raise GenerationRpcError.from_rpc_error(e) from e
+    finally:
+        close = getattr(channel, "close", None)
+        if close:
+            close()
+
+
 def _validate_per_run_prompt_lengths(
     n: int,
     prompts_per_run: Sequence[str] | None,
@@ -272,32 +297,47 @@ def iter_generate_stream_dicts(
     prompts_per_run: Sequence[str] | None = None,
     negative_prompts_per_run: Sequence[str] | None = None,
 ) -> Iterator[dict[str, object]]:
-    """Yield serializable dicts for SSE: meta, progress (once per generation run), image (per PNG; multiple per run if the server returns several tensors), done."""
+    """Yield serializable dicts for SSE: meta, progress, preview (live frames), image, done."""
     n = validate_batch_generations(generations)
     _validate_per_run_prompt_lengths(n, prompts_per_run, negative_prompts_per_run)
     yield {"type": "meta", "total_runs": n}
     global_idx = 0
     expanded_prompts: list[str] = []
     expanded_negatives: list[str] = []
-    for i, ep, en, run_pngs in _generation_runs_iter(
-        client,
-        gen,
-        n,
-        cancel_event,
-        prompts_per_run,
-        negative_prompts_per_run,
-    ):
+    for i in range(n):
+        if cancel_event is not None and cancel_event.is_set():
+            raise GenerationCancelledError("Generation cancelled.")
+        g = gen
+        if prompts_per_run is not None:
+            g = dataclasses.replace(g, prompt=prompts_per_run[i])
+        if negative_prompts_per_run is not None:
+            g = dataclasses.replace(g, negative_prompt=negative_prompts_per_run[i])
+        request, ep, en = prepare_image_generation_request(g)
         expanded_prompts.append(ep)
         expanded_negatives.append(en)
         yield {"type": "progress", "run": i + 1, "total_runs": n}
-        for png in run_pngs:
-            global_idx += 1
-            yield {
-                "type": "image",
-                "run": i + 1,
-                "index": global_idx,
-                "png_b64": base64.standard_b64encode(png).decode("ascii"),
-            }
+        preview_seq = 0
+        run_pngs: list[bytes] = []
+        for kind, png in _iter_generation_run_png_stream(client, request, cancel_event):
+            if kind == "preview":
+                preview_seq += 1
+                yield {
+                    "type": "preview",
+                    "run": i + 1,
+                    "seq": preview_seq,
+                    "png_b64": base64.standard_b64encode(png).decode("ascii"),
+                }
+            else:
+                run_pngs.append(png)
+                global_idx += 1
+                yield {
+                    "type": "image",
+                    "run": i + 1,
+                    "index": global_idx,
+                    "png_b64": base64.standard_b64encode(png).decode("ascii"),
+                }
+        if not run_pngs and preview_seq == 0:
+            raise GenerationEmptyError("No generated images returned by the server.")
     yield {
         "type": "done",
         "expanded_prompts": expanded_prompts,

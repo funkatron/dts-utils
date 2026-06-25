@@ -184,6 +184,12 @@ def test_generate_stream_returns_sse(monkeypatch: pytest.MonkeyPatch, client: Te
         yield {"type": "meta", "total_runs": 1}
         yield {"type": "progress", "run": 1, "total_runs": 1}
         yield {
+            "type": "preview",
+            "run": 1,
+            "seq": 1,
+            "png_b64": base64.standard_b64encode(b"\x89PNG\r\n").decode("ascii"),
+        }
+        yield {
             "type": "image",
             "run": 1,
             "index": 1,
@@ -214,7 +220,7 @@ def test_generate_stream_returns_sse(monkeypatch: pytest.MonkeyPatch, client: Te
         raw = r.read().decode("utf-8")
     data_lines = [ln for ln in raw.splitlines() if ln.startswith("data: ")]
     payloads = [json.loads(ln.removeprefix("data: ")) for ln in data_lines]
-    assert [p["type"] for p in payloads] == ["meta", "progress", "image", "done"]
+    assert [p["type"] for p in payloads] == ["meta", "progress", "preview", "image", "done"]
 
 
 def test_generate_stream_sse_maps_worker_exception(monkeypatch: pytest.MonkeyPatch, client: TestClient) -> None:

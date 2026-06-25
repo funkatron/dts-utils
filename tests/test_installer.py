@@ -33,7 +33,9 @@ def installer(mock_home_dir):
 def mock_urlretrieve():
     """Mock urllib.request.urlretrieve to simulate downloading binary."""
     with patch('urllib.request.urlretrieve') as mock:
-        def side_effect(url, path):
+        def side_effect(url, path, reporthook=None):
+            if reporthook is not None:
+                reporthook(1, 1024, 1024)
             # Create a dummy binary file
             with open(path, 'wb') as f:
                 f.write(b'dummy binary content')
@@ -426,7 +428,7 @@ def test_download_grpcserver_local_dir(installer, mock_urlretrieve, monkeypatch,
 def test_download_grpcserver_download_error(installer, monkeypatch):
     """Test handling of download errors."""
     # Mock urlretrieve to raise an error
-    def mock_urlretrieve(*args):
+    def mock_urlretrieve(*args, **kwargs):
         raise urllib.error.URLError("Failed to download")
     monkeypatch.setattr('urllib.request.urlretrieve', mock_urlretrieve)
 
@@ -722,3 +724,30 @@ def test_server_running_command_error(installer, monkeypatch):
     monkeypatch.setattr('socket.socket', lambda *args: mock_socket)
 
     assert installer.test_server_running() is False
+
+
+def test_format_download_progress_with_total(installer):
+    line = installer._format_download_progress(50 * 1024 * 1024, 100 * 1024 * 1024)
+    assert "50%" in line
+    assert "50.0/100.0 MiB" in line
+    assert line.startswith("[")
+
+
+def test_download_url_to_path_renders_progress_meter(installer, monkeypatch, tmp_path, capsys):
+    dest = tmp_path / "gRPCServerCLI"
+    total = 4 * 1024 * 1024
+
+    def fake_urlretrieve(url, path, reporthook=None):
+        assert reporthook is not None
+        reporthook(1, 1024 * 1024, total)
+        reporthook(4, 1024 * 1024, total)
+        Path(path).write_bytes(b"x")
+
+    monkeypatch.setattr(installer, "_probe_download_size", lambda _url: total)
+    monkeypatch.setattr("urllib.request.urlretrieve", fake_urlretrieve)
+
+    installer._download_url_to_path("https://example.test/gRPCServerCLI-macOS", dest)
+
+    out = capsys.readouterr().out
+    assert "4.0 MiB" in out
+    assert "100%" in out

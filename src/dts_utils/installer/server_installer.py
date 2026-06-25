@@ -479,11 +479,11 @@ Examples:
         total_size = self._probe_download_size(url)
         if total_size:
             print(
-                f"Downloading gRPCServerCLI ({total_size / (1024 * 1024):.1f} MiB). "
-                "This can take several minutes on a slow link."
+                f"Downloading gRPCServerCLI ({total_size / (1024 * 1024):.1f} MiB)\n"
+                f"  {url}"
             )
         else:
-            print("Downloading gRPCServerCLI…")
+            print(f"Downloading gRPCServerCLI from:\n  {url}")
 
         last_report = 0.0
 

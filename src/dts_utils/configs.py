@@ -9,6 +9,8 @@ import re
 import sys
 from pathlib import Path
 
+from dts_utils.cli_prog import cli_command_name
+
 
 APP_NAME = "dts-utils"
 CONFIG_SUBDIR = "configurations"
@@ -536,7 +538,9 @@ def import_draw_things_saved_configs(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    prog = cli_command_name()
     parser = argparse.ArgumentParser(
+        prog=f"{prog} configs",
         description="Manage saved Draw Things JSON generation configurations.",
         epilog="""Examples:
   dts-utils configs path

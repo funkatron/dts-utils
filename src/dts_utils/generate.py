@@ -8,6 +8,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dts_utils.cli_prog import cli_command_name
 from dts_utils.configuration_build import (
     configurations_equivalent_for_flatbuffer,
     json_configuration_to_flatbuffer,
@@ -43,7 +44,9 @@ UPSTREAM_PROTO_PATH = PACKAGE_ROOT / "grpc" / "proto" / "upstream"
 
 
 def build_parser() -> argparse.ArgumentParser:
+    prog = cli_command_name()
     parser = argparse.ArgumentParser(
+        prog=f"{prog} generate",
         description="Send a prompt to Draw Things gRPCServerCLI and save the returned image.",
     )
     parser.add_argument("--prompt", required=True, help="Prompt to generate.")

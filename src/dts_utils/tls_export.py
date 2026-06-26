@@ -12,6 +12,7 @@ import sys
 import time
 from pathlib import Path
 
+from dts_utils.cli_prog import cli_command_name
 from dts_utils.configs import user_config_dir
 from dts_utils.grpc.connection import fetch_server_certificate
 
@@ -75,7 +76,9 @@ def export_presented_certificate_with_retries(
 
 
 def build_parser() -> argparse.ArgumentParser:
+    prog = cli_command_name()
     parser = argparse.ArgumentParser(
+        prog=f"{prog} tls",
         description="Export the gRPC server's presented TLS certificate as a PEM.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=f"""Examples:

@@ -46,6 +46,27 @@ def test_build_program_arguments_defaults(tmp_path: Path) -> None:
     ]
 
 
+def test_web_help_documents_foreground_tail_and_launch_agent(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["dts-utils", "web", "--help"])
+    assert web_cli.main(["--help"]) == 0
+    out = capsys.readouterr().out
+    assert "dts-utils web [serve options]" in out
+    assert "dts-utils web tail" in out
+    assert "dts-utils web install --yes" in out
+    assert "dts-utils web start" in out
+    assert "dts-utils web uninstall" in out
+    assert "http://127.0.0.1:8765/" in out
+
+
+def test_web_install_help_explains_service_options() -> None:
+    help_text = _lifecycle_parser("dts-utils", "install").format_help()
+    assert "Bind address for the web UI" in help_text
+    assert "HTTP port for the web UI" in help_text
+    assert "Uvicorn log level for the LaunchAgent process" in help_text
+    assert "Disable HTTP access logs" in help_text
+    assert "Do not append LaunchAgent logs to a file" in help_text
+
+
 def test_install_writes_plist_and_bootstraps(agent: DTSWebLaunchAgent, mock_subprocess, tmp_path: Path) -> None:
     exe = tmp_path / "dts-utils"
     exe.write_text("", encoding="utf-8")

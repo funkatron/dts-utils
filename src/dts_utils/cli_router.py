@@ -26,6 +26,45 @@ SERVER_LIFECYCLE_SUBCOMMANDS = frozenset(
     {"install", "uninstall", "start", "stop", "restart", "test", "check", "status", "tail"}
 )
 
+HELP_FLAGS = frozenset({"-h", "--help"})
+
+
+def top_level_help_text() -> str:
+    p = cli_command_name()
+    return f"""
+Usage:
+    {p} "PROMPT" [PROFILE] [generate options]
+    {p} generate --prompt PROMPT [options]
+    {p} server <install|start|stop|restart|check|status|tail> [...]
+    {p} web [serve options]
+    {p} web <install|start|stop|restart|status|uninstall|tail> [...]
+    {p} configs <path|list|scaffold-from-metadata|scaffold-pipeline|import-draw-things> [...]
+    {p} reflect [options]
+    {p} tls <path|export> [...]
+    {p} models <build|search|show|report|installed|status|fetch|doctor> [...]
+    {p} pipeline <run> [...]
+
+Commands:
+    prompt shorthand   Generate from a quoted prompt; uses --trust-server-cert --open.
+    generate           Send image or pipeline generation requests to gRPCServerCLI.
+    server             Manage the Draw Things gRPC server LaunchAgent on port 7859.
+    web                Run or manage the local web UI on port 8765.
+    configs            Manage saved Draw Things JSON generation profiles.
+    reflect            Inspect gRPC reflection metadata.
+    tls                Export or print the pinned server TLS certificate path.
+    models             Inspect, fetch, and report local Draw Things model metadata.
+    pipeline           Run pipeline plans directly.
+
+Help:
+    {p} server --help
+    {p} web --help
+    {p} generate --help
+""".strip()
+
+
+def should_show_top_level_help(argv: list[str]) -> bool:
+    return len(argv) < 2 or argv[1] in HELP_FLAGS
+
 def server_subcommand_help_text() -> str:
     p = cli_command_name()
     return f"""
@@ -131,7 +170,7 @@ def prepare_argv_for_installer_dispatch(argv: list[str]) -> int | None:
         return None
     prog = cli_command_name(argv)
     if argv[1] == "server":
-        if len(argv) == 2:
+        if len(argv) == 2 or argv[2] in HELP_FLAGS:
             print(server_subcommand_help_text())
             return 0
         sub = argv[2]
@@ -154,6 +193,9 @@ def prepare_argv_for_installer_dispatch(argv: list[str]) -> int | None:
 def main() -> None:
     """Entry point for the ``dts-utils`` console script."""
     argv = sys.argv
+    if should_show_top_level_help(argv):
+        print(top_level_help_text())
+        sys.exit(0)
     code = prepare_argv_for_installer_dispatch(argv)
     if code is not None:
         sys.exit(code)

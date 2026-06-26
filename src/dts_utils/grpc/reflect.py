@@ -11,11 +11,15 @@ import grpc
 from google.protobuf import descriptor_pb2
 from grpc_reflection.v1alpha import reflection_pb2, reflection_pb2_grpc
 
+from dts_utils.cli_prog import cli_command_name
+
 from .connection import create_channel
 
 
 def build_parser() -> argparse.ArgumentParser:
+    prog = cli_command_name()
     parser = argparse.ArgumentParser(
+        prog=f"{prog} reflect",
         description="List services and methods exposed through gRPC server reflection.",
         epilog="""Examples:
   dts-utils reflect --trust-server-cert

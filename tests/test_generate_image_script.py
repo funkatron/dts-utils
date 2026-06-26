@@ -679,6 +679,7 @@ def test_create_channel_can_force_trust_remote_presented_certificate(monkeypatch
     assert channel == "channel"
     assert calls["root_certificates"] == b"remote-cert"
     assert calls["target"] == "drawthings.example.com:7859"
+    assert ("grpc.ssl_target_name_override", "localhost") in calls["options"]
 
 
 def test_collect_generated_images_reassembles_chunks():

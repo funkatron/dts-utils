@@ -10,6 +10,7 @@ from dts_utils.configuration_build import (
     configurations_equivalent_for_flatbuffer,
     json_configuration_to_flatbuffer,
     normalize_configuration_for_flatc,
+    resolve_flatc_path,
 )
 
 # Enough fields that normalize → flatc succeeds when flatc is installed (see integration test).
@@ -59,6 +60,25 @@ def test_configurations_equivalent_fps_aliases() -> None:
     assert eq(base, {**_MINIMAL_DRAW_THINGS_STYLE, "fps_id": 7}) is True
     assert eq(base, {**_MINIMAL_DRAW_THINGS_STYLE, "fpsId": 7}) is True
     assert eq(base, {**_MINIMAL_DRAW_THINGS_STYLE, "fps": 99}) is False
+
+
+def test_resolve_flatc_path_prefers_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("dts_utils.configuration_build.shutil.which", lambda _name: "/tmp/path-flatc")
+
+    assert resolve_flatc_path() == "/tmp/path-flatc"
+
+
+def test_resolve_flatc_path_uses_homebrew_fallback_when_path_is_sparse(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    fallback = tmp_path / "flatc"
+    fallback.write_text("#!/bin/sh\n", encoding="utf-8")
+    fallback.chmod(0o755)
+    monkeypatch.setattr("dts_utils.configuration_build.shutil.which", lambda _name: None)
+    monkeypatch.setattr("dts_utils.configuration_build.FLATC_FALLBACK_PATHS", (fallback,))
+
+    assert resolve_flatc_path() == str(fallback)
 
 
 @pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")

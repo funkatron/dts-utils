@@ -7,6 +7,13 @@ uv sync --dev
 uv run pytest
 ```
 
+Default **`uv run pytest`** deselects **`live_grpc_cli`** tests (no local **`gRPCServerCLI`** required). To run ephemeral server smoke + functional generate:
+
+```bash
+export DTS_GRPC_TEST_SPAWN_SERVER=1
+uv run pytest -m live_grpc_cli -v
+```
+
 Some tests are **skipped** (integration / optional): see [gRPC integration tests](../PROTOBUF.md#grpc-integration-tests) in `PROTOBUF.md` for why, and for the **maintainer playbook**—ephemeral ports, in-process fakes vs optional real `gRPCServerCLI`, and keeping tests aligned when Draw Things updates the wire protocol.
 
 **`models fetch`** tests exercise bundled JSON and CLI parsing only (no network downloads). Maintainer backlog and phased work: [models-fetch-roadmap.md](../docs/models-fetch-roadmap.md). Optional **`@pytest.mark.integration`** **`models fetch`** smoke may appear guarded by **`DTS_UTILS_FETCH_INTEGRATION=1`** — unset means skip.
@@ -23,7 +30,7 @@ Upstream-aligned smoke (**same proto as `generate`**) without LaunchAgent:
 
 ```bash
 export DTS_GRPC_TEST_SPAWN_SERVER=1
-uv run pytest tests/test_grpc_server.py tests/test_generate_functional_live.py -v
+uv run pytest -m live_grpc_cli tests/test_grpc_server.py tests/test_generate_functional_live.py -v
 ```
 
 Optional: **`DTS_GRPC_TEST_SERVER_BINARY=/path/to/gRPCServerCLI`** if the binary is not on `PATH`.

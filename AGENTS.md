@@ -22,7 +22,7 @@ Integration-style gRPC tests may skip without a live server; see [tests/README.m
 | `integration` | Tests that may assume a reachable gRPC server or local model assets; often skip when prerequisites are missing. |
 | `live_grpc_cli` | Opt-in tests that spawn `gRPCServerCLI` (`DTS_GRPC_TEST_SPAWN_SERVER=1`); see [tests/README.md](tests/README.md#ephemeral-grpcservercli-pytest). |
 
-CI (`.github/workflows/ci.yml`) runs **`uv run pytest`** with **no `-m` filter**, so default runs include marked tests; those tests should **skip** cleanly on Ubuntu when a server is absent rather than fail.
+CI (`.github/workflows/ci.yml`) runs **`uv run pytest`** with **no `-m` filter**; **`live_grpc_cli`** tests are **deselected** by default via **`pyproject.toml`** **`addopts`**. Opt-in locally with **`pytest -m live_grpc_cli`** and **`DTS_GRPC_TEST_SPAWN_SERVER=1`** (see [tests/README.md](tests/README.md#ephemeral-grpcservercli-pytest)).
 
 ## CLI dispatch (`dts-utils`)
 

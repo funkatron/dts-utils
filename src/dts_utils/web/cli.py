@@ -22,6 +22,45 @@ from dts_utils.web.log_io import (
 )
 
 
+HELP_FLAGS = frozenset({"-h", "--help"})
+
+
+def web_help_text(prog_root: str | None = None) -> str:
+    prog = prog_root or cli_command_name()
+    return f"""
+Usage:
+    {prog} web [serve options]
+    {prog} web tail [options]
+    {prog} web <install|start|stop|restart|status|uninstall> [...]
+
+Run a loopback web UI for Draw Things image generation.
+
+Modes:
+    {prog} web                  Run the web UI in the foreground (default: http://127.0.0.1:8765/).
+    {prog} web --open           Run in the foreground and open a browser.
+    {prog} web tail             Follow the web UI log file.
+    {prog} web install --yes    Install or update the macOS LaunchAgent.
+    {prog} web start            Start the installed LaunchAgent.
+    {prog} web stop             Stop the installed LaunchAgent.
+    {prog} web restart          Restart the installed LaunchAgent.
+    {prog} web status           Show installed LaunchAgent status.
+    {prog} web uninstall        Remove the installed LaunchAgent.
+
+Serve options:
+    --bind ADDR        Bind address (default: 127.0.0.1). Use DTS_WEB_TOKEN when not loopback-only.
+    --port N           HTTP port (default: 8765).
+    --log-level LEVEL  Uvicorn log level.
+    --no-access-log    Disable HTTP access logs.
+    --log-file PATH    Append uvicorn logs to PATH.
+    --no-log-file      Do not append logs to a file.
+    --open             Open the default browser after the server starts.
+
+More:
+    {prog} web install --help
+    {prog} web tail --help
+""".strip()
+
+
 def _serve_parser(prog_root: str) -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog=f"{prog_root} web",
@@ -153,6 +192,9 @@ def main(argv: list[str] | None = None) -> int:
     from dts_utils.web.launch_agent import WEB_LIFECYCLE_SUBCOMMANDS, run_web_lifecycle
 
     tokens = list(argv if argv is not None else sys.argv[1:])
+    if tokens and tokens[0] in HELP_FLAGS:
+        print(web_help_text(cli_command_name()))
+        return 0
     if tokens and tokens[0] == "tail":
         return run_web_tail(tokens[1:])
     if tokens and tokens[0] in WEB_LIFECYCLE_SUBCOMMANDS:

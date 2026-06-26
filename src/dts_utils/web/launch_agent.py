@@ -280,14 +280,30 @@ def _lifecycle_parser(prog_root: str, action: str) -> argparse.ArgumentParser:
         description="Manage a macOS LaunchAgent for the dts-utils web UI.",
     )
     if action == "install":
-        parser.add_argument("--bind", default=DTSWebLaunchAgent.DEFAULT_BIND, metavar="ADDR")
-        parser.add_argument("--port", type=int, default=DTSWebLaunchAgent.DEFAULT_PORT, metavar="N")
+        parser.add_argument(
+            "--bind",
+            default=DTSWebLaunchAgent.DEFAULT_BIND,
+            metavar="ADDR",
+            help=f"Bind address for the web UI (default: {DTSWebLaunchAgent.DEFAULT_BIND}).",
+        )
+        parser.add_argument(
+            "--port",
+            type=int,
+            default=DTSWebLaunchAgent.DEFAULT_PORT,
+            metavar="N",
+            help=f"HTTP port for the web UI (default: {DTSWebLaunchAgent.DEFAULT_PORT}).",
+        )
         parser.add_argument(
             "--log-level",
             default="info",
             choices=["critical", "error", "warning", "info", "debug", "trace"],
+            help="Uvicorn log level for the LaunchAgent process (default: info).",
         )
-        parser.add_argument("--no-access-log", action="store_true")
+        parser.add_argument(
+            "--no-access-log",
+            action="store_true",
+            help="Disable HTTP access logs on stdout and in the web log file.",
+        )
         parser.add_argument(
             "--log-file",
             type=Path,
@@ -295,7 +311,11 @@ def _lifecycle_parser(prog_root: str, action: str) -> argparse.ArgumentParser:
             metavar="PATH",
             help=f"Append uvicorn logs here (default: {default_web_log_path()}).",
         )
-        parser.add_argument("--no-log-file", action="store_true")
+        parser.add_argument(
+            "--no-log-file",
+            action="store_true",
+            help="Do not append LaunchAgent logs to a file.",
+        )
         parser.add_argument(
             "--executable",
             default=None,

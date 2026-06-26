@@ -24,13 +24,15 @@ uv run dts-utils <command> [options]
 
 Some invocations omit `<command>` and use [Generate shorthand](#generate-shorthand-prompt-first) instead.
 
+Run **`uv run dts-utils --help`** for a short command-tree summary. Subcommands have their own help, for example **`uv run dts-utils server --help`**, **`uv run dts-utils web --help`**, and **`uv run dts-utils generate --help`**.
+
 ## Server lifecycle (LaunchAgent)
 
 These commands manage macOS LaunchAgent + `gRPCServerCLI` (not pytest, not Docker).
 
 Required spelling: `dts-utils server <subcommand>` for `install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`, and `tail`. Running `dts-utils install` without `server` prints a usage error (stderr, exit code `2`).
 
-Bare `dts-utils server` prints a short summary.
+Bare `dts-utils server`, `dts-utils server --help`, and `dts-utils server -h` print a short server lifecycle summary.
 
 ## Available commands
 
@@ -327,6 +329,8 @@ uv run dts-utils web start|stop|restart|uninstall|status     # macOS LaunchAgent
 uv run dts-utils web tail [-n N] [--file PATH] [--no-follow]
 ```
 
+Run **`uv run dts-utils web --help`** for a mode summary that lists foreground serve, log tailing, and LaunchAgent lifecycle commands. Run **`uv run dts-utils web install --help`** for service-install options.
+
 **macOS LaunchAgent:** **`web install`** writes **`~/Library/LaunchAgents/com.dts-utils.web.plist`**, runs **`dts-utils web`** at login (**`RunAtLoad`** + **`KeepAlive`**), and uses the same **`dts-utils`** console script that was on **`PATH`** at install time (override with **`--executable`**). **`web status`** probes the listener and **`GET /api/health`**. Lifecycle commands are macOS-only; on Linux use a terminal session or your own unit file.
 
 #### Run / defaults
@@ -397,6 +401,7 @@ One line per event: `data: <json>\n\n`.
 | --- | --- |
 | **`meta`** | `total_runs` |
 | **`progress`** | `run`, `total_runs` (one event per generation RPC). |
+| **`preview`** | `run`, `seq`, `png_b64` — live **`previewImage`** frame while the RPC is in flight. |
 | **`image`** | `run`, `index` (global image counter), `png_b64`. Multiple **`image`** events per run if the server returns several tensors. |
 | **`done`** | `expanded_prompts`, `expanded_negative_prompts`, `total_images` — only after full success. |
 | **`error`** | `detail` — validation, RPC failure, cancel, or timeout. No **`done`** after **`error`**. |

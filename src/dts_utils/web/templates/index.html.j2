@@ -1737,7 +1737,7 @@ uv run dts-utils server tail</pre>
     if (prog) prog.textContent = "Run " + run + " — preview " + seq;
   }
 
-  function promoteGenerationPreviewToResults(results, historyBuffers) {
+  async function promoteGenerationPreviewToResults(results, historyBuffers) {
     if (historyBuffers.length || !__dtsPreviewBlobUrl) return false;
     var previewImg = document.getElementById("generationPreviewImage");
     if (!previewImg || !previewImg.src) return false;
@@ -1757,14 +1757,11 @@ uv run dts-utils server tail</pre>
     wrap.appendChild(img);
     wrap.appendChild(a);
     results.appendChild(wrap);
-    fetch(url)
-      .then(function (r) {
-        return r.arrayBuffer();
-      })
-      .then(function (buf) {
-        historyBuffers.push(buf);
-      })
-      .catch(function () {});
+    try {
+      var response = await fetch(url);
+      var buf = await response.arrayBuffer();
+      historyBuffers.push(buf);
+    } catch (e) {}
     clearGenerationPreview();
     return true;
   }
@@ -2370,7 +2367,7 @@ uv run dts-utils server tail</pre>
         im.classList.remove("result-inflight");
       });
 
-      promoteGenerationPreviewToResults(results, historyBuffers);
+      await promoteGenerationPreviewToResults(results, historyBuffers);
 
       if (historyBuffers.length) {
         await historyAppend(

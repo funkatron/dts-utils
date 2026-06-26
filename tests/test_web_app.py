@@ -75,6 +75,7 @@ def test_index_history_contract_stores_optional_reuse_metadata(client: TestClien
     assert "applyHistoryConfiguration" in r.text
     assert "payload.configuration" in r.text
     assert 'await historyAppend(' in r.text
+    assert "await promoteGenerationPreviewToResults(results, historyBuffers)" in r.text
     assert "body.configuration" in r.text
 
 

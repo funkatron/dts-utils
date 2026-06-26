@@ -46,6 +46,7 @@ Example snippet for the next release:
 ### Changed
 
 - **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.
+- **JSON → FlatBuffer:** **`flatc`** resolution checks **`PATH`** first, then common macOS package-manager locations so LaunchAgent-started web sessions can still convert saved JSON profiles.
 - **Tests:** default **`uv run pytest`** deselects **`live_grpc_cli`** tests; opt in with **`pytest -m live_grpc_cli`** and **`DTS_GRPC_TEST_SPAWN_SERVER=1`**.
 
 ---

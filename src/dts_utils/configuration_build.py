@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tempfile
@@ -14,6 +15,11 @@ from dts_utils.exceptions import ConfigurationError
 PACKAGE_ROOT = Path(__file__).resolve().parent
 UPSTREAM_PROTO_PATH = PACKAGE_ROOT / "grpc" / "proto" / "upstream"
 CONFIG_SCHEMA_PATH = UPSTREAM_PROTO_PATH / "config.fbs"
+FLATC_FALLBACK_PATHS = (
+    Path("/opt/homebrew/bin/flatc"),
+    Path("/usr/local/bin/flatc"),
+    Path("/opt/local/bin/flatc"),
+)
 
 CONFIG_KEY_MAP = {
     "aestheticScore": "aesthetic_score",
@@ -174,8 +180,20 @@ def configurations_equivalent_for_flatbuffer(a: dict, b: dict) -> bool:
     return normalize_configuration_for_flatc(a) == normalize_configuration_for_flatc(b)
 
 
-def json_configuration_to_flatbuffer(configuration: dict) -> bytes:
+def resolve_flatc_path() -> str | None:
+    """Find ``flatc`` from PATH or common macOS package-manager locations."""
     flatc_path = shutil.which("flatc")
+    if flatc_path:
+        return flatc_path
+
+    for candidate in FLATC_FALLBACK_PATHS:
+        if candidate.is_file() and os.access(candidate, os.X_OK):
+            return str(candidate)
+    return None
+
+
+def json_configuration_to_flatbuffer(configuration: dict) -> bytes:
+    flatc_path = resolve_flatc_path()
     if not flatc_path:
         raise ConfigurationError(
             "flatc is required for JSON configuration. Install FlatBuffers or pass raw FlatBuffer bytes."

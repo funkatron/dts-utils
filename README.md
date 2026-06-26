@@ -15,7 +15,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 
 - Python 3.12+ and [`uv`](https://github.com/astral-sh/uv).
 - macOS only if you use `dts-utils server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, and `dts-utils web` run anywhere Python can reach the server.
-- [`flatc`](https://github.com/google/flatbuffers) on `PATH` when you pass JSON configuration (conversion uses the bundled `config.fbs`).
+- [`flatc`](https://github.com/google/flatbuffers) when you pass JSON configuration (conversion uses the bundled `config.fbs`; `dts-utils` checks `PATH` plus common macOS package-manager locations).
 
 ---
 

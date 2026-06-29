@@ -90,12 +90,14 @@ See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`
 
 **`dts-utils-mcp`** is a stdio [Model Context Protocol](https://modelcontextprotocol.io/) server for Cursor, Claude Desktop, and similar hosts. Tools call the same Python APIs as **`generate`** and **`web`** (probe server, list configs, generate PNGs, search models, run pipelines).
 
+**Cursor (this repo):** open the clone as the workspace — **`.cursor/mcp.json`** runs **`scripts/run-mcp.sh`** (no hand-edited paths). Refresh MCP in Cursor settings after **`git pull`**.
+
 ```bash
 uv sync --extra mcp
-uv run --extra mcp dts-utils-mcp
+bash scripts/run-mcp.sh   # sanity: waits on stdio until Ctrl+C
 ```
 
-Cursor config, full tool list, optional macOS lifecycle gate: [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp).
+Manual / global config, full tool list, optional lifecycle gate: [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp).
 
 ---
 

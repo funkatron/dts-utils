@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "dts-utils": {
+      "command": "bash",
+      "args": ["scripts/run-mcp.sh"],
+      "env": {
+        "DTS_UTILS_DEFAULT_CONFIGURATION": "default"
+      }
+    }
+  }
+}

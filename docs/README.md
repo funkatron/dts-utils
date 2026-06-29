@@ -21,6 +21,7 @@
 | Release history | [CHANGELOG.md](../CHANGELOG.md) |
 | Contributing or agent automation | [AGENTS.md](../AGENTS.md) |
 | Weight orchestration / `models fetch` backlog | [models-fetch-roadmap.md](models-fetch-roadmap.md) |
+| MCP server for coding agents (planned) | [mcp-interface-plan.md](mcp-interface-plan.md) |
 
 ---
 

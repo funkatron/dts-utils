@@ -50,6 +50,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 - `src/dts_utils/model_index/` — community metadata index (`dts-utils models`); **`fetch`** loads bundled recipes from `dts_utils/model_fetch/recipe_files/` (optional **`uv sync --extra download`** for Hugging Face sources).
 - `src/dts_utils/tls_export.py` — PEM path/export (`dts-utils tls`).
 - `src/dts_utils/web/` — loopback Starlette UI (`dts-utils web`, `dts-utils web tail`); see [CLI.md](CLI.md#web-dts-utils-web).
+- MCP interface (planned) — [docs/mcp-interface-plan.md](docs/mcp-interface-plan.md); target entrypoint `dts-utils-mcp` (stdio).
 
 ## Implicit profile: `default` / `default.json`
 

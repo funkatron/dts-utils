@@ -46,7 +46,7 @@ Example snippet for the next release:
 
 ### Changed
 
-- **CLI.md:** Restructured as a reference with a **Contents** table of contents, grouped **`server`** subcommands, and consistent per-command sections (invocation → options → common tasks). README and docs map updated.
+- **CLI.md:** Restructured as a reference with a **Contents** table of contents, grouped **`server`** subcommands, and consistent per-command sections. **`web`** section tightened; browser UI detail lives in **[docs/web-ui-layout.md](docs/web-ui-layout.md)**.
 - **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.
 - **JSON → FlatBuffer:** **`flatc`** resolution checks **`PATH`** first, then common macOS package-manager locations so LaunchAgent-started web sessions can still convert saved JSON profiles.
 - **CLI help:** top-level, **`server --help`**, and **`web --help`** now describe the command tree and LaunchAgent modes more clearly.

@@ -530,7 +530,15 @@ uv run dts-utils-mcp
 
 **Defaults:** `localhost:7859`, `trust_server_cert=true` on loopback, configuration profile **`default`** (or `DTS_UTILS_DEFAULT_CONFIGURATION`). Errors map to MCP tool failures with readable text (same classes as CLI/web). **`shared_secret`** is never logged.
 
-MCP resources and macOS server lifecycle are not implemented yet.
+MCP resources: `dts://config/{stem}`, `dts://output/{relative_path}`, `dts://pipeline/{run_id}/{step_id}/{filename}`. Prompt: **`generate_image`**. macOS server lifecycle tools are not exposed via MCP.
+
+| Resource URI | Content |
+| --- | --- |
+| `dts://config/{stem}` | Saved profile JSON (`application/json`) |
+| `dts://output/{relative_path}` | File under `./output` (or `DTS_MCP_OUTPUT_ROOTS`) |
+| `dts://pipeline/{run_id}/{step_id}/{filename}` | Pipeline artifact under pipeline run root (`DTS_MCP_PIPELINE_RUN_ROOT` or default `~/Movies/infomux-runs`) |
+
+Path traversal (`..`) is rejected for all resource URIs.
 
 ---
 

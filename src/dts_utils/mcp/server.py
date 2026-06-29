@@ -4,6 +4,12 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
+from dts_utils.mcp.resources import (
+    MCP_PROMPT_NAMES,
+    RESOURCE_URI_TEMPLATES,
+    register_mcp_prompts,
+    register_mcp_resources,
+)
 from dts_utils.mcp.tools import (
     MCP_TOOL_NAMES,
     tool_expand_prompt,
@@ -21,13 +27,15 @@ from dts_utils.mcp.tools import (
 
 
 def create_mcp_server() -> FastMCP:
-    """Build a FastMCP server with Phase 1 and Phase 2 tools registered."""
+    """Build a FastMCP server with tools, resources, and prompts."""
     mcp = FastMCP(
         "dts-utils",
         instructions=(
             "Draw Things gRPC helper tools. Default gRPC: localhost:7859 with trust_server_cert on loopback. "
             "Use dts_server_check before dts_generate_image or dts_pipeline_run. "
-            "Use dts_generate_cancel to stop long generate batches cooperatively."
+            "Use dts_generate_cancel to stop long generate batches cooperatively. "
+            "Resources: dts://config/{stem}, dts://output/{relative_path}, "
+            "dts://pipeline/{run_id}/{step_id}/{filename}."
         ),
         json_response=True,
     )
@@ -48,6 +56,10 @@ def create_mcp_server() -> FastMCP:
     missing = MCP_TOOL_NAMES - registered
     if missing:
         raise RuntimeError(f"MCP tool registration incomplete: {sorted(missing)}")
+
+    register_mcp_resources(mcp)
+    register_mcp_prompts(mcp)
+
     return mcp
 
 

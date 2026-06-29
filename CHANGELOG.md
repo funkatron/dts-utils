@@ -41,6 +41,7 @@ Example snippet for the next release:
 
 ### Added
 
+- **MCP (`dts-utils-mcp`):** stdio MCP server with tools `dts_server_check`, `dts_list_configs`, `dts_get_config`, `dts_expand_prompt`, `dts_generate_image`, and `dts_list_installed_models`. Optional install: `uv sync --extra mcp` or `dts-utils[mcp]`. See [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp).
 - **Web UI (`/api/generate/stream`):** SSE **`preview`** events stream decodable **`previewImage`** frames during generation; the stage shows a live preview panel and promotes preview-only runs when the server never sends a final **`image`** event.
 
 ### Changed

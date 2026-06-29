@@ -9,7 +9,7 @@ uv sync --dev
 uv run pytest
 ```
 
-**`uv sync --dev`** pulls **`huggingface_hub`** so **`models fetch`** tests that stub the Hub run without **`uv sync --extra download`**. End users who only install **`[download]`** still get **`huggingface_hub`** for **`type`: `huggingface`** recipe sources.
+**`uv sync --dev`** pulls **`huggingface_hub`** (for **`models fetch`** tests) and **`mcp`** (for **`dts-utils-mcp`** tests). End users: **`uv sync --extra download`** for Hugging Face fetch sources; **`uv sync --extra mcp`** or **`dts-utils[mcp]`** for the MCP server.
 
 Integration-style gRPC tests may skip without a live server; see [tests/README.md](tests/README.md) (ephemeral `gRPCServerCLI` via `DTS_GRPC_TEST_SPAWN_SERVER`) and [PROTOBUF.md](PROTOBUF.md#grpc-integration-tests).
 
@@ -50,6 +50,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 - `src/dts_utils/model_index/` — community metadata index (`dts-utils models`); **`fetch`** loads bundled recipes from `dts_utils/model_fetch/recipe_files/` (optional **`uv sync --extra download`** for Hugging Face sources).
 - `src/dts_utils/tls_export.py` — PEM path/export (`dts-utils tls`).
 - `src/dts_utils/web/` — loopback Starlette UI (`dts-utils web`, `dts-utils web tail`); see [CLI.md](CLI.md#web-dts-utils-web).
+- `src/dts_utils/mcp/` — stdio MCP server (`dts-utils-mcp`); see [CLI.md](CLI.md#mcp-dts-utils-mcp).
 
 ## Implicit profile: `default` / `default.json`
 

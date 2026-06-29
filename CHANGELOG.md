@@ -41,7 +41,7 @@ Example snippet for the next release:
 
 ### Added
 
-- **MCP (`dts-utils-mcp`):** stdio MCP server with eleven tools, three resource URI templates, and a `generate_image` prompt. Optional install: `uv sync --extra mcp` or `dts-utils[mcp]`. See [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp).
+- **MCP (`dts-utils-mcp`):** stdio MCP server with eleven tools, three resource URI templates, a `generate_image` prompt, and optional gated macOS lifecycle tools (`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`). Optional install: `uv sync --extra mcp` or `dts-utils[mcp]`. See [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp).
 - **Web UI (`/api/generate/stream`):** SSE **`preview`** events stream decodable **`previewImage`** frames during generation; the stage shows a live preview panel and promotes preview-only runs when the server never sends a final **`image`** event.
 
 ### Changed

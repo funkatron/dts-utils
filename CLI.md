@@ -528,9 +528,18 @@ uv run dts-utils-mcp
 | `dts_pipeline_status` | Read **`heartbeat.json`** / **`pipeline_run.json`** for a run |
 | `dts_generate_cancel` | Cooperative cancel for in-flight generate (between batch iterations) |
 
+**Optional lifecycle tools** (macOS only; set `DTS_MCP_ALLOW_SERVER_LIFECYCLE=1` on the MCP server process):
+
+| Tool | Purpose |
+| --- | --- |
+| `dts_server_status` | LaunchAgent plist summary + listener probe |
+| `dts_server_start` | Bootstrap LaunchAgent job |
+| `dts_server_stop` | Boot out LaunchAgent job |
+| `dts_server_restart` | Restart job (`ensure_model_browser` default true) |
+
 **Defaults:** `localhost:7859`, `trust_server_cert=true` on loopback, configuration profile **`default`** (or `DTS_UTILS_DEFAULT_CONFIGURATION`). Errors map to MCP tool failures with readable text (same classes as CLI/web). **`shared_secret`** is never logged.
 
-MCP resources: `dts://config/{stem}`, `dts://output/{relative_path}`, `dts://pipeline/{run_id}/{step_id}/{filename}`. Prompt: **`generate_image`**. macOS server lifecycle tools are not exposed via MCP.
+macOS server lifecycle tools are not exposed via MCP unless **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`** (stdio server env). **`server install` / `uninstall` are not exposed** via MCP.
 
 | Resource URI | Content |
 | --- | --- |

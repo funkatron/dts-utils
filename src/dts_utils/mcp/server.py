@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from mcp.server.fastmcp import FastMCP
 
-from dts_utils.mcp.resources import (
-    MCP_PROMPT_NAMES,
-    RESOURCE_URI_TEMPLATES,
-    register_mcp_prompts,
-    register_mcp_resources,
+from dts_utils.mcp.env import lifecycle_tools_enabled
+from dts_utils.mcp.lifecycle import (
+    tool_server_restart,
+    tool_server_start,
+    tool_server_status,
+    tool_server_stop,
 )
+from dts_utils.mcp.resources import register_mcp_prompts, register_mcp_resources
 from dts_utils.mcp.tools import (
+    LIFECYCLE_TOOL_NAMES,
     MCP_TOOL_NAMES,
     tool_expand_prompt,
     tool_generate_cancel,
@@ -35,7 +38,8 @@ def create_mcp_server() -> FastMCP:
             "Use dts_server_check before dts_generate_image or dts_pipeline_run. "
             "Use dts_generate_cancel to stop long generate batches cooperatively. "
             "Resources: dts://config/{stem}, dts://output/{relative_path}, "
-            "dts://pipeline/{run_id}/{step_id}/{filename}."
+            "dts://pipeline/{run_id}/{step_id}/{filename}. "
+            "macOS server lifecycle tools require DTS_MCP_ALLOW_SERVER_LIFECYCLE=1."
         ),
         json_response=True,
     )
@@ -52,8 +56,18 @@ def create_mcp_server() -> FastMCP:
     mcp.add_tool(tool_pipeline_status, name="dts_pipeline_status")
     mcp.add_tool(tool_generate_cancel, name="dts_generate_cancel")
 
+    if lifecycle_tools_enabled():
+        mcp.add_tool(tool_server_status, name="dts_server_status")
+        mcp.add_tool(tool_server_start, name="dts_server_start")
+        mcp.add_tool(tool_server_stop, name="dts_server_stop")
+        mcp.add_tool(tool_server_restart, name="dts_server_restart")
+
+    expected_tools = set(MCP_TOOL_NAMES)
+    if lifecycle_tools_enabled():
+        expected_tools |= LIFECYCLE_TOOL_NAMES
+
     registered = {t.name for t in mcp._tool_manager.list_tools()}
-    missing = MCP_TOOL_NAMES - registered
+    missing = expected_tools - registered
     if missing:
         raise RuntimeError(f"MCP tool registration incomplete: {sorted(missing)}")
 

@@ -51,7 +51,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 - `src/dts_utils/tls_export.py` — PEM path/export (`dts-utils tls`).
 - `src/dts_utils/web/` — loopback Starlette UI (`dts-utils web`, `dts-utils web tail`); see [CLI.md](CLI.md#web-dts-utils-web).
 - `src/dts_utils/generation_session.py` — shared execute lock and cooperative cancel (web + MCP).
-- `src/dts_utils/mcp/` — stdio MCP server (`dts-utils-mcp`); lifecycle tools gated by `DTS_MCP_ALLOW_SERVER_LIFECYCLE`. Operator docs: [CLI.md](CLI.md#mcp-dts-utils-mcp). Maintainer record: [docs/mcp-interface-plan.md](docs/mcp-interface-plan.md).
+- `src/dts_utils/mcp/` — stdio MCP server (`dts-utils-mcp`); lifecycle tools gated by `DTS_MCP_ALLOW_SERVER_LIFECYCLE`. Operator docs: [CLI.md](CLI.md#mcp-dts-utils-mcp). Agent guide: [docs/mcp-for-agents.md](docs/mcp-for-agents.md). Maintainer record: [docs/mcp-interface-plan.md](docs/mcp-interface-plan.md).
 
 ## Implicit profile: `default` / `default.json`
 

@@ -5,7 +5,7 @@ A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRP
 This project is alpha (0.x). Expect breaking changes; pin a commit or version if you depend on it.
 
 - **Command reference:** [CLI.md](CLI.md) — table of contents, flags, subcommands, environment variables.
-- **MCP (coding agents):** [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp) — **`dts-utils-mcp`** stdio server for Cursor and similar hosts.
+- **MCP (coding agents):** [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp) — **`dts-utils-mcp`** stdio server for Cursor and similar hosts. Workflows and ideas: **[docs/mcp-for-agents.md](docs/mcp-for-agents.md)**.
 - **Wire format:** [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) (messages and streaming), [PROTOBUF.md](PROTOBUF.md) (FlatBuffer config and protos).
 - **Documentation map:** [docs/README.md](docs/README.md).
 - **Product docs (Draw Things):** [drawthings.ai/docs](https://drawthings.ai/docs).

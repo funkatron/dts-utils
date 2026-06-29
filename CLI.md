@@ -351,96 +351,37 @@ Optional env: **`DTS_UTILS_DEFAULT_PIPELINE_PROFILE`** (omit **`--profile`** on 
 
 ### web (`dts-utils web`)
 
-Loopback HTTP UI: browser → **`dts-utils`** → Draw Things gRPC (same stack as **`generate`**).
+Loopback HTTP UI and REST API — same gRPC stack as **`generate`**.
 
 ```bash
 uv run dts-utils web [--bind ADDR] [--port N] [--log-level LEVEL] [--no-access-log] [--open]
-uv run dts-utils web install [--port N] [--bind ADDR] [-y]   # macOS LaunchAgent
-uv run dts-utils web start|stop|restart|uninstall|status
+uv run dts-utils web install|start|stop|restart|uninstall|status   # macOS LaunchAgent
 uv run dts-utils web tail [-n N] [--file PATH] [--no-follow]
 ```
 
-Run **`web --help`** for serve, tail, and LaunchAgent modes. **`web install --help`** for service options.
+**`web --help`** and **`web install --help`** list all flags.
 
-**macOS LaunchAgent:** **`web install`** writes **`~/Library/LaunchAgents/com.dts-utils.web.plist`**, **`RunAtLoad`** + **`KeepAlive`**. Uses **`dts-utils`** on **`PATH`** at install (**`--executable`** override). **`web status`** probes listener and **`GET /api/health`**. Lifecycle commands are macOS-only; on Linux use a terminal or your own unit file.
-
-#### Defaults
-
-| Item | Value |
+| Topic | Detail |
 | --- | --- |
-| Bind | **`127.0.0.1`** |
-| HTTP port | **8765** |
-| **`--log-level`** | Uvicorn: **`critical`**, **`error`**, **`warning`**, **`info`**, **`debug`**, **`trace`** (default **`info`**) |
-| **`--no-access-log`** | Disable per-request access lines |
-| **`--open`** | Open browser after startup |
-| Log file | **`~/.config/dts-utils/web.log`** ( **`--log-file`**, **`DTS_WEB_LOG_FILE`**, **`--no-log-file`**) |
+| **Serve** | Default bind **`127.0.0.1`**, port **8765**, uvicorn log level **`info`**. Log file **`~/.config/dts-utils/web.log`** (**`--log-file`**, **`DTS_WEB_LOG_FILE`**, **`--no-log-file`**). |
+| **`web tail`** | Print **50** recent lines then follow ( **`-n`**, **`--file`**, **`--no-follow`** ). **Ctrl+C** → exit **0**. |
+| **LaunchAgent** | macOS only: **`install`** writes **`~/Library/LaunchAgents/com.dts-utils.web.plist`** (**`RunAtLoad`**, **`KeepAlive`**); **`status`** probes listener + **`GET /api/health`**. Else run in a terminal or use your own service unit. |
+| **Auth** | **`DTS_WEB_TOKEN`** → **`Authorization: Bearer …`** on **`/api/*`** except **`GET /api/health`**. Wide bind without token → stderr warning. |
+| **Limits** | **`DTS_WEB_GENERATE_TIMEOUT`** (default **900** s) caps **`POST /api/generate`** and **`/api/generate/stream`** between batch runs (not mid-RPC). SSE: up to **64** buffered events (backpressure on slow clients). |
 
-#### tail (`dts-utils web tail`)
-
-```bash
-uv run dts-utils web tail
-uv run dts-utils web tail -n 200
-uv run dts-utils web tail --no-follow
-```
-
-| Option | Purpose |
-| --- | --- |
-| **`-n` / `--lines`** | Recent lines before follow (default **50**) |
-| **`--file PATH`** | Log file path |
-| **`--no-follow`** | Print recent lines only |
-
-**Ctrl+C** exits **`0`**. Missing log file: start **`dts-utils web`** first.
-
-#### Auth and limits
-
-- **`DTS_WEB_TOKEN`:** Required on **`/api/*`** except **`GET /api/health`** when set (**`Authorization: Bearer <token>`**). Bind widely without token → stderr warning.
-- **`DTS_WEB_GENERATE_TIMEOUT`:** Wall-clock cap in seconds (default **900**) for **`POST /api/generate`** (**504**) and **`/api/generate/stream`** (SSE **`error`**). Timeout applies between batch runs, not mid-RPC.
-- **Streaming backpressure:** Up to **64** buffered SSE payloads; slow readers stall generation until space is available.
-
-#### HTTP endpoints
-
-**Probe:** **`GET /api/server-status`** — listener check (**`no_tls`** query matches **`server check --no-tls`**). Probe success does not guarantee generation (config, **`flatc`**, TLS).
-
-**Generate — pick one response style:**
-
-| Endpoint | Response | Client |
-| --- | --- | --- |
-| **`POST /api/generate`** | **`multipart/mixed`** PNG + **`X-Generated-Count`**, **`X-Generation-Runs`** | Scripts |
-| **`POST /api/generate/stream`** | **`text/event-stream`** (SSE) | Browser UI |
-
-Same JSON body and bearer rules. Common keys: **`prompt`**, **`negative_prompt`**, **`generations`** (1–25), **`prompts`** / **`negative_prompts`** arrays, **`configuration`**, **`host`**, **`port`**, **`no_tls`**, **`trust_server_cert`**, **`force_trust_server_cert`**, **`root_cert`**, **`shared_secret`**, **`config_dir`**.
-
-Errors: JSON **`{"detail":"…"}`** for bad requests; generation failures mirror CLI messages where possible.
+**HTTP API** — JSON body; keys mirror CLI concepts (**`prompt`**, **`negative_prompt`**, **`generations`** 1–25, **`configuration`** or **`profile`**, **`host`**, **`port`**, **`no_tls`**, **`trust_server_cert`**, **`force_trust_server_cert`**, **`root_cert`**, **`shared_secret`**, **`config_dir`**). Errors: **`{"detail":"…"}`**.
 
 | Route | Purpose |
 | --- | --- |
-| **`POST /api/generate/cancel`** | Cooperative cancel between batch iterations. Multipart in-flight → **499**; streaming → SSE **`error`**. |
-| **`POST /api/prompt/expand`** | Random **`{…}`** expansions without generating. **`GET`** describes POST shape. |
+| **`GET /api/health`** | Liveness; exempt from bearer when **`DTS_WEB_TOKEN`** is set |
+| **`GET /api/server-status`** | Listener probe (**`no_tls`** = **`server check --no-tls`**) — does not guarantee generation succeeds |
 | **`GET /api/configs`** | Saved profile names |
+| **`POST /api/generate`** | **`multipart/mixed`** PNG parts; headers **`X-Generated-Count`**, **`X-Generation-Runs`** |
+| **`POST /api/generate/stream`** | SSE (`data: <json>\n\n`). Event **`type`**: **`meta`**, **`progress`**, **`preview`**, **`image`**, **`done`**, **`error`** (no **`done`** after **`error`**) |
+| **`POST /api/generate/cancel`** | Cooperative cancel between runs; multipart in-flight → **499**, stream → SSE **`error`** |
+| **`POST /api/prompt/expand`** | Random **`{…}`** expansions without generating (**`GET`** describes POST shape) |
 
-#### SSE events (`/api/generate/stream`)
-
-One line per event: `data: <json>\n\n`.
-
-| `type` | Meaning |
-| --- | --- |
-| **`meta`** | **`total_runs`** |
-| **`progress`** | **`run`**, **`total_runs`** |
-| **`preview`** | **`run`**, **`seq`**, **`png_b64`** — live preview frame |
-| **`image`** | **`run`**, **`index`**, **`png_b64`** |
-| **`done`** | **`expanded_prompts`**, **`expanded_negative_prompts`**, **`total_images`** |
-| **`error`** | **`detail`** — no **`done`** after **`error`** |
-
-#### Browser UI
-
-- **⌘↵** / **Ctrl+Enter**: Generate.
-- **Stop**: **`POST /api/generate/cancel`** + abort fetch.
-- Busy panel shows request JSON (**`shared_secret`** redacted).
-- **Fullscreen viewer:** Click thumbnails; **Escape** or backdrop closes. **Arrow keys**, **‹ ›**, swipe within batch. **F** toggles Fit vs Fill.
-- **Composer:** Image/Video toggle, grouped profiles, listener status, negative prompt, **`localStorage`** (**`dts_web_ui_v1`**). Default profile **`default`** (image).
-- **Setup FAB:** Connection + Advanced (host, TLS, secrets, paths). **History FAB:** recent PNGs under configs directory (**`DTS_WEB_HISTORY_DIR`** override). Prompt-to-video shows run folder with **Copy path**.
-
-LaunchAgent server lifecycle stays in Terminal (**`dts-utils server …`**).
+**Browser UI** (composer, Setup/History FABs, fullscreen viewer, **`localStorage`** defaults): **[docs/web-ui-layout.md](docs/web-ui-layout.md)**. **`DTS_WEB_HISTORY_DIR`** overrides on-disk history location. Server LaunchAgent remains **`dts-utils server …`** in Terminal.
 
 ### reflect
 

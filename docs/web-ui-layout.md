@@ -83,6 +83,21 @@ Probe success **does not** guarantee generation succeeds (config, `flatc`, model
 
 ---
 
+## Interaction
+
+| Action | Behavior |
+| --- | --- |
+| Generate | **⌘↵** (macOS) or **Ctrl+Enter** from the prompt |
+| Stop | **`#btnStop`** → **`POST /api/generate/cancel`** + abort fetch (between runs only) |
+| Composer | Image/Video toggle, grouped profiles, listener status, optional negative prompt; last choices in **`localStorage`** (`dts_web_ui_v1`). Default profile **`default`** (image) |
+| Setup FAB | Connection (host, port, TLS) + Advanced (paths, shared secret, cert). Status dot on icon reflects listener probe |
+| History FAB | Recent PNGs; **Reuse** restores prompt, profile, runs, negative prompt when stored. **Clear all** wipes server history files |
+| Fullscreen viewer | Click any thumbnail in results or History. **Escape** or backdrop closes. **← / →**, side zones, or horizontal swipe within the batch. **F** toggles Fit (letterbox) vs Fill |
+| Busy panel | Shows JSON sent to **`/api/generate/stream`** (`shared_secret` redacted) |
+| Video runs | Prompt-to-video completion shows run folder path with **Copy path** |
+
+---
+
 ## Related
 
 - Product intent: humane single-screen plan (Raskin-style) — internal planning doc if present on your machine: `.cursor/plans/humane_web_ui_50e7e05c.plan.md`

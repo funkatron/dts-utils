@@ -522,10 +522,15 @@ uv run dts-utils-mcp
 | `dts_expand_prompt` | Preview `{a\|b}` wildcards |
 | `dts_generate_image` | Generate PNG(s); paths by default, optional `include_image_data` |
 | `dts_list_installed_models` | Scan Draw Things **`Models`** directory |
+| `dts_models_search` | Search local index from **`models build`** (`data/drawthings_uncurated_models.json`) |
+| `dts_models_doctor` | Partial downloads, orphan sidecars, index mismatches |
+| `dts_pipeline_run` | Run a pipeline profile (e.g. **`prompt-to-video`**); blocks until complete |
+| `dts_pipeline_status` | Read **`heartbeat.json`** / **`pipeline_run.json`** for a run |
+| `dts_generate_cancel` | Cooperative cancel for in-flight generate (between batch iterations) |
 
 **Defaults:** `localhost:7859`, `trust_server_cert=true` on loopback, configuration profile **`default`** (or `DTS_UTILS_DEFAULT_CONFIGURATION`). Errors map to MCP tool failures with readable text (same classes as CLI/web). **`shared_secret`** is never logged.
 
-Pipeline tools, MCP resources, and macOS server lifecycle are not in Phase 1; see maintainer roadmap in repo docs when published.
+MCP resources and macOS server lifecycle are not implemented yet.
 
 ---
 

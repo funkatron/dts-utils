@@ -59,10 +59,14 @@ from dts_utils.pipeline.runner import PipelineRunner
 _templates_dir = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(_templates_dir))
 
-_execute_lock = threading.Lock()
-_generation_cancel_event = threading.Event()
-
 _DEFAULT_GENERATE_TIMEOUT = 900.0
+
+from dts_utils.generation_session import (
+    clear_generation_cancel,
+    execute_lock,
+    generation_cancel_event,
+    request_generation_cancel,
+)
 _ENV_GENERATE_TIMEOUT = "DTS_WEB_GENERATE_TIMEOUT"
 _ENV_WEB_TOKEN = "DTS_WEB_TOKEN"
 _ENV_HISTORY_DIR = "DTS_WEB_HISTORY_DIR"
@@ -603,13 +607,13 @@ def _run_generate(
     prompts_per_run: list[str] | None = None,
     negative_prompts_per_run: list[str] | None = None,
 ) -> GeneratePngBatchResult:
-    with _execute_lock:
-        _generation_cancel_event.clear()
+    with execute_lock:
+        clear_generation_cancel()
         return generate_png_batch(
             client,
             gen,
             generations=generations,
-            cancel_event=_generation_cancel_event,
+            cancel_event=generation_cancel_event,
             prompts_per_run=prompts_per_run,
             negative_prompts_per_run=negative_prompts_per_run,
         )
@@ -662,8 +666,7 @@ async def api_generate_cancel(request: Request) -> JSONResponse:
     """Signal cooperative cancel for the generation worker (between batch iterations)."""
     if err := _require_bearer(request):
         return err
-    _generation_cancel_event.set()
-    return JSONResponse({"ok": True, "cancel_requested": True})
+    return JSONResponse(request_generation_cancel())
 
 
 async def api_history(request: Request) -> JSONResponse:
@@ -815,14 +818,14 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
     timeout_sec = _generate_timeout_seconds()
 
     def worker() -> None:
-        with _execute_lock:
-            _generation_cancel_event.clear()
+        with execute_lock:
+            clear_generation_cancel()
             try:
                 for evt in iter_generate_stream_dicts(
                     client,
                     gen,
                     generations=generation_runs,
-                    cancel_event=_generation_cancel_event,
+                    cancel_event=generation_cancel_event,
                     prompts_per_run=prompts_per_run,
                     negative_prompts_per_run=negative_prompts_per_run,
                 ):
@@ -855,7 +858,7 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
                     break
                 yield f"data: {line}\n\n"
             if timed_out:
-                _generation_cancel_event.set()
+                generation_cancel_event.set()
                 err_line = json.dumps(
                     {"type": "error", "detail": "Generation timed out."},
                     ensure_ascii=False,
@@ -949,8 +952,8 @@ def _streaming_prompt_to_video_response(run_request: PipelineRunRequest) -> Stre
     run_root = _pipeline_run_root()
 
     def worker() -> None:
-        with _execute_lock:
-            _generation_cancel_event.clear()
+        with execute_lock:
+            clear_generation_cancel()
             heartbeat_path: Path | None = None
             try:
                 ns, profile_settings = prepare_pipeline_run(run_request)
@@ -1049,7 +1052,7 @@ def _streaming_prompt_to_video_response(run_request: PipelineRunRequest) -> Stre
                     break
                 yield f"data: {line}\n\n"
             if timed_out:
-                _generation_cancel_event.set()
+                generation_cancel_event.set()
                 err_line = json.dumps(
                     {"type": "error", "detail": "Prompt-to-video timed out."},
                     ensure_ascii=False,

@@ -1,17 +1,19 @@
-"""Tests for the stdio MCP server (Phase 1 tools)."""
+"""Tests for the stdio MCP server."""
 
 from __future__ import annotations
 
 import asyncio
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from mcp.server.fastmcp.exceptions import ToolError
 
-from dts_utils.exceptions import ConfigurationError
+from dts_utils.generate_api import GeneratePngBatchResult
+from dts_utils.generation_session import generation_cancel_event
 from dts_utils.mcp.server import create_mcp_server
-from dts_utils.mcp.tools import PHASE_1_TOOL_NAMES
+from dts_utils.mcp.tools import MCP_TOOL_NAMES
 
 
 @pytest.fixture
@@ -30,9 +32,9 @@ async def _call_payload(server, name: str, arguments: dict | None = None) -> dic
     return structured
 
 
-def test_phase_1_tool_names_registered(mcp_server) -> None:
+def test_all_mcp_tool_names_registered(mcp_server) -> None:
     names = asyncio.run(_tool_names(mcp_server))
-    assert names == PHASE_1_TOOL_NAMES
+    assert names == MCP_TOOL_NAMES
 
 
 def test_server_check_monkeypatch(mcp_server, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -87,11 +89,14 @@ def test_expand_prompt_rejects_high_count(mcp_server) -> None:
 def test_generate_image_stub(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     out = tmp_path / "out.png"
 
-    def fake_generate_to_paths(client, gen, output_base, *, generations=1):
-        out.write_bytes(b"png-bytes")
-        return [out]
+    def fake_batch(client, gen, *, generations=1, cancel_event=None, **kwargs):
+        return GeneratePngBatchResult(
+            images=[b"png-bytes"],
+            expanded_prompts=["a red house"],
+            expanded_negative_prompts=[""],
+        )
 
-    monkeypatch.setattr("dts_utils.mcp.tools.generate_to_paths", fake_generate_to_paths)
+    monkeypatch.setattr("dts_utils.mcp.tools.generate_png_batch", fake_batch)
 
     payload = asyncio.run(
         _call_payload(
@@ -104,7 +109,8 @@ def test_generate_image_stub(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_pa
             },
         )
     )
-    assert payload["paths"] == [str(out)]
+    assert len(payload["paths"]) == 1
+    assert Path(payload["paths"][0]).read_bytes() == b"png-bytes"
     assert "images_base64" not in payload
 
 
@@ -114,11 +120,14 @@ def test_generate_image_includes_base64_when_asked(
     out = tmp_path / "out.png"
     png = b"\x89PNG\r\n\x1a\n"
 
-    def fake_generate_to_paths(client, gen, output_base, *, generations=1):
-        out.write_bytes(png)
-        return [out]
+    def fake_batch(client, gen, *, generations=1, cancel_event=None, **kwargs):
+        return GeneratePngBatchResult(
+            images=[png],
+            expanded_prompts=["test"],
+            expanded_negative_prompts=[""],
+        )
 
-    monkeypatch.setattr("dts_utils.mcp.tools.generate_to_paths", fake_generate_to_paths)
+    monkeypatch.setattr("dts_utils.mcp.tools.generate_png_batch", fake_batch)
 
     payload = asyncio.run(
         _call_payload(
@@ -162,11 +171,10 @@ def test_list_installed_models_empty_dir(mcp_server, tmp_path: Path) -> None:
 def test_non_loopback_warning_on_generate(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     out = tmp_path / "out.png"
 
-    def fake_generate_to_paths(client, gen, output_base, *, generations=1):
-        out.write_bytes(b"x")
-        return [out]
+    def fake_batch(client, gen, *, generations=1, cancel_event=None, **kwargs):
+        return GeneratePngBatchResult(images=[b"x"], expanded_prompts=["remote"], expanded_negative_prompts=[""])
 
-    monkeypatch.setattr("dts_utils.mcp.tools.generate_to_paths", fake_generate_to_paths)
+    monkeypatch.setattr("dts_utils.mcp.tools.generate_png_batch", fake_batch)
 
     payload = asyncio.run(
         _call_payload(
@@ -181,3 +189,106 @@ def test_non_loopback_warning_on_generate(mcp_server, monkeypatch: pytest.Monkey
         )
     )
     assert "warning" in payload
+
+
+def test_models_search(mcp_server, tmp_path: Path) -> None:
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    (data_dir / "drawthings_uncurated_models.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "flux-1-dev",
+                    "name": "FLUX.1 [dev]",
+                    "type": "model",
+                    "model_family": "Flux",
+                    "huggingface_repo_id": "black-forest-labs/FLUX.1-dev",
+                    "author": "BFL",
+                    "license": "other",
+                    "tags": ["flux"],
+                    "metadata_path": "models/flux/metadata.json",
+                    "raw_metadata_json": {},
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    payload = asyncio.run(
+        _call_payload(
+            mcp_server,
+            "dts_models_search",
+            {"query": "flux", "data_dir": str(data_dir), "limit": 5},
+        )
+    )
+    assert payload["count"] == 1
+    assert payload["results"][0]["id"] == "flux-1-dev"
+
+
+def test_models_doctor_partial_file(mcp_server, tmp_path: Path) -> None:
+    models_dir = tmp_path / "Models"
+    models_dir.mkdir()
+    (models_dir / "weights.part").write_bytes(b"partial")
+    payload = asyncio.run(
+        _call_payload(
+            mcp_server,
+            "dts_models_doctor",
+            {"models_dir": str(models_dir), "data_dir": str(tmp_path / "data")},
+        )
+    )
+    assert any(f["kind"] == "partial-download" for f in payload["findings"])
+    assert payload["counts"].get("partial-download", 0) >= 1
+
+
+def test_pipeline_run_stub(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setattr("dts_utils.mcp.tools.is_pipeline_profile", lambda name: name == "prompt-to-video")
+
+    def fake_execute(request):
+        return SimpleNamespace(
+            run_id=request.run_id or "run-1",
+            run_root=str(request.run_root),
+            artifacts=[{"path": "/tmp/out.mp4", "kind": "video"}],
+            steps=[{"step_id": "t2i", "status": "completed"}],
+        )
+
+    monkeypatch.setattr("dts_utils.mcp.tools.execute_pipeline_run", fake_execute)
+
+    payload = asyncio.run(
+        _call_payload(
+            mcp_server,
+            "dts_pipeline_run",
+            {
+                "profile": "prompt-to-video",
+                "prompt": "a rainy street",
+                "run_root": str(tmp_path / "runs"),
+                "run_id": "demo-run",
+            },
+        )
+    )
+    assert payload["run_id"] == "demo-run"
+    assert payload["artifacts"][0]["kind"] == "video"
+
+
+def test_pipeline_status_reads_heartbeat(mcp_server, tmp_path: Path) -> None:
+    run_root = tmp_path / "runs"
+    run_dir = run_root / "demo"
+    run_dir.mkdir(parents=True)
+    (run_dir / "heartbeat.json").write_text(
+        json.dumps({"run_id": "demo", "step_id": "t2i", "status": "running"}),
+        encoding="utf-8",
+    )
+    payload = asyncio.run(
+        _call_payload(
+            mcp_server,
+            "dts_pipeline_status",
+            {"run_id": "demo", "run_root": str(run_root)},
+        )
+    )
+    assert payload["heartbeat"]["step_id"] == "t2i"
+    assert payload["status"] == "running_or_incomplete"
+
+
+def test_generate_cancel_sets_event(mcp_server) -> None:
+    generation_cancel_event.clear()
+    payload = asyncio.run(_call_payload(mcp_server, "dts_generate_cancel", {}))
+    assert payload["cancel_requested"] is True
+    assert generation_cancel_event.is_set()

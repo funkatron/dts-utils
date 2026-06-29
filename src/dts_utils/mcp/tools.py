@@ -76,6 +76,15 @@ PHASE_2_TOOL_NAMES: frozenset[str] = frozenset(
 
 MCP_TOOL_NAMES: frozenset[str] = PHASE_1_TOOL_NAMES | PHASE_2_TOOL_NAMES
 
+LIFECYCLE_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "dts_server_status",
+        "dts_server_start",
+        "dts_server_stop",
+        "dts_server_restart",
+    }
+)
+
 _DEFAULT_INDEX_JSON = "drawthings_uncurated_models.json"
 
 

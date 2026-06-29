@@ -1,89 +1,122 @@
-# `dts-utils web` UI layout (humane / Raskin)
+# dts-utils web UI layout
 
-This document is the **human-readable layout contract** for the loopback web UI. The shipped page is [`src/dts_utils/web/templates/index.html.j2`](../src/dts_utils/web/templates/index.html.j2).
+Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Template: [`src/dts_utils/web/templates/index.html.j2`](../src/dts_utils/web/templates/index.html.j2). CLI flags, HTTP routes, and env vars: [CLI.md § web](../CLI.md#web-dts-utils-web).
 
-**Principles:** The **image stage** uses almost all viewport space. **Prompt + Generate** sit in a fixed **composer** strip at the bottom. Everything else lives behind a **floating Setup control** (fixed top-right, building icon) that opens a modal `<dialog>`. The string `dts-utils web` remains in a screen-reader-only span for tests and assistive tech.
+## Contents
+
+- [Design principles](#design-principles)
+- [Screen map](#screen-map)
+- [Interaction](#interaction)
+- [DOM regions](#dom-regions)
+- [History storage](#history-storage)
+- [Listener status copy](#listener-status-copy)
+- [Canvas mock](#canvas-mock)
+- [See also](#see-also)
 
 ---
 
-## Wireframe (top → bottom)
+## Design principles
+
+1. **Stage first** — the image/video result uses almost all viewport height.
+2. **Composer fixed at bottom** — prompt, runs, and Generate/Stop stay one thumb-reach away.
+3. **Progressive disclosure** — connection, TLS, secrets, and paths live in Setup (**`#toolsDialog`**); recent outputs in History (**`#historyDialog`**). Product name **`dts-utils web`** is **`.sr-only`** for tests and assistive tech.
+
+---
+
+## Screen map
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                          clock · fab-history              │
-│                                          building · fab-setup │
+│  clock                         fab-history · fab-setup │
 │                                                         │
 │              IMAGE STAGE (#stage / #resultPane)          │
-│         (placeholder | spinner | large img + DL)         │
-│                  flex-grow, max img height ~viewport       │
+│     placeholder | busy + preview | results grid        │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
-│  (optional error strip #err)                             │
-├─────────────────────────────────────────────────────────┤
-│  Prompt row + shortcut hint                                │
-│  [ textarea…………………………… ] [Runs▾| hammer / stop]            │
-│                                      #elapsed               │
+│  #err (errors)                                           │
+│  composer: mode · profile · listener · neg · prompt      │
+│            [ runs ▾ | Generate / Stop ]        #elapsed   │
 └─────────────────────────────────────────────────────────┘
 
-Setup → modal dialog #toolsDialog:
-  Connection row, status line, profile, advanced <details>, CLI footer
-
-History → modal dialog #historyDialog (#historyList, Clear all / Close):
-  Recent PNG generations (server-side web history); Reuse restores the prompt
-  to the composer; per-image download links remain available
+Setup (#toolsDialog)     History (#historyDialog)
+Connection + advanced    Server-side PNG list, Reuse, Clear all
 ```
 
----
-
-## Interactive mock (Cursor Canvas)
-
-The repo canvas [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) is the **interactive mock** (Cursor Canvas): same structure as the shipped template ([`index.html.j2`](../src/dts_utils/web/templates/index.html.j2)) — stage-first viewport, Setup + History FABs, footer composer (**Prompt** + `.split-run-gen`: `#generations` 1–25, hammer `#btnGen` / stop `#btnStop` when busy, stretched to match `#prompt` height; **`#elapsed`** on the row below, right-aligned). Collapsible sections for **toolsDialog** / **historyDialog**. Use the pills to preview idle / generating / done / error.
-
-Cursor can render it beside the chat:
-
-1. **Command Palette** (`Cmd+Shift+P` / `Ctrl+Shift+P`) → **Open Canvas** → **`dts-util-web-humane-layout`**.
-
-2. Or open the IDE canvases path:
-
-   `~/.cursor/projects/Users-coj-alt-sync-src-dts-utils/canvases/dts-util-web-humane-layout.canvas.tsx`
-
-3. **In-repo copy** (diff/review): [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx)
+**FABs** (fixed top-right): Setup (building icon) opens connection/advanced; History (stacked below) opens generation history. **Lightbox** (`#dtsLightbox`) overlays fullscreen when a thumbnail is opened.
 
 ---
 
-## DOM regions → IDs
+## Interaction
 
-| Region | Element IDs / notes |
-|--------|---------------------|
-| Top bar | _(none)_ — product name in `.sr-only` for tests / AT |
-| Floating setup | `#btnOpenSetup` — fixed top-right, opens `#toolsDialog` (building icon) |
-| History | `#btnOpenHistory` — stacked below setup FAB, opens `#historyDialog` |
-| Image stage | `#stage`, `#resultPane`, `resultPlaceholder`, `resultBusy`, `results` |
-| Composer | `#prompt` + `.split-run-gen` (`#generations`, `#btnGen`, **`#btnStop`** replaces Generate while busy) — split stretches to textarea height; `#elapsed` below. Shortcut hint above |
-| Errors | `#err` (`role="alert"`), thin strip above composer |
-| Setup dialog | `#toolsDialog` — `host`, `port`, `noTls`, `trustCert`, `btnCheck`, `statusLine`, `profile`, `profileCustom`, advanced fields, `btnCloseSetup` |
-| History dialog | `#historyDialog` — `#historyList`, row-level Reuse buttons, `#historyStatus`, `#btnClearHistory`, `#btnCloseHistory` |
+| Action | Behavior |
+| --- | --- |
+| **Generate** | **⌘↵** (macOS) or **Ctrl+Enter** from **`#prompt`** |
+| **Stop** | **`#btnStop`** while busy → **`POST /api/generate/cancel`** + abort fetch (between runs only) |
+| **Output mode** | Image vs Video toggle (**`#outputModeImage`** / **`#outputModeVideo`**) — video uses pipeline profiles |
+| **Profile** | Grouped **`#profile`** menu; default **`default`** (image). **`#profileCustom`** overrides when set |
+| **Runs** | **`#generations`** 1–25 (image mode); hidden for single-run video pipelines |
+| **Negative prompt** | Optional **`#neg`** above the main prompt |
+| **Setup** | Host, port, no-TLS, trust loopback, Check listener, shared secret, cert paths, config dir, web log tail hint |
+| **History** | **Reuse** restores prompt, profile, runs, negative prompt when stored; **Clear all** deletes server history files |
+| **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. **Escape** or backdrop closes. **← / →**, side zones, swipe within batch. **F** = Fit vs Fill |
+| **Busy state** | Live preview (**`#generationPreview`**), progress text, request JSON (**`shared_secret`** redacted in **`#busyRequestJson`**) |
+| **Video done** | **`#videoDonePanel`** shows run folder with **Copy path** |
+| **Persistence** | Last mode/profile in **`localStorage`** key **`dts_web_ui_v1`** |
+
+Listener dot on the Setup FAB reflects the last probe (**`#statusComposerListener`** in the composer shows a short summary).
+
+---
+
+## DOM regions
+
+| Region | IDs / notes |
+| --- | --- |
+| **Setup FAB** | **`#btnOpenSetup`** → **`#toolsDialog`** |
+| **History FAB** | **`#btnOpenHistory`** → **`#historyDialog`** |
+| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`**, **`#generationPreview`**, **`#generationPreviewImage`**, **`#videoDonePanel`**, **`#results`**, **`#expandedPromptsNote`** |
+| **Composer** | **`#composerStatus`** (mode, **`#profile`**, **`#statusComposerListener`**), **`#neg`**, **`#prompt`**, **`#generations`**, **`#btnGen`**, **`#btnStop`** (replaces Generate while busy), **`#elapsed`**, **`#composerShortcutHint`** |
+| **Errors** | **`#err`** (`role="alert"`) |
+| **Setup dialog** | **`#host`**, **`#port`**, **`#noTls`**, **`#trustCert`**, **`#btnCheck`**, **`#statusLine`**, **`#profileCustom`**, **`#sharedSecret`**, **`#rootCert`**, **`#forceTrust`**, **`#configDir`**, **`#webLogFilePath`**, **`#btnCloseSetup`** |
+| **History dialog** | **`#historyList`**, per-row Reuse, **`#historyStatus`**, **`#btnClearHistory`**, **`#btnCloseHistory`** |
+| **Lightbox** | **`#dtsLightbox`**, **`#dtsLightboxImg`**, **`#dtsLightboxPrev`**, **`#dtsLightboxNext`**, **`#dtsLightboxClose`**, **`#dtsLightboxCounter`** |
+
+---
 
 ## History storage
 
-History is stored by the web server under `web-history` in the **`dts-utils`** config directory. Set `DTS_WEB_HISTORY_DIR` to override that location. The browser imports legacy `localStorage` entries from `dts_web_gen_history_v1` the first time History opens, then clears that old browser-only key. Server entries include prompt metadata plus PNG filenames exposed through `/history/{item_id}/{filename}`. Reuse restores optional fields only when the current composer values are still clean (`#neg` blank and `#generations` still `1`).
+Server writes PNGs and metadata under **`web-history/`** in the **`dts-utils`** config directory (**`dts-utils configs path`**). Override with **`DTS_WEB_HISTORY_DIR`**.
+
+On first History open, legacy browser-only entries from **`localStorage`** key **`dts_web_gen_history_v1`** import once, then that key is cleared. Files are served at **`/history/{item_id}/{filename}`**.
+
+**Reuse** restores optional fields only when the composer is still “clean” (**`#neg`** empty and **`#generations`** still **`1`**).
 
 ---
 
-## Status copy (listener probe)
+## Listener status copy
 
-| Situation | Line shown |
-|-----------|------------|
+Shown in Setup (**`#statusLine`**) and summarized in the composer (**`#statusComposerListener`**).
+
+| Situation | Copy |
+| --- | --- |
 | In flight | `Checking…` |
 | Token missing | `Unauthorized — set DTS_WEB_TOKEN and reload.` |
 | Reachable | `Listener OK — …` |
 | Not reachable | `Unreachable — …` |
 
-Probe success **does not** guarantee generation succeeds (config, `flatc`, model, TLS).
+A successful probe does not guarantee generation (saved config, **`flatc`**, model, TLS mismatch).
 
 ---
 
-## Related
+## Canvas mock
 
-- Product intent: humane single-screen plan (Raskin-style) — internal planning doc if present on your machine: `.cursor/plans/humane_web_ui_50e7e05c.plan.md`
-- Flags and security: [CLI.md § web](../CLI.md#web-dts-utils-web)
+Interactive preview for layout review: [`design/dts-util-web-humane-layout.canvas.tsx`](design/dts-util-web-humane-layout.canvas.tsx) (same regions as the shipped template). In Cursor: **Command Palette** → **Open Canvas** → **`dts-util-web-humane-layout`**, or open the file under **`design/`** in-repo. State pills preview idle, generating, done, and error.
+
+---
+
+## See also
+
+| Document | Contents |
+| --- | --- |
+| [CLI.md § web](../CLI.md#web-dts-utils-web) | **`dts-utils web`** flags, HTTP API, env vars |
+| [README.md](../README.md) | Quickstart including **`web --open`** |
+| [tests/README.md](../tests/README.md) | Manual web smoke |

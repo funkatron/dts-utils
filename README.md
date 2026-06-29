@@ -5,6 +5,7 @@ A Python CLI for macOS that installs, manages, and talks to the Draw Things `gRP
 This project is alpha (0.x). Expect breaking changes; pin a commit or version if you depend on it.
 
 - **Command reference:** [CLI.md](CLI.md) — table of contents, flags, subcommands, environment variables.
+- **MCP (coding agents):** [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp) — **`dts-utils-mcp`** stdio server for Cursor and similar hosts.
 - **Wire format:** [DRAW-THINGS-GRPC-API.md](DRAW-THINGS-GRPC-API.md) (messages and streaming), [PROTOBUF.md](PROTOBUF.md) (FlatBuffer config and protos).
 - **Documentation map:** [docs/README.md](docs/README.md).
 - **Product docs (Draw Things):** [drawthings.ai/docs](https://drawthings.ai/docs).
@@ -14,7 +15,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 ## Requirements
 
 - Python 3.12+ and [`uv`](https://github.com/astral-sh/uv).
-- macOS only if you use `dts-utils server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, and `dts-utils web` run anywhere Python can reach the server.
+- macOS only if you use `dts-utils server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, `dts-utils web`, and **`dts-utils-mcp`** run anywhere Python can reach the server.
 - [`flatc`](https://github.com/google/flatbuffers) when you pass JSON configuration (conversion uses the bundled `config.fbs`; `dts-utils` checks `PATH` plus common macOS package-manager locations).
 
 ---
@@ -84,6 +85,17 @@ uv run dts-utils web --open
 | Follow web UI logs | `uv run dts-utils web tail` (second terminal; path printed when `web` starts) |
 
 See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
+
+### Coding agents (MCP)
+
+**`dts-utils-mcp`** is a stdio [Model Context Protocol](https://modelcontextprotocol.io/) server for Cursor, Claude Desktop, and similar hosts. Tools call the same Python APIs as **`generate`** and **`web`** (probe server, list configs, generate PNGs, search models, run pipelines).
+
+```bash
+uv sync --extra mcp
+uv run --extra mcp dts-utils-mcp
+```
+
+Cursor config, full tool list, optional macOS lifecycle gate: [CLI.md § MCP](CLI.md#mcp-dts-utils-mcp).
 
 ---
 

@@ -32,7 +32,7 @@ uv run dts-utils <command> [options]
 | --- | --- | --- |
 | Named subcommand | `uv run dts-utils server check` | Most commands use this form. |
 | Prompt-first shorthand | `uv run dts-utils "a quiet street"` | Omits `generate`; see [Generate shorthand](#generate-shorthand-prompt-first). |
-| Separate MCP entrypoint | `uv run dts-utils-mcp` | stdio MCP server; see [MCP](#mcp-dts-utils-mcp). |
+| Separate MCP entrypoint | `uv run --extra mcp dts-utils-mcp` | From a repo checkout without **`uv sync --dev`**; see [MCP](#mcp-dts-utils-mcp). |
 
 **Help:** `uv run dts-utils --help` prints the command tree. Subcommands have their own help, for example `server --help`, `web --help`, and `generate --help`.
 
@@ -429,8 +429,10 @@ stdio Model Context Protocol server for coding agents (Cursor, Claude Desktop). 
 **Install:** `uv sync --extra mcp` or `uv pip install 'dts-utils[mcp]'`. Dev/CI: **`mcp`** is in **`uv sync --dev`**.
 
 ```bash
-uv run dts-utils-mcp
+uv run --extra mcp dts-utils-mcp
 ```
+
+After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.
 
 **Cursor** (`settings` → MCP): use **`uv`** with **`--extra mcp`** so the MCP SDK is available on a clean checkout:
 

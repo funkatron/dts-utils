@@ -46,12 +46,17 @@ def build_grpc_client_options(
             "or disable TLS with no_tls=true for plaintext servers."
         )
 
+    # create_channel rejects root_cert combined with trust_server_cert / force_trust_server_cert.
+    effective_trust_server_cert = trust_server_cert
+    if root_path is not None or force_trust_server_cert:
+        effective_trust_server_cert = False
+
     return GrpcClientOptions(
         host=host,
         port=port,
         no_tls=no_tls,
         root_cert=root_path,
-        trust_server_cert=trust_server_cert,
+        trust_server_cert=effective_trust_server_cert,
         force_trust_server_cert=force_trust_server_cert,
         max_message_mb=max_message_mb,
     )

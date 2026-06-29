@@ -432,7 +432,7 @@ stdio Model Context Protocol server for coding agents (Cursor, Claude Desktop). 
 uv run dts-utils-mcp
 ```
 
-**Cursor** (`settings` → MCP):
+**Cursor** (`settings` → MCP): use **`uv`** with **`--extra mcp`** so the MCP SDK is available on a clean checkout:
 
 ```json
 {
@@ -445,7 +445,7 @@ uv run dts-utils-mcp
 }
 ```
 
-Or **`dts-utils-mcp`** on **`PATH`** after install with **`[mcp]`**.
+Or use **`dts-utils-mcp`** on **`PATH`** after `uv pip install 'dts-utils[mcp]'`.
 
 | Tool | Purpose |
 | --- | --- |

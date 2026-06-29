@@ -11,6 +11,7 @@ Reference for the **`dts-utils`** command-line tool (flags, shorthand, environme
 | Run Apple-first media pipeline steps | [pipeline (`dts-utils pipeline`)](#pipeline-dts-utils-pipeline) |
 | Community models index / bundled fetch recipes | [models (`dts-utils models`)](#models-dts-utils-models) |
 | Use the browser UI or HTTP API | [web (`dts-utils web`)](#web-dts-utils-web) |
+| MCP server for coding agents | [MCP (`dts-utils-mcp`)](#mcp-dts-utils-mcp) |
 | Copy example commands | [Examples](#examples) |
 | Script-friendly env vars | [Environment variables](#environment-variables) |
 
@@ -496,6 +497,40 @@ Configuration when `PROFILE` is omitted:
 | Extra TLS flags | `uv run dts-utils "…" --root-cert ./pem` | Adds your flags after the injected defaults |
 
 Explicit `dts-utils generate` without `--configuration` / `--configuration-json` still fails fast; shorthand is the path that auto-bootstraps `default.json`.
+
+<a id="mcp-dts-utils-mcp"></a>
+
+### MCP (`dts-utils-mcp`)
+
+stdio Model Context Protocol server for coding agents (Cursor, Claude Desktop, etc.). Tools call the same Python APIs as **`generate`** and **`web`** — no separate HTTP server.
+
+**Install:** `uv sync --extra mcp` (or `uv pip install 'dts-utils[mcp]'`). Dev/CI: **`mcp`** is included in **`uv sync --dev`**.
+
+**Run:**
+
+```bash
+uv run dts-utils-mcp
+```
+
+**Cursor** (`settings` → MCP): point **`command`** at **`uv`** with **`args`**: `run`, `--directory`, `/path/to/dts-utils`, `dts-utils-mcp` — or use **`dts-utils-mcp`** on `PATH` after install.
+
+| Tool | Purpose |
+| --- | --- |
+| `dts_server_check` | Probe gRPC listener (`host`, `port`, `no_tls`) |
+| `dts_list_configs` | List saved profile stems |
+| `dts_get_config` | Read one profile JSON |
+| `dts_expand_prompt` | Preview `{a\|b}` wildcards |
+| `dts_generate_image` | Generate PNG(s); paths by default, optional `include_image_data` |
+| `dts_list_installed_models` | Scan Draw Things **`Models`** directory |
+| `dts_models_search` | Search local index from **`models build`** (`data/drawthings_uncurated_models.json`) |
+| `dts_models_doctor` | Partial downloads, orphan sidecars, index mismatches |
+| `dts_pipeline_run` | Run a pipeline profile (e.g. **`prompt-to-video`**); blocks until complete |
+| `dts_pipeline_status` | Read **`heartbeat.json`** / **`pipeline_run.json`** for a run |
+| `dts_generate_cancel` | Cooperative cancel for in-flight generate (between batch iterations) |
+
+**Defaults:** `localhost:7859`, `trust_server_cert=true` on loopback, configuration profile **`default`** (or `DTS_UTILS_DEFAULT_CONFIGURATION`). Errors map to MCP tool failures with readable text (same classes as CLI/web). **`shared_secret`** is never logged.
+
+MCP resources and macOS server lifecycle are not implemented yet.
 
 ---
 

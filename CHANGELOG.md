@@ -46,7 +46,7 @@ Example snippet for the next release:
 
 ### Changed
 
-- **CLI.md / web UI docs:** Restructured CLI reference with **Contents** TOC; **`web`** section tightened. Browser layout contract in **[docs/web-ui-layout.md](docs/web-ui-layout.md)** (TOC, screen map, interaction, DOM table).
+- **docs/mcp-interface-plan.md:** Updated from planning draft to shipped maintainer record (Phases 1–4 complete; links to PRs #13–#16).
 - **MCP:** lifecycle status redacts `--shared-secret` values; plist model-browser sync no longer terminates the MCP process on bad LaunchAgent plists; non-loopback TLS with `root_cert` or `force_trust_server_cert` clears conflicting `trust_server_cert` defaults.
 - **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.
 - **JSON → FlatBuffer:** **`flatc`** resolution checks **`PATH`** first, then common macOS package-manager locations so LaunchAgent-started web sessions can still convert saved JSON profiles.

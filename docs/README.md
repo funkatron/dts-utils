@@ -14,6 +14,8 @@
 | Clean Mac → **`gRPCServerCLI`** + Z Image Turbo (community-models) | [setup-clean-install-z-image-turbo.md](setup-clean-install-z-image-turbo.md) |
 | Install + **`generate`** smoke (SD 1.5‑class, SDXL, Z‑Turbo, LTX‑2.3 distilled) | [smoke-multi-model-demo.md](smoke-multi-model-demo.md) |
 | Subcommands, shorthand, environment variables | [CLI.md](../CLI.md) |
+| **MCP server** (operator setup, tools) | [CLI.md § MCP](../CLI.md#mcp-dts-utils-mcp) |
+| **MCP implementation** (maintainer record, phases) | [mcp-interface-plan.md](mcp-interface-plan.md) |
 | **Web UI layout** (screen map, shortcuts, DOM IDs) | [web-ui-layout.md](web-ui-layout.md) |
 | gRPC messages and streaming | [DRAW-THINGS-GRPC-API.md](../DRAW-THINGS-GRPC-API.md) |
 | Protobuf, FlatBuffers, integration tests, **`GenerateImage`** stream debugging | [PROTOBUF.md](../PROTOBUF.md) |

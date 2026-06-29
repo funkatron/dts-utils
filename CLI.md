@@ -428,8 +428,11 @@ stdio Model Context Protocol server for coding agents (Cursor, Claude Desktop). 
 
 **Install:** `uv sync --extra mcp` or `uv pip install 'dts-utils[mcp]'`. Dev/CI: **`mcp`** is in **`uv sync --dev`**.
 
+**Cursor (repo checkout):** open this project as the workspace — **`.cursor/mcp.json`** invokes **`scripts/run-mcp.sh`** (resolves repo root and **`uv`** automatically).
+
 ```bash
 uv run --extra mcp dts-utils-mcp
+bash scripts/run-mcp.sh
 ```
 
 After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.

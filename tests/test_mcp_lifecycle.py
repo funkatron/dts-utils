@@ -82,6 +82,44 @@ def test_collect_server_status_installed(monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert payload["echo_model_files"] == 3
 
 
+def test_collect_server_status_redacts_shared_secret(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    installer = DTSServerInstaller()
+    installer.AGENTS_DIR = tmp_path
+    plist = tmp_path / f"{installer.SERVICE_NAME}.plist"
+    plist.write_text("plist", encoding="utf-8")
+    monkeypatch.setattr(
+        installer,
+        "read_service_program_arguments",
+        lambda path: [
+            "gRPCServerCLI",
+            "--port",
+            "7859",
+            "--shared-secret",
+            "super-secret",
+        ],
+    )
+    monkeypatch.setattr(
+        installer,
+        "parse_program_argument_flags",
+        lambda args: {
+            "port": 7859,
+            "no_tls": False,
+            "model_browser": False,
+            "shared_secret": "super-secret",
+        },
+    )
+    monkeypatch.setattr("dts_utils.mcp.lifecycle.is_server_running", lambda **kwargs: False)
+
+    payload = collect_server_status_dict(installer)
+    assert payload["program_arguments"] == [
+        "gRPCServerCLI",
+        "--port",
+        "7859",
+        "--shared-secret",
+        "<redacted>",
+    ]
+
+
 def test_server_start_calls_launchctl(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("DTS_MCP_ALLOW_SERVER_LIFECYCLE", "1")
     monkeypatch.setattr("dts_utils.mcp.lifecycle.sys.platform", "darwin")
@@ -116,3 +154,28 @@ def test_server_start_calls_launchctl(monkeypatch: pytest.MonkeyPatch, tmp_path)
 def test_lifecycle_tools_enabled_truthy(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DTS_MCP_ALLOW_SERVER_LIFECYCLE", "yes")
     assert lifecycle_tools_enabled()
+
+
+def test_server_restart_surfaces_bad_plist_as_tool_error(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
+    monkeypatch.setenv("DTS_MCP_ALLOW_SERVER_LIFECYCLE", "1")
+    monkeypatch.setattr("dts_utils.mcp.lifecycle.sys.platform", "darwin")
+    server = create_mcp_server()
+    installer = DTSServerInstaller()
+    installer.AGENTS_DIR = tmp_path
+    plist = tmp_path / f"{installer.SERVICE_NAME}.plist"
+    plist.write_text("x", encoding="utf-8")
+
+    def raise_exit(*args, **kwargs):
+        raise SystemExit(1)
+
+    monkeypatch.setattr(
+        "dts_utils.mcp.lifecycle._installer",
+        lambda: installer,
+    )
+    monkeypatch.setattr(installer, "enable_model_browser_for_service", raise_exit)
+
+    with pytest.raises(ToolError, match="model browser"):
+        asyncio.run(server.call_tool("dts_server_restart", {}))

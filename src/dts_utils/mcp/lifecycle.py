@@ -22,6 +22,40 @@ def _installer() -> DTSServerInstaller:
     return DTSServerInstaller()
 
 
+def _redact_program_arguments(program_args: list[str]) -> list[str]:
+    """Return a copy of LaunchAgent argv with shared-secret values redacted."""
+    redacted: list[str] = []
+    skip_next = False
+    for arg in program_args:
+        if skip_next:
+            redacted.append("<redacted>")
+            skip_next = False
+            continue
+        redacted.append(arg)
+        if arg in ("--shared-secret", "-s"):
+            skip_next = True
+    return redacted
+
+
+def _sync_model_browser_plist(
+    installer: DTSServerInstaller,
+    service_path,
+    *,
+    enable: bool,
+) -> bool:
+    """Enable or disable model browser in the plist without terminating the MCP process."""
+    try:
+        if enable:
+            return installer.enable_model_browser_for_service(service_path)
+        return installer.disable_model_browser_for_service(service_path)
+    except SystemExit as exc:
+        code = exc.code if isinstance(exc.code, int) else 1
+        action = "enable" if enable else "disable"
+        raise ConfigurationError(
+            f"Failed to {action} model browser in LaunchAgent plist (exit {code})."
+        ) from exc
+
+
 def collect_server_status_dict(installer: DTSServerInstaller) -> dict[str, Any]:
     service_path = installer.AGENTS_DIR / f"{installer.SERVICE_NAME}.plist"
     program_args = installer.read_service_program_arguments(service_path)
@@ -52,7 +86,7 @@ def collect_server_status_dict(installer: DTSServerInstaller) -> dict[str, Any]:
     return {
         "installed": True,
         "plist": str(service_path),
-        "program_arguments": list(program_args),
+        "program_arguments": _redact_program_arguments(program_args),
         "port": port,
         "no_tls": no_tls,
         "model_browser": model_browser,
@@ -110,10 +144,11 @@ def tool_server_restart(ensure_model_browser: bool = True) -> dict[str, Any]:
         if not service_path.exists():
             raise ConfigurationError(f"LaunchAgent not installed ({service_path}).")
 
-        if ensure_model_browser:
-            plist_changed = installer.enable_model_browser_for_service(service_path)
-        else:
-            plist_changed = installer.disable_model_browser_for_service(service_path)
+        plist_changed = _sync_model_browser_plist(
+            installer,
+            service_path,
+            enable=ensure_model_browser,
+        )
 
         if plist_changed:
             installer._launchctl_stop_job(service_path)

@@ -4,7 +4,8 @@
       "command": "bash",
       "args": ["scripts/run-mcp.sh"],
       "env": {
-        "DTS_UTILS_DEFAULT_CONFIGURATION": "default"
+        "DTS_UTILS_DEFAULT_CONFIGURATION": "default",
+        "DTS_MCP_ALLOW_SERVER_LIFECYCLE": "0"
       }
     }
   }

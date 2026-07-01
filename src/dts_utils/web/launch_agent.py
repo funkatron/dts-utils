@@ -15,6 +15,7 @@ import urllib.request
 from pathlib import Path
 
 from dts_utils.cli_prog import cli_command_name
+from dts_utils.web.defaults import DEFAULT_WEB_PORT
 from dts_utils.web.log_io import default_web_log_path, resolve_web_log_path
 
 WEB_LIFECYCLE_SUBCOMMANDS = frozenset({"install", "uninstall", "start", "stop", "restart", "status"})
@@ -24,7 +25,7 @@ class DTSWebLaunchAgent:
     """Install and manage a user LaunchAgent that runs ``dts-utils web``."""
 
     SERVICE_NAME = "com.dts-utils.web"
-    DEFAULT_PORT = 8765
+    DEFAULT_PORT = DEFAULT_WEB_PORT
     DEFAULT_BIND = "127.0.0.1"
 
     def __init__(self, *, agents_dir: Path | None = None) -> None:

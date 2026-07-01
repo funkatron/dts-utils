@@ -19,6 +19,7 @@ from dts_utils.pipeline.generate_dispatch import generate_uses_pipeline_profile
 from dts_utils.grpc.reflect import main as reflect_main
 from dts_utils.pipeline.cli import main as pipeline_main
 from dts_utils.web.cli import main as web_main
+from dts_utils.web.defaults import DEFAULT_WEB_PORT
 from dts_utils.installer.server_installer import DTSServerInstaller
 from dts_utils.tls_export import main as tls_main
 
@@ -48,7 +49,7 @@ Commands:
     prompt shorthand   Generate from a quoted prompt; uses --trust-server-cert --open.
     generate           Send image or pipeline generation requests to gRPCServerCLI.
     server             Manage the Draw Things gRPC server LaunchAgent on port 7859.
-    web                Run or manage the local web UI on port 8765.
+    web                Run or manage the local web UI on port {DEFAULT_WEB_PORT}.
     configs            Manage saved Draw Things JSON generation profiles.
     reflect            Inspect gRPC reflection metadata.
     tls                Export or print the pinned server TLS certificate path.

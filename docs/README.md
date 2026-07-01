@@ -19,6 +19,7 @@
 | **MCP server** (operator setup, flags) | [CLI.md § MCP](../CLI.md#mcp-dts-utils-mcp) |
 | **MCP implementation** (maintainer record, phases) | [mcp-interface-plan.md](mcp-interface-plan.md) |
 | **Web UI layout** (screen map, shortcuts, DOM IDs) | [web-ui-layout.md](web-ui-layout.md) |
+| **Web HTTP API** (routes, SSE, agent workflows) | [web-api.md](web-api.md) |
 | gRPC messages and streaming | [DRAW-THINGS-GRPC-API.md](../DRAW-THINGS-GRPC-API.md) |
 | Protobuf, FlatBuffers, integration tests, **`GenerateImage`** stream debugging | [PROTOBUF.md](../PROTOBUF.md) |
 | Apple-first pipeline runtime notes (`dts_utils.pipeline`) | [apple-infomux-pipeline-ops.md](apple-infomux-pipeline-ops.md) |
@@ -36,7 +37,7 @@
 | Implicit profile | Shorthand (`dts-utils "…"`) uses `default` / `default.json` when you omit a second positional profile and leave `DTS_UTILS_DEFAULT_CONFIGURATION` unset. First run may create that file (or rename legacy `zit.json`) and print a hint if it could not infer `model`. |
 | TLS | Default installs use TLS. Clients use `--trust-server-cert` (shorthand adds it) unless you pinned a PEM with `--root-cert`. If the server was installed with `--no-tls`, use `--no-tls` on clients and `server check --no-tls` / `server test --no-tls`. |
 | Reflection | `reflect` may return `UNIMPLEMENTED` while `generate` still works; see README troubleshooting. |
-| Web UI | Loopback **`dts-utils web`**; optional **`DTS_WEB_TOKEN`**. Layout and shortcuts: [web-ui-layout.md](web-ui-layout.md). Flags and HTTP API: [CLI.md § web](../CLI.md#web-dts-utils-web). Logs: **`~/.config/dts-utils/web.log`** — **`dts-utils web tail`** or **`GET /api/health`**. |
+| Web UI | Loopback **`dts-utils web`**; optional **`DTS_WEB_TOKEN`**. Layout: [web-ui-layout.md](web-ui-layout.md). **HTTP API reference:** [web-api.md](web-api.md). CLI flags: [CLI.md § web](../CLI.md#web-dts-utils-web). Logs: **`~/.config/dts-utils/web.log`** — **`dts-utils web tail`** or **`GET /api/health`**. |
 | Server / web logs | macOS: `dts-utils server tail` (`gRPCServerCLI` via Unified Logging). Any platform: `dts-utils web tail` (file written by `dts-utils web`). |
 | Pipeline disk usage | Use `dts-utils pipeline cleanup` with `--older-than`, `--keep-last`, or `--max-run-root-gb`; see [apple-infomux-pipeline-ops.md](apple-infomux-pipeline-ops.md). |
 | Stability | 0.x: expect breaking changes; pin a version or commit when depending on this repo ([README.md](../README.md)). |

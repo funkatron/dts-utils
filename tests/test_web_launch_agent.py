@@ -40,7 +40,7 @@ def test_build_program_arguments_defaults(tmp_path: Path) -> None:
         "--bind",
         "127.0.0.1",
         "--port",
-        "8765",
+        "1975",
         "--log-level",
         "info",
     ]
@@ -55,7 +55,7 @@ def test_web_help_documents_foreground_tail_and_launch_agent(monkeypatch: pytest
     assert "dts-utils web install --yes" in out
     assert "dts-utils web start" in out
     assert "dts-utils web uninstall" in out
-    assert "http://127.0.0.1:8765/" in out
+    assert "http://127.0.0.1:1975/" in out
 
 
 def test_web_install_help_explains_service_options() -> None:

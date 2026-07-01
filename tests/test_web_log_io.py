@@ -86,7 +86,7 @@ def test_run_web_server_uses_log_config(monkeypatch: pytest.MonkeyPatch, tmp_pat
 
     monkeypatch.setattr(web_cli.uvicorn, "Config", fake_config)
     monkeypatch.setattr(web_cli.uvicorn, "Server", lambda _c: FakeServer())
-    code = web_cli.run_web_server(["--port", "8765"])
+    code = web_cli.run_web_server(["--port", "1975"])
     assert code == 0
     log_config = captured["log_config"]
     assert isinstance(log_config, dict)

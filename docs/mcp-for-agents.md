@@ -183,7 +183,7 @@ Copy or adapt these in Agent chat (ensure MCP **`dts-utils`** is connected):
 | gRPC reflection | Terminal: **`dts-utils reflect`** |
 | Mid-RPC cancel | Cancel applies **between** batch runs only |
 | Non-macOS lifecycle | Lifecycle tools error; **`generate`** still works if server is reachable |
-| Remote MCP over HTTP | v1 is **stdio** only |
+| Remote MCP over HTTP | v1 is **stdio** only; remote agents can use **[web-api.md](web-api.md)** (REST + SSE) today |
 
 Errors return readable tool failures (configuration, TLS, missing **`flatc`**, RPC errors) — agents should surface **`detail`** text to the user.
 

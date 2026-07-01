@@ -84,7 +84,7 @@ uv run dts-utils web --open
 | Run the browser UI | `uv run dts-utils web` (add `--open` to launch the browser) |
 | Follow web UI logs | `uv run dts-utils web tail` (second terminal; path printed when `web` starts) |
 
-See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`, and API shape.
+See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`, and API shape. **Full HTTP API reference:** [docs/web-api.md](docs/web-api.md).
 
 ### Coding agents (MCP)
 

@@ -14,6 +14,7 @@ from uvicorn.config import LOG_LEVELS
 
 from dts_utils.cli_prog import cli_command_name
 from dts_utils.web.app import create_app
+from dts_utils.web.defaults import DEFAULT_WEB_PORT
 from dts_utils.web.log_io import (
     build_uvicorn_log_config,
     default_web_log_path,
@@ -36,7 +37,7 @@ Usage:
 Run a loopback web UI for Draw Things image generation.
 
 Modes:
-    {prog} web                  Run the web UI in the foreground (default: http://127.0.0.1:8765/).
+    {prog} web                  Run the web UI in the foreground (default: http://127.0.0.1:{DEFAULT_WEB_PORT}/).
     {prog} web --open           Run in the foreground and open a browser.
     {prog} web tail             Follow the web UI log file.
     {prog} web install --yes    Install or update the macOS LaunchAgent.
@@ -48,7 +49,7 @@ Modes:
 
 Serve options:
     --bind ADDR        Bind address (default: 127.0.0.1). Use DTS_WEB_TOKEN when not loopback-only.
-    --port N           HTTP port (default: 8765).
+    --port N           HTTP port (default: {DEFAULT_WEB_PORT}).
     --log-level LEVEL  Uvicorn log level.
     --no-access-log    Disable HTTP access logs.
     --log-file PATH    Append uvicorn logs to PATH.
@@ -72,7 +73,13 @@ def _serve_parser(prog_root: str) -> argparse.ArgumentParser:
         metavar="ADDR",
         help="Bind address (default: 127.0.0.1). Use DTS_WEB_TOKEN when not loopback-only.",
     )
-    parser.add_argument("--port", type=int, default=8765, metavar="N", help="HTTP port (default: 8765).")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=DEFAULT_WEB_PORT,
+        metavar="N",
+        help=f"HTTP port (default: {DEFAULT_WEB_PORT}).",
+    )
     parser.add_argument(
         "--log-level",
         default="info",

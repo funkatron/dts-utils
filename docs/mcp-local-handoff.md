@@ -121,6 +121,7 @@ Then **`dts_server_status`**, **`dts_server_start`**, etc. appear. **`install` /
 
 | Problem | Fix |
 | --- | --- |
+| **`scripts/run-mcp.sh: No such file or directory`** | Global **`~/.cursor/mcp.json`** used a relative path; remove **`dts-utils`** there or use an absolute path to **`scripts/run-mcp.sh`**. Prefer project **`.cursor/mcp.json`** with this repo as the workspace. |
 | MCP red in Cursor | **Output → MCP** log; run **`bash scripts/run-mcp.sh`** in Terminal |
 | **`running: false`** | **`server check`** / **`server start`** |
 | **`flatc` / configuration error** | Install flatc; fix **`model`** in profile JSON |

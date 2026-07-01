@@ -46,7 +46,8 @@ Example snippet for the next release:
 
 ### Changed
 
-- **MCP (local Cursor):** committed **`.cursor/mcp.json`** + **`scripts/run-mcp.sh`** so opening the repo as a workspace avoids hand-edited paths in **`~/.cursor/mcp.json`**.
+- **`dts-utils web`:** default HTTP port **8765 → 1975** (`src/dts_utils/web/defaults.py`). Override with **`--port`** or reinstall LaunchAgent if you relied on the old default.
+- **MCP (planned HTTP):** default listener port **1976** (`DEFAULT_MCP_HTTP_PORT` in `mcp/env.py`; Phase 5 not shipped yet).
 - **docs/mcp-interface-plan.md:** Updated from planning draft to shipped maintainer record (Phases 1–4 complete; links to PRs #13–#16).
 - **MCP:** lifecycle status redacts `--shared-secret` values; plist model-browser sync no longer terminates the MCP process on bad LaunchAgent plists; non-loopback TLS with `root_cert` or `force_trust_server_cert` clears conflicting `trust_server_cert` defaults.
 - **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.

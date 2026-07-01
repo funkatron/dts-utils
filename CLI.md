@@ -363,13 +363,13 @@ uv run dts-utils web tail [-n N] [--file PATH] [--no-follow]
 
 | Topic | Detail |
 | --- | --- |
-| **Serve** | Default bind **`127.0.0.1`**, port **8765**, uvicorn log level **`info`**. Log file **`~/.config/dts-utils/web.log`** (**`--log-file`**, **`DTS_WEB_LOG_FILE`**, **`--no-log-file`**). |
+| **Serve** | Default bind **`127.0.0.1`**, port **1975**, uvicorn log level **`info`**. Log file **`~/.config/dts-utils/web.log`** (**`--log-file`**, **`DTS_WEB_LOG_FILE`**, **`--no-log-file`**). |
 | **`web tail`** | Print **50** recent lines then follow ( **`-n`**, **`--file`**, **`--no-follow`** ). **Ctrl+C** → exit **0**. |
 | **LaunchAgent** | macOS only: **`install`** writes **`~/Library/LaunchAgents/com.dts-utils.web.plist`** (**`RunAtLoad`**, **`KeepAlive`**); **`status`** probes listener + **`GET /api/health`**. Else run in a terminal or use your own service unit. |
 | **Auth** | **`DTS_WEB_TOKEN`** → **`Authorization: Bearer …`** on **`/api/*`** except **`GET /api/health`**. Wide bind without token → stderr warning. |
 | **Limits** | **`DTS_WEB_GENERATE_TIMEOUT`** (default **900** s) caps **`POST /api/generate`** and **`/api/generate/stream`** between batch runs (not mid-RPC). SSE: up to **64** buffered events (backpressure on slow clients). |
 
-**HTTP API** — JSON body; keys mirror CLI concepts (**`prompt`**, **`negative_prompt`**, **`generations`** 1–25, **`configuration`** or **`profile`**, **`host`**, **`port`**, **`no_tls`**, **`trust_server_cert`**, **`force_trust_server_cert`**, **`root_cert`**, **`shared_secret`**, **`config_dir`**). Errors: **`{"detail":"…"}`**.
+**HTTP API** — JSON body; keys mirror CLI concepts (**`prompt`**, **`negative_prompt`**, **`generations`** 1–25, **`configuration`** or **`profile`**, **`host`**, **`port`**, **`no_tls`**, **`trust_server_cert`**, **`force_trust_server_cert`**, **`root_cert`**, **`shared_secret`**, **`config_dir`**). Errors: **`{"detail":"…"}`**. **Full route reference (SSE events, agent workflow, examples):** [docs/web-api.md](docs/web-api.md).
 
 | Route | Purpose |
 | --- | --- |
@@ -475,7 +475,7 @@ Or use **`dts-utils-mcp`** on **`PATH`** after `uv pip install 'dts-utils[mcp]'`
 | `dts_server_stop` | Boot out job |
 | `dts_server_restart` | Restart job (**`ensure_model_browser`** default true) |
 
-**Defaults:** **`localhost:7859`**, **`trust_server_cert=true`** on loopback, profile **`default`**. Errors map to readable tool failures. **`shared_secret`** never logged. **`server install` / `uninstall` not exposed** via MCP.
+**Defaults:** **`localhost:7859`**, **`trust_server_cert=true`** on loopback, profile **`default`**. **Planned HTTP `serve`:** loopback **`127.0.0.1:1976/mcp`**, auth **`DTS_MCP_TOKEN`** (Phase 5; web UI default port **1975**). Errors map to readable tool failures. **`shared_secret`** never logged. **`server install` / `uninstall` not exposed** via MCP.
 
 | Resource URI | Content |
 | --- | --- |
@@ -496,6 +496,7 @@ Path traversal (`..`) rejected for all resource URIs.
 | `DTS_UTILS_DEFAULT_MODEL` | Basename for **`model`** when creating **`default.json`** first time. |
 | `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` | Omit **`--profile`** on **`generate`** when set to a pipeline profile name. |
 | `DTS_WEB_TOKEN` | Bearer auth on **`/api/*`** except **`GET /api/health`**. |
+| `DTS_MCP_TOKEN` | Planned bearer auth for MCP Streamable HTTP on port **1976** (Phase 5). |
 | `DTS_WEB_LOG_FILE` | Web log path (**`web`** and **`web tail`**). |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web generate endpoints. |
 | `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Default **`models fetch`** recipe when **`RECIPE_ID`** omitted. |

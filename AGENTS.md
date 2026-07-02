@@ -30,7 +30,7 @@ Console entrypoint: [`dts_utils.cli_router:main`](src/dts_utils/cli_router.py). 
 
 | Subcommand | Implementation |
 | --- | --- |
-| `server …` | [`installer/server_installer.py`](src/dts_utils/installer/server_installer.py) (`install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`, `tail`) |
+| `server …` | [`installer/server_installer.py`](src/dts_utils/installer/server_installer.py) (`install`, `uninstall`, `start`, `stop`, `restart`, `test`, `check`, `list-models`, `tail`) |
 | `generate` | [`generate.py`](src/dts_utils/generate.py) |
 | Prompt-first shorthand (`dts-utils "…"`) | Same as `generate` after argv rewrite in `cli_router` |
 | `configs` | [`configs.py`](src/dts_utils/configs.py) |
@@ -70,6 +70,7 @@ Use **lowercase kebab-case** stems (letters, digits, hyphens; optional dots for 
 
 - **`reflect` and `UNIMPLEMENTED`:** Draw Things `gRPCServerCLI` often does not expose gRPC reflection. That is expected; image generation can still work. README troubleshooting covers this.
 - **`server check` / `server test`:** Probes try TLS against loopback (trust server-presented cert), then plaintext. Installs with `--no-tls` need **`server check --no-tls`** (or `server test --no-tls`).
+- **`server list-models` vs `models installed`:** **`server list-models`** = live gRPC **`Echo`** catalog from **`gRPCServerCLI`** (needs **`--model-browser`**). **`models installed`** = filesystem scan of the Models dir; no server required. Do not conflate them in docs or scripts.
 - **`server tail` / `web tail`:** **`server tail`** wraps macOS **`log show`** + **`log stream`** for **`gRPCServerCLI`**. **`web tail`** follows **`~/.config/dts-utils/web.log`** ( **`dts-utils web`** appends there by default; path also on **stdout** at web startup and in **`GET /api/health`**).
 - **Shorthand:** `dts-utils "prompt"` implies `--trust-server-cert` and `--open` for local happy paths; explicit `generate` still requires `--configuration` when not using shorthand.
 

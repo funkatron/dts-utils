@@ -24,7 +24,7 @@ from dts_utils.installer.server_installer import DTSServerInstaller
 from dts_utils.tls_export import main as tls_main
 
 SERVER_LIFECYCLE_SUBCOMMANDS = frozenset(
-    {"install", "uninstall", "start", "stop", "restart", "test", "check", "status", "tail"}
+    {"install", "uninstall", "start", "stop", "restart", "test", "check", "status", "tail", "list-models"}
 )
 
 HELP_FLAGS = frozenset({"-h", "--help"})
@@ -36,7 +36,7 @@ def top_level_help_text() -> str:
 Usage:
     {p} "PROMPT" [PROFILE] [generate options]
     {p} generate --prompt PROMPT [options]
-    {p} server <install|start|stop|restart|check|status|tail> [...]
+    {p} server <install|start|stop|restart|check|status|list-models|tail> [...]
     {p} web [serve options]
     {p} web <install|start|stop|restart|status|uninstall|tail> [...]
     {p} configs <path|list|scaffold-from-metadata|scaffold-pipeline|import-draw-things> [...]
@@ -80,6 +80,7 @@ Lifecycle commands require the ``server`` prefix so they stay distinct from clie
     {p} server restart [--no-model-browser]
     {p} server test|check [--port PORT]    Probe localhost listener (check = alias for test)
     {p} server status                      Show LaunchAgent flags and model-browser state
+    {p} server list-models [--json]        List server catalog via gRPC Echo RPC
     {p} server tail [--last DURATION]      Follow gRPCServerCLI logs (macOS Unified Logging)
 """.strip()
 
@@ -197,6 +198,10 @@ def main() -> None:
     if should_show_top_level_help(argv):
         print(top_level_help_text())
         sys.exit(0)
+    if len(argv) >= 3 and argv[1] == "server" and argv[2] == "list-models":
+        from dts_utils.grpc.server_catalog import main as server_catalog_main
+
+        sys.exit(server_catalog_main(argv[3:]))
     code = prepare_argv_for_installer_dispatch(argv)
     if code is not None:
         sys.exit(code)

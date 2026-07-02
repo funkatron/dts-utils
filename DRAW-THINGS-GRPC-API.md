@@ -118,7 +118,10 @@ uv run dts-utils server start
 uv run dts-utils server restart
 uv run dts-utils server restart --no-model-browser
 uv run dts-utils server test
+uv run dts-utils server models
 ```
+
+With **`--model-browser`**, **`Echo`** returns checkpoint / LoRA / VAE basenames in **`EchoReply.files`** plus optional **`MetadataOverride`** blobs. **`dts-utils server models`** wraps that RPC. It is not the same as **`dts-utils models installed`**, which scans the Models directory on disk — see [CLI.md § Listing local weights](CLI.md#listing-local-weights-server-models-vs-models-installed).
 
 For command details, see [CLI.md](CLI.md). For install, shorthand, and configuration files, see [README.md](README.md).
 

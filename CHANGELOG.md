@@ -43,6 +43,7 @@ Example snippet for the next release:
 
 - **docs/mcp-for-agents.md:** MCP guide for coding agents — setup, tool flow, resources, use cases, example user prompts, limits.
 - **Web UI (`/api/generate/stream`):** SSE **`preview`** events stream decodable **`previewImage`** frames during generation; the stage shows a live preview panel and promotes preview-only runs when the server never sends a final **`image`** event.
+- **`dts-utils server models`:** List checkpoint / LoRA / VAE basenames the running **`gRPCServerCLI`** exposes via the upstream **`Echo`** RPC (requires **`--model-browser`** on the server for a non-empty catalog). Supports **`--json`**, **`--category`**, **`--limit`**, and the usual TLS flags.
 
 ### Changed
 

@@ -174,6 +174,7 @@ Commands assume the LaunchAgent layout and use local probes (`pgrep` / `lsof`). 
 | Custom port, secret, or models path | `uv run dts-utils server install --port 7860 --shared-secret "…" --model-path /path/to/models` |
 | Enable model browsing on an existing install | `uv run dts-utils server restart` (default) or `server install -y` |
 | Disable model browsing | `uv run dts-utils server install --no-model-browser -y` or `server restart --no-model-browser` |
+| List files the server exposes (model browser) | `uv run dts-utils server models` |
 | Stop / start without removing install | `uv run dts-utils server stop` · `uv run dts-utils server start` |
 | Restart or fully remove | `uv run dts-utils server restart` · `uv run dts-utils server uninstall` |
 
@@ -219,12 +220,26 @@ uv run dts-utils reflect --host gpu.local --root-cert ./gpu.pem --json
 
 ---
 
+## Listing local weights
+
+Two commands answer different questions:
+
+| Goal | Command |
+| --- | --- |
+| What the **running server** advertises (gRPC catalog) | `uv run dts-utils server models` |
+| What **files exist on disk** in the Models folder | `uv run dts-utils models installed` |
+
+`server models` calls the upstream **`Echo`** RPC (enable **`--model-browser`** on the server for a non-empty list). `models installed` scans the filesystem and does not need a running server. File counts can differ — see [CLI.md § Listing local weights](CLI.md#listing-local-weights-server-models-vs-models-installed).
+
+---
+
 ## Model inspector (in flux)
 
 Local index over public Draw Things community-model metadata. No `GenerateImage` server required.
 
 ```bash
 uv run dts-utils models build              # clone/update metadata, build local tables
+uv run dts-utils models installed          # list .ckpt files on disk (not the gRPC catalog)
 uv run dts-utils models fetch --dry-run    # bundled recipe plan (roadmap: docs/models-fetch-roadmap.md)
 uv run dts-utils models search flux
 uv run dts-utils models search sdxl anime

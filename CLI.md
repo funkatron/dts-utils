@@ -229,6 +229,58 @@ uv run dts-utils server check [--port PORT]
 
 On loopback, default probe tries TLS with server-presented cert first, then plaintext. **`check`** is a synonym for **`test`**.
 
+#### models
+
+Lists model files the running Draw Things server exposes through the upstream **`Echo`** RPC. When the LaunchAgent was installed with **`--model-browser`** (default since 0.5.2), the reply includes checkpoint / LoRA / VAE basenames plus FlatBuffer metadata override blobs.
+
+See [Listing local weights](#listing-local-weights-server-models-vs-models-installed) for how this differs from **`dts-utils models installed`**.
+
+```bash
+uv run dts-utils server models
+uv run dts-utils server models --category model
+uv run dts-utils server models --json
+uv run dts-utils server models --host gpu.local --root-cert ./gpu.pem
+```
+
+| Option | Purpose |
+| --- | --- |
+| `--host HOST` | gRPC server host (default: **`localhost`**) |
+| `--port PORT` | gRPC server port (default: **7859**) |
+| `--timeout SECONDS` | RPC timeout (default: **10**) |
+| `--json` | Machine-readable JSON (`files`, `files_by_category`, `override_bytes`) |
+| `--category CATEGORY` | Filter: **`model`**, **`lora`**, **`vae`**, **`encoder`**, **`controlnet`**, **`textual-inversion`**, **`config`**, **`partial`**, **`other`** |
+| `--limit N` | Show at most **`N`** files (**`0`** = all, default) |
+| `--no-tls` | Plaintext gRPC when the server runs with **`--no-tls`** |
+| `--trust-server-cert` | Trust presented cert on localhost/loopback |
+| `--root-cert PATH` | Pinned PEM for remote/LAN servers |
+| `--force-trust-server-cert` | Trust any presented cert (MITM risk) |
+| `-s`, `--shared-secret SECRET` | When the server requires authentication |
+
+If the catalog is empty, restart with model browsing enabled: **`dts-utils server restart`**.
+
+<a id="listing-local-weights-server-models-vs-models-installed"></a>
+
+##### Listing local weights: `server models` vs `models installed`
+
+Two commands sound similar but answer different questions:
+
+| Question | Command | How it works |
+| --- | --- | --- |
+| What does the **running server** advertise? | `dts-utils server models` | gRPC **`Echo`** on a live **`gRPCServerCLI`** (needs **`--model-browser`** on the server for a non-empty catalog). Works for remote hosts with **`--host`** / **`--root-cert`**. |
+| What **files are on disk** in the Models folder? | `dts-utils models installed` | Scans the model directory (default: Draw Things **`Models`** container path, or **`DRAW_THINGS_MODEL_PATH`** / **`--model-dir`**). No server required; can match filenames against the community index from **`models build`**. |
+
+**When to use which**
+
+- **`server models`** — confirm the server sees the same basenames your saved JSON profiles reference; debug “wrong model” / empty catalog after install; query a remote **`gRPCServerCLI`**.
+- **`models installed`** — inventory disk usage, find **`.part`** stubs, or compare local files to **`models status`** / **`models build`** metadata without starting generation.
+
+Counts can differ: disk scans include config JSON, partial downloads, and tensor sidecars; **`Echo`** returns what the server loaded into its catalog (often fewer rows, grouped by what **`--model-browser`** exposes).
+
+```bash
+uv run dts-utils server models --category model
+uv run dts-utils models installed --limit 50
+```
+
 #### tail
 
 Recent **`gRPCServerCLI`** unified logs, then live follow (macOS only; **`log show`** + **`log stream`**).
@@ -297,6 +349,8 @@ uv run dts-utils models installed --no-index --json
 | **`--from-metadata PATH`** | Expected basenames from one **`metadata.json`**. **`--manifest`**: basename + SHA on stdout; URL hints once on stderr. **`--manifest-wide`**: legacy four-column rows. |
 
 Recipes allow **`https://`** only (TLS always on). **`type`: `huggingface`** needs **`huggingface_hub`** (**`uv sync --extra download`**); **`HF_TOKEN`** passed when set. Bundled recipes under **`dts_utils/model_fetch/recipe_files/`**. Roadmap: **[docs/models-fetch-roadmap.md](docs/models-fetch-roadmap.md)**.
+
+**`installed`**, **`status`**, and **`doctor`** read the model directory on disk (same default path as **`server install -m`**). They do **not** call the gRPC server. For the live server catalog, use **`dts-utils server models`** — see [Listing local weights](#listing-local-weights-server-models-vs-models-installed).
 
 Smoke recipes: **`sdxl-turbo`**, **`z-image-turbo-1.0-exact`**, **`ltx-2.3-22b-distilled-exact`**.
 

@@ -70,6 +70,7 @@ Usage:
     dts-utils server stop
     dts-utils server restart [--no-model-browser]
     dts-utils server test|check [--port PORT]
+    dts-utils server models [--json] [--category CATEGORY]
     dts-utils server tail [--last DURATION]
     dts-utils generate --prompt PROMPT --configuration CONFIG [...]
     dts-utils \"PROMPT\" [PROFILE] [...]   Shorthand: same as generate with --trust-server-cert --open; PROFILE optional — missing default.json is auto-created (legacy zit.json renamed if present; model guessed from Draw Things Models dir) and $DTS_UTILS_DEFAULT_CONFIGURATION is set
@@ -92,6 +93,7 @@ Commands:
     server stop           Boot job out of ``launchd`` (plist remains)
     server restart        Stop then start (optional ``--no-model-browser`` to disable browsing)
     server test|check     Probe localhost listener; ``check`` aliases ``test``
+    server models         List model files exposed by the server (``Echo`` RPC / model browser)
     server tail           Follow ``gRPCServerCLI`` logs via macOS ``log show`` + ``log stream``
     generate …            Client RPC: image generation (see upstream ``GenerateImage``)
     reflect …             Client RPC: reflection

@@ -1,4 +1,4 @@
-"""Tests for ``dts-utils server models`` (gRPC Echo catalog)."""
+"""Tests for ``dts-utils server list-models`` (gRPC Echo catalog)."""
 
 from __future__ import annotations
 
@@ -126,8 +126,8 @@ def test_list_server_catalog_grpc_error_exits_1(capsys: pytest.CaptureFixture[st
     assert "UNAVAILABLE" in capsys.readouterr().err
 
 
-def test_server_models_command_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr("sys.argv", ["dts-utils", "server", "models", "--json"])
+def test_server_list_models_command_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("sys.argv", ["dts-utils", "server", "list-models", "--json"])
 
     with patch("dts_utils.grpc.server_catalog.main", return_value=0) as mock_main:
         from dts_utils.cli_router import main

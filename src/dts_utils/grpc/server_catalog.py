@@ -166,7 +166,7 @@ def _resolve_trust_flags(
 
 
 def list_server_catalog(args: argparse.Namespace) -> int:
-    """CLI handler for ``dts-utils server models``."""
+    """CLI handler for ``dts-utils server list-models``."""
     trust_server_cert, force_trust_server_cert = _resolve_trust_flags(
         host=args.host,
         insecure=args.no_tls,
@@ -224,13 +224,15 @@ def list_server_catalog(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="List model files exposed by the Draw Things gRPC server (Echo RPC).",
+        description=(
+            "List model files the running gRPCServerCLI advertises via the ImageGenerationService Echo RPC."
+        ),
         epilog=(
             "Examples:\n"
-            "  dts-utils server models\n"
-            "  dts-utils server models --category model --limit 20\n"
-            "  dts-utils server models --json\n"
-            "  dts-utils server models --host gpu.local --root-cert ./gpu.pem"
+            "  dts-utils server list-models\n"
+            "  dts-utils server list-models --category model --limit 20\n"
+            "  dts-utils server list-models --json\n"
+            "  dts-utils server list-models --host gpu.local --root-cert ./gpu.pem"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

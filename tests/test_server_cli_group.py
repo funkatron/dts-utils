@@ -33,7 +33,7 @@ def test_top_level_help_documents_command_tree(monkeypatch):
     text = top_level_help_text()
     assert 'dts-utils "PROMPT" [PROFILE]' in text
     assert "dts-utils generate --prompt PROMPT" in text
-    assert "dts-utils server <install|start|stop|restart|check|status|tail>" in text
+    assert "dts-utils server <install|start|stop|restart|check|status|list-models|tail>" in text
     assert "dts-utils web <install|start|stop|restart|status|uninstall|tail>" in text
     assert "dts-utils configs" in text
     assert "dts-utils models" in text
@@ -106,3 +106,4 @@ def test_server_help_text_documents_prefix():
     assert "check" in text
     assert "server tail" in text
     assert "server status" in text
+    assert "server list-models" in text

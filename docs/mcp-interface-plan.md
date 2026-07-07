@@ -2,7 +2,7 @@
 
 Maintainer record for the stdio MCP server (**`dts-utils-mcp`**). Operator setup, tool list, and Cursor config: [CLI.md § MCP](../CLI.md#mcp-dts-utils-mcp).
 
-**Status:** Shipped (Phases 1–4). Merged in PRs [#13](https://github.com/funkatron/dts-utils/pull/13), [#14](https://github.com/funkatron/dts-utils/pull/14), [#15](https://github.com/funkatron/dts-utils/pull/15); follow-up fixes in [#16](https://github.com/funkatron/dts-utils/pull/16).
+**Status:** Shipped (Phases 1–5). Merged in PRs [#13](https://github.com/funkatron/dts-utils/pull/13), [#14](https://github.com/funkatron/dts-utils/pull/14), [#15](https://github.com/funkatron/dts-utils/pull/15); follow-up fixes in [#16](https://github.com/funkatron/dts-utils/pull/16). Phase 5 (Streamable HTTP) on feature branch.
 
 ---
 
@@ -22,29 +22,31 @@ Maintainer record for the stdio MCP server (**`dts-utils-mcp`**). Operator setup
 
 ## Summary
 
-Coding agents drive Draw Things generation over MCP **stdio** by calling the same Python APIs as **`generate`** and **`web`** — no CLI subprocess wrapper and no HTTP proxy to **`dts-utils web`**.
+Coding agents drive Draw Things generation over MCP **stdio** (local hosts) or **Streamable HTTP** on the Draw Things machine — same Python APIs as **`generate`** and **`web`**, no CLI subprocess wrapper and no HTTP proxy to **`dts-utils web`**.
 
 | Item | Value |
 | --- | --- |
 | Entrypoint | **`dts-utils-mcp`** → **`dts_utils.mcp.server:main`** |
 | Optional dep | **`uv sync --extra mcp`** or **`dts-utils[mcp]`**; dev/CI via **`uv sync --dev`** |
-| Transport | stdio only (v1) |
+| Transport | **stdio** (default); **`serve`** → Streamable HTTP **`127.0.0.1:1976/mcp`** |
+| HTTP auth | **`DTS_MCP_TOKEN`** bearer when set (separate from **`DTS_WEB_TOKEN`**) |
 | Default gRPC | **`localhost:7859`**, **`trust_server_cert`** on loopback, profile **`default`** |
-| Lifecycle gate | **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`** (macOS only; **`install`/`uninstall` not exposed**) |
+| Lifecycle gate | **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`** (stdio only; macOS; **`install`/`uninstall` not exposed**) |
 
 ---
 
 ## Architecture
 
 ```text
-MCP host (Cursor, Claude Desktop, …)
-       │  stdio (MCP)
+MCP host (Cursor, Claude Desktop, remote app, …)
+       │  stdio (MCP)  or  HTTP Streamable /mcp
        ▼
 dts-utils-mcp  (FastMCP)
        │
        ├── tools.py / lifecycle.py  →  generate_api, models_api, configs, pipeline, grpc.utils
        ├── resources.py             →  config / output / pipeline URIs + generate_image prompt
        ├── client_options.py          →  GrpcClientOptions (shared semantics with web)
+       ├── http_auth.py               →  bearer token + bind warnings (HTTP only)
        └── generation_session.py      →  execute lock + cooperative cancel (shared with web)
        │
        ▼
@@ -66,7 +68,8 @@ src/dts_utils/mcp/
   client_options.py  # build_grpc_client_options, non_loopback_warning
   errors.py          # raise_tool_error (mirrors web _map_exc)
   paths.py           # resource path allowlists
-  env.py             # lifecycle_tools_enabled()
+  env.py             # lifecycle_tools_enabled(), HTTP defaults
+  http_auth.py       # DTS_MCP_TOKEN bearer + bind warnings
   serialize.py       # model/index dict helpers
 
 src/dts_utils/generation_session.py   # execute_lock, generation_cancel_event (web + MCP)
@@ -145,6 +148,14 @@ Path traversal (`..`) rejected for all resource URIs.
 - [x] Absent by default; macOS requirement at invocation.
 - [x] **`tests/test_mcp_lifecycle.py`**.
 
+### Phase 5 — Streamable HTTP on DT host
+
+- [x] **`dts-utils-mcp serve`** — Streamable HTTP on **`127.0.0.1:1976/mcp`** (override **`--bind`**, **`--port`**, **`--path`**).
+- [x] Bearer auth when **`DTS_MCP_TOKEN`** set; **401** without token.
+- [x] Lifecycle tools **not** registered over HTTP.
+- [x] Non-loopback bind warning without token (matches web pattern).
+- [x] **`tests/test_mcp_http_transport.py`**.
+
 ### Post-ship fixes ([#16](https://github.com/funkatron/dts-utils/pull/16))
 
 - [x] Clear conflicting **`trust_server_cert`** when **`root_cert`** or **`force_trust_server_cert`** set.
@@ -164,7 +175,7 @@ Path traversal (`..`) rejected for all resource URIs.
 | MCP logging notifications during gRPC stream | Not implemented; tool returns final result |
 | Second gate for **`install`** | **`install`/`uninstall` not registered** (no second gate needed) |
 
-Non-goals unchanged: no **`models fetch`**, no **`reflect`** tool, no default HTTP MCP transport.
+Non-goals unchanged: no **`models fetch`**, no **`reflect`** tool, no lifecycle/install over HTTP, no LaunchAgent for MCP HTTP in v1.
 
 ---
 
@@ -172,9 +183,9 @@ Non-goals unchanged: no **`models fetch`**, no **`reflect`** tool, no default HT
 
 | Risk | Mitigation |
 | --- | --- |
-| Remote MCP listener | stdio only in v1 |
+| Remote MCP listener | Bearer **`DTS_MCP_TOKEN`** when exposed; default loopback bind; wide-bind stderr warning |
 | Path exfiltration | Resource allowlists + canonical paths; **`..`** rejected |
-| Accidental server misconfig | Lifecycle gated; no install/uninstall tools |
+| Accidental server misconfig | Lifecycle gated (stdio only); no install/uninstall tools |
 | Secret leakage | **`shared_secret`** never logged; redacted in status **`program_arguments`** |
 | Non-loopback gRPC | Allowed with warning; TLS trust flags mutually exclusive in **`client_options`** |
 | Huge payloads | **`include_image_data`** default false; prefer resource URIs |
@@ -188,6 +199,7 @@ Non-goals unchanged: no **`models fetch`**, no **`reflect`** tool, no default HT
 | **`tests/test_mcp_server.py`** | Tool registration, core handlers, pipeline/cancel (stubs) |
 | **`tests/test_mcp_resources.py`** | Resource reads, traversal rejection |
 | **`tests/test_mcp_lifecycle.py`** | Gate, macOS check, status redaction, plist errors |
+| **`tests/test_mcp_http_transport.py`** | HTTP auth, tool list, stub check, stdio regression |
 | **`tests/test_mcp_client_options.py`** | TLS option mutual exclusion |
 
 Run: **`uv sync --dev`** && **`uv run pytest tests/test_mcp*.py`**. No live **`gRPCServerCLI`** required for CI.

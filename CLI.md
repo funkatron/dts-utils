@@ -489,6 +489,23 @@ uv run --extra mcp dts-utils-mcp
 bash scripts/run-mcp.sh
 ```
 
+**Streamable HTTP (Draw Things host):** expose MCP to remote agents on the same machine as **`gRPCServerCLI`**. stdio remains the default for Cursor.
+
+```bash
+export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
+uv run --extra mcp dts-utils-mcp serve
+# http://127.0.0.1:1976/mcp  (Authorization: Bearer $DTS_MCP_TOKEN)
+```
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| **`serve --bind`** | **`127.0.0.1`** | Listen address |
+| **`serve --port`** | **`1976`** | Listen port (web UI default **1975**) |
+| **`serve --path`** | **`/mcp`** | Streamable HTTP path |
+| **`serve --token-env`** | **`DTS_MCP_TOKEN`** | Bearer token env var |
+
+Lifecycle tools are **not** registered over HTTP (even when **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`**). Non-loopback **`--bind`** without **`DTS_MCP_TOKEN`** prints a stderr warning (same pattern as **`dts-utils web`**).
+
 After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.
 
 **Cursor** (`settings` → MCP): use **`uv`** with **`--extra mcp`** so the MCP SDK is available on a clean checkout:
@@ -529,7 +546,7 @@ Or use **`dts-utils-mcp`** on **`PATH`** after `uv pip install 'dts-utils[mcp]'`
 | `dts_server_stop` | Boot out job |
 | `dts_server_restart` | Restart job (**`ensure_model_browser`** default true) |
 
-**Defaults:** **`localhost:7859`**, **`trust_server_cert=true`** on loopback, profile **`default`**. **Planned HTTP `serve`:** loopback **`127.0.0.1:1976/mcp`**, auth **`DTS_MCP_TOKEN`** (Phase 5; web UI default port **1975**). Errors map to readable tool failures. **`shared_secret`** never logged. **`server install` / `uninstall` not exposed** via MCP.
+**Defaults:** **`localhost:7859`**, **`trust_server_cert=true`** on loopback, profile **`default`**. **HTTP `serve`:** loopback **`127.0.0.1:1976/mcp`**, bearer **`DTS_MCP_TOKEN`** when set (web UI default port **1975**). Errors map to readable tool failures. **`shared_secret`** never logged. **`server install` / `uninstall` not exposed** via MCP.
 
 | Resource URI | Content |
 | --- | --- |
@@ -550,7 +567,7 @@ Path traversal (`..`) rejected for all resource URIs.
 | `DTS_UTILS_DEFAULT_MODEL` | Basename for **`model`** when creating **`default.json`** first time. |
 | `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` | Omit **`--profile`** on **`generate`** when set to a pipeline profile name. |
 | `DTS_WEB_TOKEN` | Bearer auth on **`/api/*`** except **`GET /api/health`**. |
-| `DTS_MCP_TOKEN` | Planned bearer auth for MCP Streamable HTTP on port **1976** (Phase 5). |
+| `DTS_MCP_TOKEN` | Bearer auth for MCP Streamable HTTP (**`dts-utils-mcp serve`**, port **1976**). Separate from **`DTS_WEB_TOKEN`**. |
 | `DTS_WEB_LOG_FILE` | Web log path (**`web`** and **`web tail`**). |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web generate endpoints. |
 | `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Default **`models fetch`** recipe when **`RECIPE_ID`** omitted. |

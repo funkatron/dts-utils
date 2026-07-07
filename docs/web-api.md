@@ -30,7 +30,7 @@ curl -s -H "Authorization: Bearer $DTS_WEB_TOKEN" \
 | --- | --- | --- |
 | Draw Things gRPC | **7859** | `gRPCServerCLI` / tool `port` arg |
 | **`dts-utils web`** | **1975** | `DEFAULT_WEB_PORT` in `web/defaults.py` |
-| **`dts-utils-mcp` HTTP** (planned) | **1976** | `DEFAULT_MCP_HTTP_PORT` in `mcp/env.py` |
+| **`dts-utils-mcp` HTTP** | **1976** | **`dts-utils-mcp serve`**; **`DEFAULT_MCP_HTTP_PORT`** in `mcp/env.py` |
 
 ---
 

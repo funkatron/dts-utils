@@ -41,6 +41,7 @@ Example snippet for the next release:
 
 ### Added
 
+- **MCP Streamable HTTP:** **`dts-utils-mcp serve`** listens on **`127.0.0.1:1976/mcp`** by default; bearer auth via **`DTS_MCP_TOKEN`**; lifecycle tools disabled over HTTP; **`tests/test_mcp_http_transport.py`**.
 - **docs/mcp-for-agents.md:** MCP guide for coding agents — setup, tool flow, resources, use cases, example user prompts, limits.
 - **Web UI (`/api/generate/stream`):** SSE **`preview`** events stream decodable **`previewImage`** frames during generation; the stage shows a live preview panel and promotes preview-only runs when the server never sends a final **`image`** event.
 - **`dts-utils server list-models`:** List checkpoint / LoRA / VAE basenames the running **`gRPCServerCLI`** exposes via the upstream **`Echo`** gRPC RPC (requires **`--model-browser`** on the server for a non-empty catalog). Supports **`--json`**, **`--category`**, **`--limit`**, and the usual TLS flags.
@@ -48,7 +49,6 @@ Example snippet for the next release:
 ### Changed
 
 - **`dts-utils web`:** default HTTP port **8765 → 1975** (`src/dts_utils/web/defaults.py`). Override with **`--port`** or reinstall LaunchAgent if you relied on the old default.
-- **MCP (planned HTTP):** default listener port **1976** (`DEFAULT_MCP_HTTP_PORT` in `mcp/env.py`; Phase 5 not shipped yet).
 - **docs/mcp-interface-plan.md:** Updated from planning draft to shipped maintainer record (Phases 1–4 complete; links to PRs #13–#16).
 - **MCP:** lifecycle status redacts `--shared-secret` values; plist model-browser sync no longer terminates the MCP process on bad LaunchAgent plists; non-loopback TLS with `root_cert` or `force_trust_server_cert` clears conflicting `trust_server_cert` defaults.
 - **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.

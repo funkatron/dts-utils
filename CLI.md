@@ -478,24 +478,54 @@ uv run dts-utils tls export
 
 ### MCP (`dts-utils-mcp`)
 
-stdio Model Context Protocol server for coding agents (Cursor, Claude Desktop). Tools use the same Python APIs as **`generate`** and **`web`** — no HTTP proxy.
+Model Context Protocol server for coding agents — local **stdio** (Cursor) or **Streamable HTTP** on the Draw Things host for remote backends. Tools call the same Python APIs as **`generate`** and **`web`** (no HTTP proxy to **`dts-utils web`**).
 
 **Install:** `uv sync --extra mcp` or `uv pip install 'dts-utils[mcp]'`. Dev/CI: **`mcp`** is in **`uv sync --dev`**.
 
-**Cursor (repo checkout):** open this project as the workspace — **`.cursor/mcp.json`** invokes **`scripts/run-mcp.sh`**. Agent workflows and use cases: **[docs/mcp-for-agents.md](docs/mcp-for-agents.md)**.
+If you only run one command, run this (local Cursor / Claude Desktop):
 
 ```bash
 uv run --extra mcp dts-utils-mcp
-bash scripts/run-mcp.sh
 ```
 
-**Streamable HTTP (Draw Things host):** expose MCP to remote agents on the same machine as **`gRPCServerCLI`**. stdio remains the default for Cursor.
+It starts **stdio** MCP — the host spawns the process and talks over stdin/stdout. In this repo, **`scripts/run-mcp.sh`** does the same when **`.cursor/mcp.json`** is loaded.
+
+**Remote agents on the Draw Things Mac** — if you only run one command there:
 
 ```bash
 export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
 uv run --extra mcp dts-utils-mcp serve
 # http://127.0.0.1:1976/mcp  (Authorization: Bearer $DTS_MCP_TOKEN)
 ```
+
+It starts Streamable HTTP on loopback **1976** (web UI default **1975**). Point tailnet/VPN clients at **`http://<dt-host>:1976/mcp`** with the bearer token.
+
+```bash
+# Local stdio (explicit)
+uv run --extra mcp dts-utils-mcp
+
+# Repo helper (Cursor project config)
+bash scripts/run-mcp.sh
+
+# HTTP listener on the Draw Things host
+export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
+uv run --extra mcp dts-utils-mcp serve
+
+# Custom bind/port/path
+uv run --extra mcp dts-utils-mcp serve --bind 127.0.0.1 --port 1976 --path /mcp
+```
+
+**Common tasks**
+
+| Goal | Command | What you get |
+| --- | --- | --- |
+| Connect Cursor to this repo | Open workspace; **`.cursor/mcp.json`** → **`scripts/run-mcp.sh`** | stdio MCP with project-local **`uv`** env |
+| Expose MCP to a remote app on the DT Mac | `export DTS_MCP_TOKEN=… && dts-utils-mcp serve` | HTTP **`/mcp`** on **1976**; clients send **`Authorization: Bearer …`** |
+| Probe gRPC before generating (via agent) | Agent calls **`dts_server_check`** | JSON **`running`**, host, port — same as **`dts-utils server check`** semantics |
+| Enable macOS lifecycle tools (stdio only) | `export DTS_MCP_ALLOW_SERVER_LIFECYCLE=1` then start stdio MCP | **`dts_server_start`**, **`stop`**, **`restart`**, **`status`** registered |
+| REST instead of MCP (custom apps) | **`dts-utils web`** on **1975** | JSON + SSE — see **[docs/web-api.md](docs/web-api.md)** |
+
+**`serve` flags**
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
@@ -504,9 +534,12 @@ uv run --extra mcp dts-utils-mcp serve
 | **`serve --path`** | **`/mcp`** | Streamable HTTP path |
 | **`serve --token-env`** | **`DTS_MCP_TOKEN`** | Bearer token env var |
 
-Lifecycle tools are **not** registered over HTTP (even when **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`**). Non-loopback **`--bind`** without **`DTS_MCP_TOKEN`** prints a stderr warning (same pattern as **`dts-utils web`**).
-
-After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.
+**Notes:**
+- Lifecycle tools are **not** registered over HTTP (even when **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`**). Use Terminal **`dts-utils server …`** on the Mac for LaunchAgent control.
+- Non-loopback **`serve --bind`** without **`DTS_MCP_TOKEN`** prints a stderr warning (same pattern as **`dts-utils web`**).
+- **`DTS_MCP_TOKEN`** is separate from **`DTS_WEB_TOKEN`**.
+- Agent workflows and example prompts: **[docs/mcp-for-agents.md](docs/mcp-for-agents.md)**. Mac setup checklist: **[docs/mcp-local-handoff.md](docs/mcp-local-handoff.md)**.
+- After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.
 
 **Cursor** (`settings` → MCP): use **`uv`** with **`--extra mcp`** so the MCP SDK is available on a clean checkout:
 

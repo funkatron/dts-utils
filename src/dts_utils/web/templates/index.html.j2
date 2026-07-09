@@ -545,6 +545,129 @@
       width: 100%;
       font-size: 0.82rem;
     }
+    .composer-input-images {
+      margin-bottom: 0.25rem;
+      font-size: 0.78rem;
+    }
+    .composer-input-images summary {
+      cursor: pointer;
+      color: var(--muted);
+      list-style-position: outside;
+    }
+    .input-images-badge {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-left: 0.25rem;
+    }
+    .input-images-panel {
+      margin-top: 0.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .input-images-dropzone {
+      border: 1px dashed var(--border);
+      border-radius: 6px;
+      background: #25262b;
+      padding: 0.55rem 0.65rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .input-images-dropzone:hover,
+    .input-images-dropzone:focus-visible {
+      border-color: var(--accent);
+      outline: none;
+      background: rgba(74, 158, 255, 0.06);
+    }
+    .input-images-dropzone.is-dragover {
+      border-color: var(--accent);
+      background: rgba(74, 158, 255, 0.12);
+    }
+    .input-images-dropzone-text {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--fg);
+    }
+    .input-images-dropzone-sub {
+      margin: 0.2rem 0 0;
+      font-size: 0.68rem;
+    }
+    .input-images-thumbs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+    }
+    .input-images-thumb {
+      position: relative;
+      width: 4.5rem;
+      flex: 0 0 auto;
+    }
+    .input-images-thumb img {
+      display: block;
+      width: 4.5rem;
+      height: 4.5rem;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+    }
+    .input-images-thumb-name {
+      display: block;
+      margin-top: 0.15rem;
+      font-size: 0.62rem;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 4.5rem;
+    }
+    .input-images-thumb-remove {
+      position: absolute;
+      top: 0.15rem;
+      right: 0.15rem;
+      width: 1.35rem;
+      height: 1.35rem;
+      margin: 0;
+      padding: 0;
+      border: none;
+      border-radius: 50%;
+      background: rgba(8, 8, 10, 0.78);
+      color: #fff;
+      font-size: 1rem;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .input-images-thumb-remove:hover {
+      background: var(--bad);
+    }
+    .input-images-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+    .input-images-actions .hint {
+      margin: 0;
+      flex: 1 1 auto;
+    }
+    button.btn-input-images-clear {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--muted);
+      padding: 0.25rem 0.55rem;
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+    }
+    button.btn-input-images-clear:hover {
+      color: var(--bad);
+      border-color: var(--bad);
+    }
     .runs-hint {
       font-size: 0.78rem;
       font-weight: 600;
@@ -1007,10 +1130,26 @@
       <summary>Negative prompt (optional)</summary>
       <textarea id="neg" class="field" placeholder="Things to avoid in the image…"></textarea>
     </details>
-    <details class="composer-input-images">
-      <summary>Input images (optional — img2img or batch)</summary>
-      <input type="file" id="inputImages" accept="image/*" multiple aria-label="Input images for img2img or batch" />
-      <p class="hint" id="inputImagesHint" hidden></p>
+    <details class="composer-input-images" id="inputImagesDetails">
+      <summary>Input images (optional)<span id="inputImagesBadge" class="input-images-badge" hidden></span></summary>
+      <div class="input-images-panel">
+        <div
+          class="input-images-dropzone"
+          id="inputImagesDropzone"
+          tabindex="0"
+          role="button"
+          aria-label="Add input images for img2img or batch"
+        >
+          <p class="input-images-dropzone-text">Drop images here or click to browse</p>
+          <p class="input-images-dropzone-sub hint" id="inputImagesDropzoneHint">One image for img2img or video start frame</p>
+        </div>
+        <input type="file" id="inputImages" accept="image/*" multiple hidden aria-hidden="true" />
+        <div id="inputImagesThumbs" class="input-images-thumbs" hidden></div>
+        <div class="input-images-actions">
+          <p class="hint" id="inputImagesHint" hidden></p>
+          <button type="button" class="btn-input-images-clear" id="btnClearInputImages" hidden>Clear all</button>
+        </div>
+      </div>
     </details>
     <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
@@ -1656,18 +1795,132 @@ uv run dts-utils server tail</pre>
   }
 
   var selectedInputFiles = [];
+  var inputImageObjectUrls = [];
+
+  function revokeInputImageObjectUrls() {
+    for (var i = 0; i < inputImageObjectUrls.length; i++) {
+      URL.revokeObjectURL(inputImageObjectUrls[i]);
+    }
+    inputImageObjectUrls = [];
+  }
+
+  function resetInputImagesFileInput() {
+    var inputEl = document.getElementById("inputImages");
+    if (inputEl) inputEl.value = "";
+  }
+
+  function clearInputImages() {
+    selectedInputFiles = [];
+    revokeInputImageObjectUrls();
+    resetInputImagesFileInput();
+    renderInputImagesThumbs();
+    syncInputImagesUi();
+  }
+
+  function isImageFile(file) {
+    return file && file.type && file.type.indexOf("image/") === 0;
+  }
+
+  function mergeInputImageFiles(incoming) {
+    var videoMode = isVideoProfileMode();
+    var next = selectedInputFiles.slice();
+    for (var i = 0; i < incoming.length; i++) {
+      var f = incoming[i];
+      if (!isImageFile(f)) continue;
+      var dup = false;
+      for (var j = 0; j < next.length; j++) {
+        var o = next[j];
+        if (o.name === f.name && o.size === f.size && o.lastModified === f.lastModified) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) next.push(f);
+    }
+    if (videoMode && next.length > 1) next = next.slice(0, 1);
+    if (!videoMode && next.length > 25) next = next.slice(0, 25);
+    selectedInputFiles = next;
+  }
+
+  function removeInputImageAt(index) {
+    if (index < 0 || index >= selectedInputFiles.length) return;
+    selectedInputFiles = selectedInputFiles.slice(0, index).concat(selectedInputFiles.slice(index + 1));
+    renderInputImagesThumbs();
+    syncInputImagesUi();
+  }
+
+  function renderInputImagesThumbs() {
+    var wrap = document.getElementById("inputImagesThumbs");
+    if (!wrap) return;
+    revokeInputImageObjectUrls();
+    wrap.replaceChildren();
+    if (!selectedInputFiles.length) {
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
+    for (var i = 0; i < selectedInputFiles.length; i++) {
+      (function (idx) {
+        var file = selectedInputFiles[idx];
+        var card = document.createElement("div");
+        card.className = "input-images-thumb";
+        var url = URL.createObjectURL(file);
+        inputImageObjectUrls.push(url);
+        var img = document.createElement("img");
+        img.src = url;
+        img.alt = file.name || "Input image";
+        var rm = document.createElement("button");
+        rm.type = "button";
+        rm.className = "input-images-thumb-remove";
+        rm.setAttribute("aria-label", "Remove " + (file.name || "image"));
+        rm.textContent = "×";
+        rm.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          removeInputImageAt(idx);
+        });
+        var name = document.createElement("span");
+        name.className = "input-images-thumb-name";
+        name.textContent = file.name || "image";
+        name.title = file.name || "";
+        card.appendChild(img);
+        card.appendChild(rm);
+        card.appendChild(name);
+        wrap.appendChild(card);
+      })(i);
+    }
+  }
 
   function syncInputImagesUi() {
     var inputEl = document.getElementById("inputImages");
     var hint = document.getElementById("inputImagesHint");
+    var dropHint = document.getElementById("inputImagesDropzoneHint");
+    var badge = document.getElementById("inputImagesBadge");
+    var clearBtn = document.getElementById("btnClearInputImages");
     var runsEl = document.getElementById("generations");
     if (!hint || !runsEl) return;
     var videoMode = isVideoProfileMode();
     if (inputEl) inputEl.multiple = !videoMode;
+    if (dropHint) {
+      dropHint.textContent = videoMode
+        ? "One start frame for video pipeline (PNG, JPEG, WebP)"
+        : "Up to 25 images · batch uses one prompt per file";
+    }
+    if (badge) {
+      if (selectedInputFiles.length) {
+        badge.hidden = false;
+        badge.textContent = "(" + selectedInputFiles.length + ")";
+      } else {
+        badge.hidden = true;
+        badge.textContent = "";
+      }
+    }
+    if (clearBtn) clearBtn.hidden = !selectedInputFiles.length;
     if (videoMode && selectedInputFiles.length > 1) {
       selectedInputFiles = selectedInputFiles.slice(0, 1);
+      renderInputImagesThumbs();
       hint.hidden = false;
-      hint.textContent = "Video pipeline uses one start frame; extra files were ignored.";
+      hint.textContent = "Video pipeline uses one start frame; extra files were removed.";
       runsEl.disabled = true;
       return;
     }
@@ -2705,7 +2958,10 @@ uv run dts-utils server tail</pre>
   })();
 
   window.addEventListener("pagehide", function (e) {
-    if (!e.persisted) revokeResultBlobUrls();
+    if (!e.persisted) {
+      revokeResultBlobUrls();
+      revokeInputImageObjectUrls();
+    }
   });
 
   document.getElementById("btnCheck").addEventListener("click", refreshStatus);
@@ -2717,10 +2973,53 @@ uv run dts-utils server tail</pre>
     updateComposerMode();
   });
   document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
-  document.getElementById("inputImages").addEventListener("change", function (ev) {
-    selectedInputFiles = Array.from(ev.target.files || []);
-    syncInputImagesUi();
-  });
+  (function initInputImagesUi() {
+    var inputEl = document.getElementById("inputImages");
+    var dropzone = document.getElementById("inputImagesDropzone");
+    var clearBtn = document.getElementById("btnClearInputImages");
+    if (!inputEl || !dropzone) return;
+
+    function ingestFileList(fileList) {
+      if (!fileList || !fileList.length) return;
+      mergeInputImageFiles(Array.from(fileList));
+      renderInputImagesThumbs();
+      syncInputImagesUi();
+      resetInputImagesFileInput();
+    }
+
+    dropzone.addEventListener("click", function () {
+      inputEl.click();
+    });
+    dropzone.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        inputEl.click();
+      }
+    });
+    inputEl.addEventListener("change", function (ev) {
+      ingestFileList(ev.target.files);
+    });
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        clearInputImages();
+      });
+    }
+
+    ["dragenter", "dragover"].forEach(function (type) {
+      dropzone.addEventListener(type, function (ev) {
+        ev.preventDefault();
+        dropzone.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (type) {
+      dropzone.addEventListener(type, function (ev) {
+        ev.preventDefault();
+        if (type === "drop") ingestFileList(ev.dataTransfer && ev.dataTransfer.files);
+        dropzone.classList.remove("is-dragover");
+      });
+    });
+  })();
   document.getElementById("btnGen").addEventListener("click", runComposerAction);
   document.getElementById("btnStop").addEventListener("click", function () {
     requestGenerationCancel();

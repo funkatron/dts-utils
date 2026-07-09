@@ -325,6 +325,7 @@ def test_pipeline_run_with_input_image_path(
             "dts_pipeline_run",
             {
                 "profile": "prompt-to-video",
+                "prompt": "gentle camera pan",
                 "input_image_path": str(src),
                 "run_root": str(tmp_path / "runs"),
                 "run_id": "i2v-run",
@@ -333,7 +334,7 @@ def test_pipeline_run_with_input_image_path(
     )
     assert payload["run_id"] == "i2v-run"
     assert seen["image_path"] == src
-    assert seen["prompt"] is None
+    assert seen["prompt"] == "gentle camera pan"
 
 
 def test_pipeline_status_reads_heartbeat(mcp_server, tmp_path: Path) -> None:

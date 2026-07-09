@@ -297,14 +297,24 @@ def _parse_pipeline_payload(body: object) -> tuple[dict[str, object], JSONRespon
     if not isinstance(profile, str) or not profile.strip():
         return {}, JSONResponse({"detail": "Field 'profile' is required (prompt-to-video profile name)."}, status_code=400)
     prompt = body.get("prompt")
-    has_prompt = isinstance(prompt, str) and prompt.strip()
-    has_image = body.get("input_image") is not None
-    if not has_prompt and not has_image:
-        return {}, JSONResponse(
-            {"detail": "Field 'prompt' or 'input_image' is required for pipeline generation."},
+    if not isinstance(prompt, str) or not prompt.strip():
+        return {}, JSONResponse({"detail": "Field 'prompt' is required (non-empty string)."}, status_code=400)
+    return body, None
+
+
+def _validate_pipeline_input_images(data: dict[str, object]) -> JSONResponse | None:
+    """Pipeline runs use one optional start frame; batch ``input_images`` is img2img-only."""
+    if data.get("input_images") is not None:
+        return JSONResponse(
+            {
+                "detail": (
+                    "Pipeline profiles accept a single input_image start frame, not input_images. "
+                    "Use one start frame per video run, or switch to a single-image profile for batch img2img."
+                )
+            },
             status_code=400,
         )
-    return body, None
+    return None
 
 
 def _materialize_request_input_images(
@@ -857,6 +867,9 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
                 data, err = _parse_pipeline_payload(body)
                 if err:
                     return err
+                batch_err = _validate_pipeline_input_images(data)
+                if batch_err:
+                    return batch_err
                 input_paths, input_tmp, img_err = _materialize_request_input_images(data)
                 if img_err:
                     return img_err
@@ -1209,6 +1222,9 @@ async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONR
     data, err = _parse_pipeline_payload(body)
     if err:
         return err
+    batch_err = _validate_pipeline_input_images(data)
+    if batch_err:
+        return batch_err
 
     input_paths, input_tmp, img_err = _materialize_request_input_images(data)
     if img_err:

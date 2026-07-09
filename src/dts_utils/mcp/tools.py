@@ -438,8 +438,8 @@ def tool_pipeline_run(
             image_path = Path(input_image_path).expanduser()
             validate_input_image_paths([image_path])
         prompt_text = prompt.strip()
-        if not prompt_text and not image_path:
-            raise ConfigurationError("Pipeline run requires a prompt or input_image_path.")
+        if not prompt_text:
+            raise ConfigurationError("Pipeline run requires a prompt.")
         client = build_grpc_client_options(
             host=host,
             port=port,
@@ -452,7 +452,7 @@ def tool_pipeline_run(
         secret = shared_secret.strip() if shared_secret and shared_secret.strip() else None
         request = PipelineRunRequest(
             profile=profile_stem,
-            prompt=prompt_text or None,
+            prompt=prompt_text,
             image_path=image_path,
             negative_prompt=negative_prompt,
             allow_cache=allow_cache,

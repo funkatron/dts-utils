@@ -1583,6 +1583,7 @@ uv run dts-utils server tail</pre>
       if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate";
     }
     if (busySummary) busySummary.textContent = "Technical details (request JSON)";
+    syncInputImagesUi();
     persistUiPrefsFromComposer();
   }
 
@@ -1657,9 +1658,19 @@ uv run dts-utils server tail</pre>
   var selectedInputFiles = [];
 
   function syncInputImagesUi() {
+    var inputEl = document.getElementById("inputImages");
     var hint = document.getElementById("inputImagesHint");
     var runsEl = document.getElementById("generations");
     if (!hint || !runsEl) return;
+    var videoMode = isVideoProfileMode();
+    if (inputEl) inputEl.multiple = !videoMode;
+    if (videoMode && selectedInputFiles.length > 1) {
+      selectedInputFiles = selectedInputFiles.slice(0, 1);
+      hint.hidden = false;
+      hint.textContent = "Video pipeline uses one start frame; extra files were ignored.";
+      runsEl.disabled = true;
+      return;
+    }
     if (selectedInputFiles.length > 1) {
       hint.hidden = false;
       hint.textContent =
@@ -2249,8 +2260,7 @@ uv run dts-utils server tail</pre>
     elapsed.textContent = "";
 
     const prompt = document.getElementById("prompt").value.trim();
-    const hasInputImages = selectedInputFiles.length > 0;
-    if (!prompt && !(isVideoProfileMode() && hasInputImages)) {
+    if (!prompt) {
       showComposerError("Enter a prompt.");
       placeholder.hidden = false;
       btnGen.disabled = false;
@@ -2265,6 +2275,12 @@ uv run dts-utils server tail</pre>
 
     if (isVideoProfileMode()) {
       runsEl.disabled = true;
+      if (selectedInputFiles.length > 1) {
+        showComposerError("Video pipeline accepts one start frame only.");
+        placeholder.hidden = false;
+        btnGen.disabled = false;
+        return;
+      }
       const body = await attachInputImagesToBody(buildVideoGenerateBody());
       setGeneratingUi(true, t0, timerRef, JSON.stringify(body, null, 2));
       try {

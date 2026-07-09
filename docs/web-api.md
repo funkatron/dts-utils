@@ -80,7 +80,9 @@ Used in **`POST /api/generate`**, **`POST /api/generate/stream`**, and pipeline 
 | **`prompts`** | string[] | — | Length must equal **`generations`** |
 | **`negative_prompt`** | string | `""` | |
 | **`negative_prompts`** | string[] | — | Same length as **`prompts`** when set |
-| **`generations`** | int | `1` | **1–25** |
+| **`generations`** | int | `1` | **1–25**; with **`input_images`**, defaults to array length |
+| **`input_image`** | string | — | Base64 raster (PNG/JPEG/WebP, …) for img2img or pipeline start frame |
+| **`input_images`** | string[] | — | Batch img2img: one generation per image, same **`prompt`** (**1–25**) |
 | **`configuration`** | string | `"default"` | Saved profile stem (single-image generation) |
 | **`profile`** | string | — | Pipeline profile name (e.g. **`prompt-to-video`**) |
 | **`host`** | string | `"localhost"` | gRPC host |

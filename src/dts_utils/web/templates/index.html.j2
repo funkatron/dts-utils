@@ -1007,6 +1007,11 @@
       <summary>Negative prompt (optional)</summary>
       <textarea id="neg" class="field" placeholder="Things to avoid in the image…"></textarea>
     </details>
+    <details class="composer-input-images">
+      <summary>Input images (optional — img2img or batch)</summary>
+      <input type="file" id="inputImages" accept="image/*" multiple aria-label="Input images for img2img or batch" />
+      <p class="hint" id="inputImagesHint" hidden></p>
+    </details>
     <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
@@ -1649,6 +1654,50 @@ uv run dts-utils server tail</pre>
     return body;
   }
 
+  var selectedInputFiles = [];
+
+  function syncInputImagesUi() {
+    var hint = document.getElementById("inputImagesHint");
+    var runsEl = document.getElementById("generations");
+    if (!hint || !runsEl) return;
+    if (selectedInputFiles.length > 1) {
+      hint.hidden = false;
+      hint.textContent =
+        selectedInputFiles.length + " input images — one generation each (same prompt).";
+      runsEl.value = String(Math.min(selectedInputFiles.length, 25));
+      runsEl.disabled = true;
+    } else if (selectedInputFiles.length === 1) {
+      hint.hidden = false;
+      hint.textContent = "1 input image for img2img or video start frame.";
+      runsEl.disabled = isVideoProfileMode();
+    } else {
+      hint.hidden = true;
+      if (!isVideoProfileMode()) runsEl.disabled = false;
+    }
+  }
+
+  async function readInputImagesBase64() {
+    if (!selectedInputFiles.length) return null;
+    var out = [];
+    for (var i = 0; i < selectedInputFiles.length; i++) {
+      var buf = await selectedInputFiles[i].arrayBuffer();
+      out.push(arrayBufferToBase64(buf));
+    }
+    return out;
+  }
+
+  async function attachInputImagesToBody(body) {
+    var imgs = await readInputImagesBase64();
+    if (!imgs || !imgs.length) return body;
+    if (imgs.length === 1) {
+      body.input_image = imgs[0];
+      return body;
+    }
+    body.input_images = imgs;
+    body.generations = imgs.length;
+    return body;
+  }
+
   function connectionPayload() {
     const host = document.getElementById("host").value.trim() || "localhost";
     const port = parseInt(document.getElementById("port").value, 10) || 7859;
@@ -2200,7 +2249,8 @@ uv run dts-utils server tail</pre>
     elapsed.textContent = "";
 
     const prompt = document.getElementById("prompt").value.trim();
-    if (!prompt) {
+    const hasInputImages = selectedInputFiles.length > 0;
+    if (!prompt && !(isVideoProfileMode() && hasInputImages)) {
       showComposerError("Enter a prompt.");
       placeholder.hidden = false;
       btnGen.disabled = false;
@@ -2215,7 +2265,7 @@ uv run dts-utils server tail</pre>
 
     if (isVideoProfileMode()) {
       runsEl.disabled = true;
-      const body = buildVideoGenerateBody();
+      const body = await attachInputImagesToBody(buildVideoGenerateBody());
       setGeneratingUi(true, t0, timerRef, JSON.stringify(body, null, 2));
       try {
         await runPromptToVideoStream(ac, t0, timerRef, body);
@@ -2274,7 +2324,8 @@ uv run dts-utils server tail</pre>
       }
 
       const expanded = await expandRes.json();
-      const body = buildResolvedGenerateBody(expanded, generations);
+      let body = buildResolvedGenerateBody(expanded, generations);
+      body = await attachInputImagesToBody(body);
       const payloadPreview = formatGenerateBodyForDisplay(body);
       setGeneratingUi(true, t0, timerRef, payloadPreview);
 
@@ -2650,6 +2701,10 @@ uv run dts-utils server tail</pre>
     updateComposerMode();
   });
   document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
+  document.getElementById("inputImages").addEventListener("change", function (ev) {
+    selectedInputFiles = Array.from(ev.target.files || []);
+    syncInputImagesUi();
+  });
   document.getElementById("btnGen").addEventListener("click", runComposerAction);
   document.getElementById("btnStop").addEventListener("click", function () {
     requestGenerationCancel();

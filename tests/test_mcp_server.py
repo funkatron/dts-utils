@@ -114,6 +114,37 @@ def test_generate_image_stub(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_pa
     assert "images_base64" not in payload
 
 
+def test_generate_image_with_input_image_path(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    out = tmp_path / "out.png"
+    src = tmp_path / "ref.png"
+    src.write_bytes(b"\x89PNG\r\n\x1a\n")
+    seen: dict[str, object] = {}
+
+    def fake_batch(client, gen, *, generations=1, cancel_event=None, input_images_per_run=None, **kwargs):
+        seen["input_images_per_run"] = input_images_per_run
+        return GeneratePngBatchResult(
+            images=[b"png-bytes"],
+            expanded_prompts=["styled"],
+            expanded_negative_prompts=[""],
+        )
+
+    monkeypatch.setattr("dts_utils.mcp.tools.generate_png_batch", fake_batch)
+
+    payload = asyncio.run(
+        _call_payload(
+            mcp_server,
+            "dts_generate_image",
+            {
+                "prompt": "styled",
+                "output": str(out),
+                "input_image_path": str(src),
+            },
+        )
+    )
+    assert len(payload["paths"]) == 1
+    assert seen["input_images_per_run"] == [src]
+
+
 def test_generate_image_includes_base64_when_asked(
     mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
@@ -266,6 +297,43 @@ def test_pipeline_run_stub(mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path
     )
     assert payload["run_id"] == "demo-run"
     assert payload["artifacts"][0]["kind"] == "video"
+
+
+def test_pipeline_run_with_input_image_path(
+    mcp_server, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr("dts_utils.mcp.tools.is_pipeline_profile", lambda name: name == "prompt-to-video")
+    seen: dict[str, object] = {}
+    src = tmp_path / "start.png"
+    src.write_bytes(b"\x89PNG\r\n\x1a\n")
+
+    def fake_execute(request):
+        seen["image_path"] = request.image_path
+        seen["prompt"] = request.prompt
+        return SimpleNamespace(
+            run_id=request.run_id or "run-1",
+            run_root=str(request.run_root),
+            artifacts=[{"path": "/tmp/out.mp4", "kind": "video"}],
+            steps=[{"step_id": "i2v", "status": "completed"}],
+        )
+
+    monkeypatch.setattr("dts_utils.mcp.tools.execute_pipeline_run", fake_execute)
+
+    payload = asyncio.run(
+        _call_payload(
+            mcp_server,
+            "dts_pipeline_run",
+            {
+                "profile": "prompt-to-video",
+                "input_image_path": str(src),
+                "run_root": str(tmp_path / "runs"),
+                "run_id": "i2v-run",
+            },
+        )
+    )
+    assert payload["run_id"] == "i2v-run"
+    assert seen["image_path"] == src
+    assert seen["prompt"] is None
 
 
 def test_pipeline_status_reads_heartbeat(mcp_server, tmp_path: Path) -> None:

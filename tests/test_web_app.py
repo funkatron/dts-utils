@@ -320,6 +320,7 @@ def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: 
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         return GeneratePngBatchResult(
             images=[b"\x89PNG\r\n\x1a\nplaceholder", b"\x89PNG\r\n\x1a\nother"],
@@ -358,6 +359,7 @@ def test_generate_multipart_includes_expanded_wildcards_header(
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         return GeneratePngBatchResult(
             images=[b"\x89PNG\r\n\x1a\nx"],
@@ -390,6 +392,7 @@ def test_generate_multipart_respects_generations(monkeypatch: pytest.MonkeyPatch
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         assert generations == 2
         return GeneratePngBatchResult(
@@ -532,6 +535,7 @@ def test_generate_accepts_prompts_array(monkeypatch: pytest.MonkeyPatch, client:
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         captured["prompts_per_run"] = prompts_per_run
         captured["negative_prompts_per_run"] = negative_prompts_per_run

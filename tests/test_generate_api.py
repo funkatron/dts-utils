@@ -74,6 +74,10 @@ def test_prepare_image_generation_request_attaches_input_image(monkeypatch, tmp_
         lambda **kwargs: b"resolved",
     )
     monkeypatch.setattr(
+        "dts_utils.generate_api.normalize_input_image_path",
+        lambda _p: b"png-normalized",
+    )
+    monkeypatch.setattr(
         "dts_utils.generate_api.encode_png_to_dt_tensor",
         lambda _png: b"tensor-bytes",
     )
@@ -172,6 +176,39 @@ def test_generate_png_batch_returns_expanded_prompts(monkeypatch: pytest.MonkeyP
     assert batch.expanded_prompts == seen
     assert all(x in {"p", "q"} for x in batch.expanded_prompts)
     assert batch.expanded_negative_prompts == ["", ""]
+
+
+def test_generate_png_batch_per_run_input_images(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    in_a = tmp_path / "a.png"
+    in_b = tmp_path / "b.png"
+    in_a.write_bytes(b"a")
+    in_b.write_bytes(b"b")
+    seen_paths: list[Path | None] = []
+
+    def fake_prepare(gen: ImageGenerationRequestOptions):
+        seen_paths.append(gen.input_image_path)
+        return SimpleNamespace(image=b"tensor"), gen.prompt, ""
+
+    monkeypatch.setattr("dts_utils.generate_api.prepare_image_generation_request", fake_prepare)
+    monkeypatch.setattr(
+        "dts_utils.generate_api.collect_raw_generation_tensors",
+        lambda _client, _request: [b"tensor"],
+    )
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+
+    batch = generate_png_batch(
+        GrpcClientOptions(no_tls=True),
+        ImageGenerationRequestOptions(prompt="edit", configuration=cfg),
+        generations=2,
+        input_images_per_run=[in_a, in_b],
+    )
+    assert len(batch.images) == 2
+    assert seen_paths == [in_a, in_b]
 
 
 def test_build_image_generation_request_invalid_wildcard_prompt(monkeypatch, tmp_path):

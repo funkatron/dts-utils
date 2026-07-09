@@ -41,6 +41,7 @@ Example snippet for the next release:
 
 ### Added
 
+- **Image-to-image and batch input images:** **`--image`** / **`--images`** on **`dts-utils generate`**; web/MCP **`input_image`** / **`input_images`** (base64); Pillow normalizes PNG/JPEG/WebP before gRPC tensor encode; one shared prompt for batch runs.
 - **MCP Streamable HTTP:** **`dts-utils-mcp serve`** listens on **`127.0.0.1:1976/mcp`** by default; bearer auth via **`DTS_MCP_TOKEN`**; lifecycle tools disabled over HTTP; **`tests/test_mcp_http_transport.py`**.
 - **docs/mcp-for-agents.md:** MCP guide for coding agents — setup, tool flow, resources, use cases, example user prompts, limits.
 - **Web UI (`/api/generate/stream`):** SSE **`preview`** events stream decodable **`previewImage`** frames during generation; the stage shows a live preview panel and promotes preview-only runs when the server never sends a final **`image`** event.

@@ -94,9 +94,9 @@ Typical flow:
 | **`dts_pipeline_status`** | Inspect **`heartbeat.json`** / **`pipeline_run.json`** for a run |
 | **`dts_generate_cancel`** | User says stop during a multi-generation batch |
 
-**`dts_generate_image` highlights:** **`generations`** 1–25; **`output`** base path (CLI-style ms suffix); **`include_image_data`** default **false** (paths only).
+**`dts_generate_image` highlights:** **`generations`** 1–25; **`output`** base path (CLI-style ms suffix); **`include_image_data`** default **false** (paths only). **`input_image_path`** repeats one source image for each generation; **`input_image_paths`** runs one generation per path with a **shared prompt** (PNG/JPEG/WebP normalized before gRPC).
 
-**`dts_pipeline_run`:** blocks until the pipeline finishes; returns artifact paths / run folder info.
+**`dts_pipeline_run`:** blocks until the pipeline finishes; returns artifact paths / run folder info. Optional **`input_image_path`** for image-to-video (prompt optional when a start frame is provided).
 
 ### Optional lifecycle (macOS, 4 tools)
 

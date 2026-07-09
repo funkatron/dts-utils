@@ -15,8 +15,10 @@ def _truthy_env(name: str) -> bool:
     return value in {"1", "true", "yes", "on"}
 
 
-def lifecycle_tools_enabled() -> bool:
+def lifecycle_tools_enabled(*, http_transport: bool = False) -> bool:
     """When true, register macOS server lifecycle MCP tools."""
+    if http_transport:
+        return False
     return _truthy_env("DTS_MCP_ALLOW_SERVER_LIFECYCLE")
 
 

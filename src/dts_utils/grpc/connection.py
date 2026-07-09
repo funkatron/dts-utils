@@ -48,7 +48,7 @@ def create_channel(
     if insecure:
         return grpc.insecure_channel(target, options=options)
 
-    # gRPCServerCLI presents CN=localhost even when bound to LAN/Tailscale addresses.
+    # gRPCServerCLI presents CN=localhost even when bound to LAN addresses.
     if not is_loopback_host(host):
         options.append(("grpc.ssl_target_name_override", "localhost"))
 

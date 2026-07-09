@@ -88,9 +88,9 @@ See [CLI.md — web](CLI.md#web-dts-utils-web) for bind address, `DTS_WEB_TOKEN`
 
 ### Coding agents (MCP)
 
-**`dts-utils-mcp`** is a stdio [Model Context Protocol](https://modelcontextprotocol.io/) server for Cursor, Claude Desktop, and similar hosts. Tools call the same Python APIs as **`generate`** and **`web`** (probe server, list configs, generate PNGs, search models, run pipelines).
+**`dts-utils-mcp`** is a [Model Context Protocol](https://modelcontextprotocol.io/) server for Cursor (stdio) and remote agents (Streamable HTTP on the Draw Things host). Tools call the same Python APIs as **`generate`** and **`web`** (probe server, list configs, generate PNGs, search models, run pipelines).
 
-**Cursor (this repo):** open the clone as the workspace — **`.cursor/mcp.json`** runs **`scripts/run-mcp.sh`**. **Mac setup checklist:** [docs/mcp-local-handoff.md](docs/mcp-local-handoff.md).
+**Cursor (this repo):** open the clone as the workspace — **`.cursor/mcp.json`** runs **`scripts/run-mcp.sh`**. **Remote HTTP:** **`dts-utils-mcp serve`** on the Mac (default **`127.0.0.1:1976/mcp`**, **`DTS_MCP_TOKEN`**). **Mac setup checklist:** [docs/mcp-local-handoff.md](docs/mcp-local-handoff.md).
 
 ```bash
 uv sync --extra mcp

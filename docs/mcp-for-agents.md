@@ -24,7 +24,7 @@ How agents (Cursor, Claude Desktop, custom MCP hosts) use **`dts-utils-mcp`** to
 | --- | --- |
 | **User** | Describes intent in chat (“make three portrait variants”, “is my LTX model installed?”) |
 | **Agent** | Chooses MCP tools, reads configs/resources, returns paths or summaries |
-| **`dts-utils-mcp`** | stdio MCP server; calls the same Python APIs as CLI / web |
+| **`dts-utils-mcp`** | stdio MCP server (local Cursor); **`serve`** for Streamable HTTP on the DT host |
 | **`gRPCServerCLI`** | Draw Things server on the Mac (default **`localhost:7859`**) |
 
 Agents get structured JSON from tools (paths, stems, doctor counts) instead of parsing CLI stdout. Images default to **filesystem paths** under **`output/`** — use MCP **resources** to fetch bytes when needed, not giant base64 in tool results.
@@ -42,6 +42,18 @@ uv run dts-utils server check   # exit 0 before generating
 ```
 
 Refresh MCP in Cursor after **`git pull`**. Optional: remove duplicate **`dts-utils`** entries from **`~/.cursor/mcp.json`** to avoid clashes.
+
+### Remote agents (Streamable HTTP)
+
+On the Mac that runs **`gRPCServerCLI`**, start the HTTP listener beside Draw Things:
+
+```bash
+export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
+uv run --extra mcp dts-utils-mcp serve
+# default: http://127.0.0.1:1976/mcp
+```
+
+Remote MCP clients on another host use **`http://<host>:1976/mcp`** with **`Authorization: Bearer $DTS_MCP_TOKEN`** (after **`serve --bind`** on the Draw Things Mac). Lifecycle tools are not available over HTTP — use Terminal **`dts-utils server …`** locally. For non-MCP apps, see **[web-api.md](web-api.md)** (REST on port **1975**).
 
 **Prerequisites on the Mac:** Python 3.12+, **`uv`**, **`flatc`** (for JSON profiles), a listening **`gRPCServerCLI`**, and at least one saved profile (e.g. **`default.json`**).
 
@@ -183,7 +195,7 @@ Copy or adapt these in Agent chat (ensure MCP **`dts-utils`** is connected):
 | gRPC reflection | Terminal: **`dts-utils reflect`** |
 | Mid-RPC cancel | Cancel applies **between** batch runs only |
 | Non-macOS lifecycle | Lifecycle tools error; **`generate`** still works if server is reachable |
-| Remote MCP over HTTP | v1 is **stdio** only; remote agents can use **[web-api.md](web-api.md)** (REST + SSE) today |
+| Remote MCP over HTTP | **`dts-utils-mcp serve`** on the DT host (**`DTS_MCP_TOKEN`**, port **1976**); REST alternative: **[web-api.md](web-api.md)** |
 
 Errors return readable tool failures (configuration, TLS, missing **`flatc`**, RPC errors) — agents should surface **`detail`** text to the user.
 

@@ -10,7 +10,7 @@ Move **`dts-utils` + MCP** from cloud/Linux development to your **Mac** where **
 
 | Item | Status |
 | --- | --- |
-| **`dts-utils-mcp`** (11 tools + resources + prompt) | Shipped |
+| **`dts-utils-mcp`** (11 tools + resources + prompt) | Shipped (stdio + **`serve`** HTTP) |
 | **`.cursor/mcp.json`** + **`scripts/run-mcp.sh`** | In repo — no path editing |
 | **Docs** | [mcp-for-agents.md](mcp-for-agents.md), CLI.md, README |
 | **CI / pytest** | `tests/test_mcp*.py` (34 tests) |
@@ -150,6 +150,17 @@ for tool choice and limits.
 | **`gRPCServerCLI`**, LaunchAgent | **Mac only** |
 | **`dts_generate_image`**, **`dts_pipeline_run`** | **Mac** (needs live server + models) |
 | Cursor MCP day-to-day | **Mac** with repo open as workspace |
+| Remote MCP (HTTP) | **Mac:** **`export DTS_MCP_TOKEN=… && dts-utils-mcp serve`** (port **1976**); clients use Bearer auth |
+
+### Optional: HTTP MCP for remote clients
+
+```bash
+export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
+uv run --extra mcp dts-utils-mcp serve --bind 127.0.0.1 --port 1976
+# Remote client URL: http://<host>:1976/mcp  (with Authorization: Bearer)
+```
+
+Lifecycle tools stay stdio-only. REST alternative: [web-api.md](web-api.md) on port **1975**.
 
 ---
 

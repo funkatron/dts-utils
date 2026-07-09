@@ -478,18 +478,68 @@ uv run dts-utils tls export
 
 ### MCP (`dts-utils-mcp`)
 
-stdio Model Context Protocol server for coding agents (Cursor, Claude Desktop). Tools use the same Python APIs as **`generate`** and **`web`** — no HTTP proxy.
+Model Context Protocol server for coding agents — local **stdio** (Cursor) or **Streamable HTTP** on the Draw Things host for remote backends. Tools call the same Python APIs as **`generate`** and **`web`** (no HTTP proxy to **`dts-utils web`**).
 
 **Install:** `uv sync --extra mcp` or `uv pip install 'dts-utils[mcp]'`. Dev/CI: **`mcp`** is in **`uv sync --dev`**.
 
-**Cursor (repo checkout):** open this project as the workspace — **`.cursor/mcp.json`** invokes **`scripts/run-mcp.sh`**. Agent workflows and use cases: **[docs/mcp-for-agents.md](docs/mcp-for-agents.md)**.
+If you only run one command, run this (local Cursor / Claude Desktop):
 
 ```bash
 uv run --extra mcp dts-utils-mcp
-bash scripts/run-mcp.sh
 ```
 
-After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.
+It starts **stdio** MCP — the host spawns the process and talks over stdin/stdout. In this repo, **`scripts/run-mcp.sh`** does the same when **`.cursor/mcp.json`** is loaded.
+
+**Remote agents on the Draw Things Mac** — if you only run one command there:
+
+```bash
+export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
+uv run --extra mcp dts-utils-mcp serve
+# http://127.0.0.1:1976/mcp  (Authorization: Bearer $DTS_MCP_TOKEN)
+```
+
+It starts Streamable HTTP on loopback **1976** (web UI default **1975**). Set **`DTS_MCP_TOKEN`**; clients send **`Authorization: Bearer`**. Default bind is **`127.0.0.1`** — use **`--bind`** only when you intend network reachability.
+
+```bash
+# Local stdio (explicit)
+uv run --extra mcp dts-utils-mcp
+
+# Repo helper (Cursor project config)
+bash scripts/run-mcp.sh
+
+# HTTP listener on the Draw Things host
+export DTS_MCP_TOKEN="$(openssl rand -hex 32)"
+uv run --extra mcp dts-utils-mcp serve
+
+# Custom bind/port/path
+uv run --extra mcp dts-utils-mcp serve --bind 127.0.0.1 --port 1976 --path /mcp
+```
+
+**Common tasks**
+
+| Goal | Command | What you get |
+| --- | --- | --- |
+| Connect Cursor to this repo | Open workspace; **`.cursor/mcp.json`** → **`scripts/run-mcp.sh`** | stdio MCP with project-local **`uv`** env |
+| Expose MCP to a remote app on the DT Mac | `export DTS_MCP_TOKEN=… && dts-utils-mcp serve` | HTTP **`/mcp`** on **1976**; clients send **`Authorization: Bearer …`** |
+| Probe gRPC before generating (via agent) | Agent calls **`dts_server_check`** | JSON **`running`**, host, port — same as **`dts-utils server check`** semantics |
+| Enable macOS lifecycle tools (stdio only) | `export DTS_MCP_ALLOW_SERVER_LIFECYCLE=1` then start stdio MCP | **`dts_server_start`**, **`stop`**, **`restart`**, **`status`** registered |
+| REST instead of MCP (custom apps) | **`dts-utils web`** on **1975** | JSON + SSE — see **[docs/web-api.md](docs/web-api.md)** |
+
+**`serve` flags**
+
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| **`serve --bind`** | **`127.0.0.1`** | Listen address |
+| **`serve --port`** | **`1976`** | Listen port (web UI default **1975**) |
+| **`serve --path`** | **`/mcp`** | Streamable HTTP path |
+| **`serve --token-env`** | **`DTS_MCP_TOKEN`** | Bearer token env var |
+
+**Notes:**
+- Lifecycle tools are **not** registered over HTTP (even when **`DTS_MCP_ALLOW_SERVER_LIFECYCLE=1`**). Use Terminal **`dts-utils server …`** on the Mac for LaunchAgent control.
+- Non-loopback **`serve --bind`** without **`DTS_MCP_TOKEN`** prints a stderr warning (same pattern as **`dts-utils web`**).
+- **`DTS_MCP_TOKEN`** is separate from **`DTS_WEB_TOKEN`**.
+- Agent workflows and example prompts: **[docs/mcp-for-agents.md](docs/mcp-for-agents.md)**. Mac setup checklist: **[docs/mcp-local-handoff.md](docs/mcp-local-handoff.md)**.
+- After **`uv pip install 'dts-utils[mcp]'`**, **`dts-utils-mcp`** on **`PATH`** works without **`--extra`**.
 
 **Cursor** (`settings` → MCP): use **`uv`** with **`--extra mcp`** so the MCP SDK is available on a clean checkout:
 
@@ -529,7 +579,7 @@ Or use **`dts-utils-mcp`** on **`PATH`** after `uv pip install 'dts-utils[mcp]'`
 | `dts_server_stop` | Boot out job |
 | `dts_server_restart` | Restart job (**`ensure_model_browser`** default true) |
 
-**Defaults:** **`localhost:7859`**, **`trust_server_cert=true`** on loopback, profile **`default`**. **Planned HTTP `serve`:** loopback **`127.0.0.1:1976/mcp`**, auth **`DTS_MCP_TOKEN`** (Phase 5; web UI default port **1975**). Errors map to readable tool failures. **`shared_secret`** never logged. **`server install` / `uninstall` not exposed** via MCP.
+**Defaults:** **`localhost:7859`**, **`trust_server_cert=true`** on loopback, profile **`default`**. **HTTP `serve`:** loopback **`127.0.0.1:1976/mcp`**, bearer **`DTS_MCP_TOKEN`** when set (web UI default port **1975**). Errors map to readable tool failures. **`shared_secret`** never logged. **`server install` / `uninstall` not exposed** via MCP.
 
 | Resource URI | Content |
 | --- | --- |
@@ -550,7 +600,7 @@ Path traversal (`..`) rejected for all resource URIs.
 | `DTS_UTILS_DEFAULT_MODEL` | Basename for **`model`** when creating **`default.json`** first time. |
 | `DTS_UTILS_DEFAULT_PIPELINE_PROFILE` | Omit **`--profile`** on **`generate`** when set to a pipeline profile name. |
 | `DTS_WEB_TOKEN` | Bearer auth on **`/api/*`** except **`GET /api/health`**. |
-| `DTS_MCP_TOKEN` | Planned bearer auth for MCP Streamable HTTP on port **1976** (Phase 5). |
+| `DTS_MCP_TOKEN` | Bearer auth for MCP Streamable HTTP (**`dts-utils-mcp serve`**, port **1976**). Separate from **`DTS_WEB_TOKEN`**. |
 | `DTS_WEB_LOG_FILE` | Web log path (**`web`** and **`web tail`**). |
 | `DTS_WEB_GENERATE_TIMEOUT` | Wall-clock cap (seconds, default **900**) for web generate endpoints. |
 | `DTS_UTILS_DEFAULT_FETCH_RECIPE` | Default **`models fetch`** recipe when **`RECIPE_ID`** omitted. |

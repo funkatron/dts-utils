@@ -39,6 +39,10 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+### Added
+
+- **Doc drift tests:** `tests/test_docs_drift.py` keeps web routes, MCP tool names, and CLI sections aligned with user docs; **`scripts/generate_docs.py`** emits **`docs/generated/mcp-tools.md`**.
+
 ---
 
 ## [0.6.0] - 2026-07-09

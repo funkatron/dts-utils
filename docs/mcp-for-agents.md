@@ -10,6 +10,7 @@ How agents (Cursor, Claude Desktop, custom MCP hosts) use **`dts-utils-mcp`** to
 - [Setup](#setup)
 - [How agents should work](#how-agents-should-work)
 - [Tools](#tools)
+- [Tool parameters (generated)](#tool-parameters-generated)
 - [Resources and prompts](#resources-and-prompts)
 - [What users can do](#what-users-can-do)
 - [Example user requests](#example-user-requests)
@@ -97,6 +98,12 @@ Typical flow:
 **`dts_generate_image` highlights:** **`generations`** 1–25; **`output`** base path (CLI-style ms suffix); **`include_image_data`** default **false** (paths only). **`input_image_path`** repeats one source image for each generation; **`input_image_paths`** runs one generation per path with a **shared prompt** (PNG/JPEG/WebP normalized before gRPC).
 
 **`dts_pipeline_run`:** blocks until the pipeline finishes; returns artifact paths / run folder info. Optional **`input_image_path`** start frame; **`prompt`** is always required (Draw Things I2V needs motion/text guidance).
+
+### Tool parameters (generated)
+
+Full parameter tables (types, defaults, required flags) are generated from MCP tool schemas so they stay aligned with code:
+
+- [generated/mcp-tools.md](generated/mcp-tools.md) — regenerate with **`uv run python scripts/generate_docs.py`**
 
 ### Optional lifecycle (macOS, 4 tools)
 

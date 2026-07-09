@@ -82,6 +82,8 @@ Use **lowercase kebab-case** stems (letters, digits, hyphens; optional dots for 
 
 When you change CLI behaviour, update [CLI.md](CLI.md) and the user-facing sections of [README.md](README.md); add a [CHANGELOG.md](CHANGELOG.md) note when the change is user-visible.
 
+When you add or rename **web routes**, **MCP tools**, or top-level **CLI command sections**, update the matching user doc (or run **`uv run python scripts/generate_docs.py`** for MCP params). **`tests/test_docs_drift.py`** fails CI if docs drift from code.
+
 ## CLI and automation
 
 Prefer non-interactive flags documented in [CLI.md](CLI.md). Keep exit codes and stderr messages actionable for scripts (see existing `server` / `generate` behaviour).

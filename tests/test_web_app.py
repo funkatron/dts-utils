@@ -320,6 +320,7 @@ def test_generate_multipart_on_success(monkeypatch: pytest.MonkeyPatch, client: 
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         return GeneratePngBatchResult(
             images=[b"\x89PNG\r\n\x1a\nplaceholder", b"\x89PNG\r\n\x1a\nother"],
@@ -358,6 +359,7 @@ def test_generate_multipart_includes_expanded_wildcards_header(
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         return GeneratePngBatchResult(
             images=[b"\x89PNG\r\n\x1a\nx"],
@@ -390,6 +392,7 @@ def test_generate_multipart_respects_generations(monkeypatch: pytest.MonkeyPatch
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         assert generations == 2
         return GeneratePngBatchResult(
@@ -532,6 +535,7 @@ def test_generate_accepts_prompts_array(monkeypatch: pytest.MonkeyPatch, client:
         cancel_event=None,
         prompts_per_run=None,
         negative_prompts_per_run=None,
+        input_images_per_run=None,
     ) -> GeneratePngBatchResult:
         captured["prompts_per_run"] = prompts_per_run
         captured["negative_prompts_per_run"] = negative_prompts_per_run
@@ -628,3 +632,58 @@ def test_web_cli_router_passes_argv_to_web_main(monkeypatch: pytest.MonkeyPatch)
         cr.main()
     assert se.value.code == 0
     assert called["argv"] == ["--port", "19999"]
+
+
+def _tiny_png_b64() -> str:
+    return base64.standard_b64encode(b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01").decode("ascii")
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api/generate/stream", "/api/pipeline/run/stream"],
+)
+def test_pipeline_rejects_input_images_batch(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    path: str,
+) -> None:
+    monkeypatch.setattr("dts_utils.web.app.is_pipeline_profile", lambda _name: True)
+    r = client.post(
+        path,
+        json={
+            "profile": "prompt-to-video",
+            "prompt": "gentle motion",
+            "input_images": [_tiny_png_b64(), _tiny_png_b64()],
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 400
+    assert "input_images" in r.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["/api/generate/stream", "/api/pipeline/run/stream"],
+)
+def test_pipeline_requires_prompt_even_with_input_image(
+    monkeypatch: pytest.MonkeyPatch,
+    client: TestClient,
+    path: str,
+) -> None:
+    monkeypatch.setattr("dts_utils.web.app.is_pipeline_profile", lambda _name: True)
+    r = client.post(
+        path,
+        json={
+            "profile": "prompt-to-video",
+            "input_image": _tiny_png_b64(),
+            "host": "127.0.0.1",
+            "port": 7859,
+            "trust_server_cert": True,
+            "no_tls": True,
+        },
+    )
+    assert r.status_code == 400
+    assert "prompt" in r.json()["detail"].lower()

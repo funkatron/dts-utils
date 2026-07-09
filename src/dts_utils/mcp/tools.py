@@ -28,6 +28,7 @@ from dts_utils.generation_session import (
     generation_cancel_event,
     request_generation_cancel,
 )
+from dts_utils.input_image import validate_input_image_paths
 from dts_utils.grpc.utils import is_server_running
 from dts_utils.image_output import indexed_output_path, unique_ms_timestamp_output_path
 from dts_utils.mcp.client_options import build_grpc_client_options, non_loopback_warning
@@ -244,9 +245,24 @@ def tool_generate_image(
     include_image_data: bool = False,
     config_dir: str | None = None,
     user: str = "dts-utils-mcp",
+    input_image_path: str | None = None,
+    input_image_paths: list[str] | None = None,
 ) -> dict[str, Any]:
     """Generate image(s) via gRPC; returns paths (and optional base64 PNG data)."""
     try:
+        if input_image_path and input_image_paths:
+            raise ConfigurationError("Use input_image_path or input_image_paths, not both.")
+        input_images_per_run: list[Path] | None = None
+        run_count = generations
+        if input_image_paths:
+            paths = [Path(p).expanduser() for p in input_image_paths]
+            validate_input_image_paths(paths)
+            input_images_per_run = paths
+            run_count = len(paths)
+        elif input_image_path:
+            path = Path(input_image_path).expanduser()
+            validate_input_image_paths([path])
+            input_images_per_run = [path] * generations
         client = build_grpc_client_options(
             host=host,
             port=port,
@@ -273,14 +289,15 @@ def tool_generate_image(
             batch = generate_png_batch(
                 client,
                 gen,
-                generations=generations,
+                generations=run_count,
                 cancel_event=generation_cancel_event,
+                input_images_per_run=input_images_per_run,
             )
         paths = _write_png_batch(batch.images, output_base)
         result: dict[str, Any] = {
             "paths": [str(p) for p in paths],
             "configuration": cfg,
-            "generations": generations,
+            "generations": run_count,
             "expanded_prompts": batch.expanded_prompts,
             "expanded_negative_prompts": batch.expanded_negative_prompts,
         }
@@ -388,7 +405,7 @@ def tool_models_doctor(
 
 def tool_pipeline_run(
     profile: str,
-    prompt: str,
+    prompt: str = "",
     negative_prompt: str = "",
     allow_cache: bool = True,
     run_root: str | None = None,
@@ -406,6 +423,7 @@ def tool_pipeline_run(
     seconds: float | None = None,
     video_width: int | None = None,
     video_height: int | None = None,
+    input_image_path: str | None = None,
 ) -> dict[str, Any]:
     """Run a pipeline profile (e.g. prompt-to-video); blocks until complete."""
     try:
@@ -415,6 +433,13 @@ def tool_pipeline_run(
                 f"Profile {profile_stem!r} is not a pipeline profile (no _dts_utils_pipeline block). "
                 "Use dts-utils configs scaffold-pipeline prompt-to-video or pass a pipeline JSON profile."
             )
+        image_path: Path | None = None
+        if input_image_path:
+            image_path = Path(input_image_path).expanduser()
+            validate_input_image_paths([image_path])
+        prompt_text = prompt.strip()
+        if not prompt_text:
+            raise ConfigurationError("Pipeline run requires a prompt.")
         client = build_grpc_client_options(
             host=host,
             port=port,
@@ -427,7 +452,8 @@ def tool_pipeline_run(
         secret = shared_secret.strip() if shared_secret and shared_secret.strip() else None
         request = PipelineRunRequest(
             profile=profile_stem,
-            prompt=prompt.strip(),
+            prompt=prompt_text,
+            image_path=image_path,
             negative_prompt=negative_prompt,
             allow_cache=allow_cache,
             run_root=_optional_path(run_root) or default_run_root(),

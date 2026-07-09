@@ -2,6 +2,11 @@
 
 from __future__ import annotations
 
+import io
+import json
+import re
+import shutil
+import subprocess
 import threading
 from pathlib import Path
 from types import SimpleNamespace
@@ -9,9 +14,10 @@ from unittest.mock import Mock
 
 import grpc
 import pytest
+from PIL import Image
 
 import dts_utils
-from dts_utils.configuration_build import read_configuration_bytes
+from dts_utils.configuration_build import CONFIG_SCHEMA_PATH, read_configuration_bytes, resolve_flatc_path
 from dts_utils.exceptions import (
     ChannelSetupError,
     ConfigurationError,
@@ -34,6 +40,35 @@ from dts_utils.generate_api import (
     iter_generate_stream_dicts,
     prepare_image_generation_request,
 )
+
+from tests.test_configuration_build import _MINIMAL_DRAW_THINGS_STYLE
+
+
+def _strength_from_configuration_flatbuffer(configuration: bytes, tmp_path: Path) -> float:
+    """Decode ``strength`` from a Draw Things configuration FlatBuffer (requires flatc)."""
+    bin_path = tmp_path / "cfg.bin"
+    bin_path.write_bytes(configuration)
+    out_dir = tmp_path / "flatc-out"
+    out_dir.mkdir()
+    subprocess.run(
+        [
+            resolve_flatc_path(),
+            "--json",
+            "--raw-binary",
+            "-o",
+            str(out_dir),
+            str(CONFIG_SCHEMA_PATH),
+            "--",
+            str(bin_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    decoded = (out_dir / "cfg.json").read_text(encoding="utf-8")
+    match = re.search(r"strength:\s*([0-9.]+)", decoded)
+    assert match is not None, decoded
+    return float(match.group(1))
 
 
 def test_generation_rpc_error_from_rpc_error_mock():
@@ -74,6 +109,10 @@ def test_prepare_image_generation_request_attaches_input_image(monkeypatch, tmp_
         lambda **kwargs: b"resolved",
     )
     monkeypatch.setattr(
+        "dts_utils.generate_api.normalize_input_image_path",
+        lambda _p: b"png-normalized",
+    )
+    monkeypatch.setattr(
         "dts_utils.generate_api.encode_png_to_dt_tensor",
         lambda _png: b"tensor-bytes",
     )
@@ -87,6 +126,30 @@ def test_prepare_image_generation_request_attaches_input_image(monkeypatch, tmp_
         )
     )
     assert req.image == b"tensor-bytes"
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_prepare_img2img_request_encodes_seventy_percent_strength(tmp_path: Path) -> None:
+    """Existing input image + new prompt uses strength 0.7 from the saved JSON profile."""
+    cfg_path = tmp_path / "img2img-70.json"
+    cfg_path.write_text(json.dumps({**_MINIMAL_DRAW_THINGS_STYLE, "strength": 0.7}), encoding="utf-8")
+
+    ref = Image.new("RGB", (64, 64), (120, 80, 200))
+    buf = io.BytesIO()
+    ref.save(buf, format="PNG")
+    image_path = tmp_path / "ref.png"
+    image_path.write_bytes(buf.getvalue())
+
+    req, prompt, _ = prepare_image_generation_request(
+        ImageGenerationRequestOptions(
+            prompt="sunset watercolor over the scene",
+            configuration_json=cfg_path,
+            input_image_path=image_path,
+        )
+    )
+    assert prompt == "sunset watercolor over the scene"
+    assert req.image
+    assert _strength_from_configuration_flatbuffer(req.configuration, tmp_path) == pytest.approx(0.7)
 
 
 def test_build_image_generation_request(monkeypatch, tmp_path):
@@ -172,6 +235,39 @@ def test_generate_png_batch_returns_expanded_prompts(monkeypatch: pytest.MonkeyP
     assert batch.expanded_prompts == seen
     assert all(x in {"p", "q"} for x in batch.expanded_prompts)
     assert batch.expanded_negative_prompts == ["", ""]
+
+
+def test_generate_png_batch_per_run_input_images(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    cfg = tmp_path / "c.fb"
+    cfg.write_bytes(b"x")
+    in_a = tmp_path / "a.png"
+    in_b = tmp_path / "b.png"
+    in_a.write_bytes(b"a")
+    in_b.write_bytes(b"b")
+    seen_paths: list[Path | None] = []
+
+    def fake_prepare(gen: ImageGenerationRequestOptions):
+        seen_paths.append(gen.input_image_path)
+        return SimpleNamespace(image=b"tensor"), gen.prompt, ""
+
+    monkeypatch.setattr("dts_utils.generate_api.prepare_image_generation_request", fake_prepare)
+    monkeypatch.setattr(
+        "dts_utils.generate_api.collect_raw_generation_tensors",
+        lambda _client, _request: [b"tensor"],
+    )
+    monkeypatch.setattr("dts_utils.generate_api.decode_dt_tensor_to_png", lambda _b: b"\x89PNG\r\n")
+
+    batch = generate_png_batch(
+        GrpcClientOptions(no_tls=True),
+        ImageGenerationRequestOptions(prompt="edit", configuration=cfg),
+        generations=2,
+        input_images_per_run=[in_a, in_b],
+    )
+    assert len(batch.images) == 2
+    assert seen_paths == [in_a, in_b]
 
 
 def test_build_image_generation_request_invalid_wildcard_prompt(monkeypatch, tmp_path):

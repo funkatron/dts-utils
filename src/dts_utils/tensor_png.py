@@ -39,6 +39,16 @@ def decode_dt_tensor_to_png(image_data: bytes) -> bytes:
     return output.getvalue()
 
 
+def normalize_image_bytes_to_png(raw: bytes) -> bytes:
+    """Convert readable raster bytes (PNG, JPEG, WebP, …) to RGB PNG file bytes."""
+    if len(raw) < 8:
+        raise ValueError("Image input is too small.")
+    output = io.BytesIO()
+    with Image.open(io.BytesIO(raw)) as img:
+        img.convert("RGB").save(output, format="PNG")
+    return output.getvalue()
+
+
 def encode_png_to_dt_tensor(png_bytes: bytes, *, compress: bool = False) -> bytes:
     """Encode PNG bytes into a Draw Things image tensor (inverse of :func:`decode_dt_tensor_to_png`)."""
     if len(png_bytes) < 8:

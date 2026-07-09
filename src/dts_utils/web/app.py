@@ -10,6 +10,7 @@ import os
 import queue
 import secrets
 import shutil
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -46,6 +47,12 @@ from dts_utils.generate_api import (
 )
 from dts_utils.grpc.connection import is_loopback_host
 from dts_utils.grpc.utils import is_server_running
+from dts_utils.input_image import (
+    coerce_input_images_base64,
+    decode_input_image_base64,
+    materialize_input_images_to_dir,
+    resolve_generations_with_input_images,
+)
 from dts_utils.pipeline.profile import is_pipeline_profile
 from dts_utils.pipeline.run_plan import (
     PipelineRunRequest,
@@ -295,7 +302,85 @@ def _parse_pipeline_payload(body: object) -> tuple[dict[str, object], JSONRespon
     return body, None
 
 
-def _build_pipeline_run_request(data: dict[str, object]) -> tuple[PipelineRunRequest, JSONResponse | None]:
+def _validate_pipeline_input_images(data: dict[str, object]) -> JSONResponse | None:
+    """Pipeline runs use one optional start frame; batch ``input_images`` is img2img-only."""
+    if data.get("input_images") is not None:
+        return JSONResponse(
+            {
+                "detail": (
+                    "Pipeline profiles accept a single input_image start frame, not input_images. "
+                    "Use one start frame per video run, or switch to a single-image profile for batch img2img."
+                )
+            },
+            status_code=400,
+        )
+    return None
+
+
+def _materialize_request_input_images(
+    data: dict[str, object],
+) -> tuple[list[Path] | None, tempfile.TemporaryDirectory[str] | None, JSONResponse | None]:
+    raw_single = data.get("input_image")
+    raw_multi = data.get("input_images")
+    if raw_single is not None and raw_multi is not None:
+        return None, None, JSONResponse(
+            {"detail": "Send input_image or input_images, not both."},
+            status_code=400,
+        )
+    pngs: list[bytes] | None = None
+    if raw_multi is not None:
+        try:
+            pngs = coerce_input_images_base64(raw_multi)
+        except ConfigurationError as exc:
+            return None, None, JSONResponse({"detail": str(exc)}, status_code=400)
+    elif raw_single is not None:
+        try:
+            pngs = [decode_input_image_base64(raw_single)]
+        except ConfigurationError as exc:
+            return None, None, JSONResponse({"detail": str(exc)}, status_code=400)
+    if pngs is None:
+        return None, None, None
+    tmp = tempfile.TemporaryDirectory(prefix="dts-web-input-")
+    paths = materialize_input_images_to_dir(Path(tmp.name), pngs)
+    return paths, tmp, None
+
+
+def _input_paths_per_run(
+    data: dict[str, object],
+    generation_runs: int,
+    paths: list[Path] | None,
+) -> list[Path] | None:
+    if not paths:
+        return None
+    if data.get("input_images") is not None:
+        return paths
+    return [paths[0]] * generation_runs
+
+
+def _resolve_generation_runs_with_inputs(
+    data: dict[str, object],
+    input_paths: list[Path] | None,
+) -> tuple[int, JSONResponse | None]:
+    if input_paths is None:
+        try:
+            return coerce_generations_json(data.get("generations")), None
+        except ConfigurationError as exc:
+            return 0, JSONResponse({"detail": str(exc)}, status_code=400)
+    try:
+        if data.get("input_images") is not None:
+            raw_gen = data.get("generations")
+            gen_opt = coerce_generations_json(raw_gen) if raw_gen is not None else None
+            return resolve_generations_with_input_images(gen_opt, len(input_paths)), None
+        return coerce_generations_json(data.get("generations")), None
+    except ConfigurationError as exc:
+        return 0, JSONResponse({"detail": str(exc)}, status_code=400)
+
+
+def _build_pipeline_run_request(
+    data: dict[str, object],
+    *,
+    input_image_path: Path | None = None,
+) -> tuple[PipelineRunRequest, JSONResponse | None]:
     profile = str(data["profile"]).strip()
     if not is_pipeline_profile(profile):
         return PipelineRunRequest(profile=profile, prompt=""), JSONResponse(
@@ -319,10 +404,14 @@ def _build_pipeline_run_request(data: dict[str, object]) -> tuple[PipelineRunReq
     shared = data.get("shared_secret")
     shared_secret = str(shared).strip() if isinstance(shared, str) and shared.strip() else None
 
+    prompt_raw = data.get("prompt")
+    prompt = str(prompt_raw).strip() if isinstance(prompt_raw, str) else None
+
     return (
         PipelineRunRequest(
             profile=profile,
-            prompt=str(data["prompt"]).strip(),
+            prompt=prompt or None,
+            image_path=input_image_path,
             run_root=_pipeline_run_root(),
             allow_cache=bool(data.get("allow_cache", True)),
             negative_prompt=negative_prompt,
@@ -606,6 +695,7 @@ def _run_generate(
     *,
     prompts_per_run: list[str] | None = None,
     negative_prompts_per_run: list[str] | None = None,
+    input_images_per_run: list[Path] | None = None,
 ) -> GeneratePngBatchResult:
     with execute_lock:
         clear_generation_cancel()
@@ -616,6 +706,7 @@ def _run_generate(
             cancel_event=generation_cancel_event,
             prompts_per_run=prompts_per_run,
             negative_prompts_per_run=negative_prompts_per_run,
+            input_images_per_run=input_images_per_run,
         )
 
 
@@ -776,10 +867,19 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
                 data, err = _parse_pipeline_payload(body)
                 if err:
                     return err
-                run_request, err = _build_pipeline_run_request(data)
+                batch_err = _validate_pipeline_input_images(data)
+                if batch_err:
+                    return batch_err
+                input_paths, input_tmp, img_err = _materialize_request_input_images(data)
+                if img_err:
+                    return img_err
+                image_path = input_paths[0] if input_paths else None
+                run_request, err = _build_pipeline_run_request(data, input_image_path=image_path)
                 if err:
+                    if input_tmp:
+                        input_tmp.cleanup()
                     return err
-                return _streaming_prompt_to_video_response(run_request)
+                return _streaming_prompt_to_video_response(run_request, input_tmp=input_tmp)
             return JSONResponse(
                 {
                     "detail": (
@@ -800,40 +900,56 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
     if err:
         return err
 
-    try:
-        generation_runs = coerce_generations_json(data.get("generations"))
-    except ConfigurationError as e:
-        return JSONResponse({"detail": str(e)}, status_code=400)
+    input_paths, input_tmp, img_err = _materialize_request_input_images(data)
+    if img_err:
+        return img_err
+
+    generation_runs, gen_err = _resolve_generation_runs_with_inputs(data, input_paths)
+    if gen_err:
+        if input_tmp:
+            input_tmp.cleanup()
+        return gen_err
 
     prompts_per_run, negative_prompts_per_run, err = _coerce_prompt_arrays(data, generation_runs)
     if err:
+        if input_tmp:
+            input_tmp.cleanup()
         return err
 
     gen, err = _build_generation_options(data, prompts_per_run=prompts_per_run)
     if err:
+        if input_tmp:
+            input_tmp.cleanup()
         return err
+
+    input_images_per_run = _input_paths_per_run(data, generation_runs, input_paths)
 
     loop = asyncio.get_running_loop()
     q: queue.Queue[str | None] = queue.Queue(maxsize=_GENERATE_STREAM_QUEUE_MAXSIZE)
     timeout_sec = _generate_timeout_seconds()
 
     def worker() -> None:
-        with execute_lock:
-            clear_generation_cancel()
-            try:
-                for evt in iter_generate_stream_dicts(
-                    client,
-                    gen,
-                    generations=generation_runs,
-                    cancel_event=generation_cancel_event,
-                    prompts_per_run=prompts_per_run,
-                    negative_prompts_per_run=negative_prompts_per_run,
-                ):
-                    q.put(json.dumps(evt, ensure_ascii=False))
-            except BaseException as exc:
-                q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
-            finally:
-                q.put(None)
+        try:
+            with execute_lock:
+                clear_generation_cancel()
+                try:
+                    for evt in iter_generate_stream_dicts(
+                        client,
+                        gen,
+                        generations=generation_runs,
+                        cancel_event=generation_cancel_event,
+                        prompts_per_run=prompts_per_run,
+                        negative_prompts_per_run=negative_prompts_per_run,
+                        input_images_per_run=input_images_per_run,
+                    ):
+                        q.put(json.dumps(evt, ensure_ascii=False))
+                except BaseException as exc:
+                    q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
+                finally:
+                    q.put(None)
+        finally:
+            if input_tmp:
+                input_tmp.cleanup()
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -898,10 +1014,13 @@ async def api_generate(request: Request) -> Response:
     if err:
         return err
 
-    try:
-        generation_runs = coerce_generations_json(data.get("generations"))
-    except ConfigurationError as e:
-        return JSONResponse({"detail": str(e)}, status_code=400)
+    input_paths, input_tmp, img_err = _materialize_request_input_images(data)
+    if img_err:
+        return img_err
+
+    generation_runs, gen_err = _resolve_generation_runs_with_inputs(data, input_paths)
+    if gen_err:
+        return gen_err
 
     prompts_per_run, negative_prompts_per_run, err = _coerce_prompt_arrays(data, generation_runs)
     if err:
@@ -911,6 +1030,8 @@ async def api_generate(request: Request) -> Response:
     if err:
         return err
 
+    input_images_per_run = _input_paths_per_run(data, generation_runs, input_paths)
+
     run_batch = functools.partial(
         _run_generate,
         client,
@@ -918,24 +1039,29 @@ async def api_generate(request: Request) -> Response:
         generation_runs,
         prompts_per_run=prompts_per_run,
         negative_prompts_per_run=negative_prompts_per_run,
+        input_images_per_run=input_images_per_run,
     )
     timeout = _generate_timeout_seconds()
     try:
-        batch = await asyncio.wait_for(asyncio.to_thread(run_batch), timeout=timeout)
-    except TimeoutError:
-        return JSONResponse({"detail": "Generation timed out."}, status_code=504)
-    except ConfigurationError as e:
-        return _map_exc(e)
-    except ChannelSetupError as e:
-        return _map_exc(e)
-    except GenerationRpcError as e:
-        return _map_exc(e)
-    except GenerationCancelledError as e:
-        return _map_exc(e)
-    except GenerationEmptyError as e:
-        return _map_exc(e)
-    except Exception as e:
-        return _map_exc(e)
+        try:
+            batch = await asyncio.wait_for(asyncio.to_thread(run_batch), timeout=timeout)
+        except TimeoutError:
+            return JSONResponse({"detail": "Generation timed out."}, status_code=504)
+        except ConfigurationError as e:
+            return _map_exc(e)
+        except ChannelSetupError as e:
+            return _map_exc(e)
+        except GenerationRpcError as e:
+            return _map_exc(e)
+        except GenerationCancelledError as e:
+            return _map_exc(e)
+        except GenerationEmptyError as e:
+            return _map_exc(e)
+        except Exception as e:
+            return _map_exc(e)
+    finally:
+        if input_tmp:
+            input_tmp.cleanup()
 
     return _multipart_png_response(
         batch.images,
@@ -945,92 +1071,100 @@ async def api_generate(request: Request) -> Response:
     )
 
 
-def _streaming_prompt_to_video_response(run_request: PipelineRunRequest) -> StreamingResponse:
+def _streaming_prompt_to_video_response(
+    run_request: PipelineRunRequest,
+    *,
+    input_tmp: tempfile.TemporaryDirectory[str] | None = None,
+) -> StreamingResponse:
     loop = asyncio.get_running_loop()
     q: queue.Queue[str | None] = queue.Queue(maxsize=_GENERATE_STREAM_QUEUE_MAXSIZE)
     timeout_sec = _generate_timeout_seconds()
     run_root = _pipeline_run_root()
 
     def worker() -> None:
-        with execute_lock:
-            clear_generation_cancel()
-            heartbeat_path: Path | None = None
-            try:
-                ns, profile_settings = prepare_pipeline_run(run_request)
-                validate_pipeline_run(ns, profile_settings)
-                run_id = str(ns.run_id)
-                heartbeat_path = run_root / run_id / "heartbeat.json"
-                steps = build_pipeline_steps(ns, profile_settings)
-                q.put(
-                    json.dumps(
-                        {
-                            "type": "meta",
-                            "profile": run_request.profile,
-                            "run_id": run_id,
-                            "total_steps": len(steps),
-                        },
-                        ensure_ascii=False,
-                    )
-                )
-
-                runner = PipelineRunner(
-                    run_root,
-                    allow_cache=run_request.allow_cache,
-                    max_oom_retries=max(0, int(run_request.max_oom_retries or 1)),
-                )
-                last_progress = ""
-                stop_poll = threading.Event()
-
-                def poll_heartbeat() -> None:
-                    nonlocal last_progress
-                    while not stop_poll.is_set():
-                        if heartbeat_path.is_file():
-                            try:
-                                payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
-                                msg = (
-                                    f"Step {payload.get('step_id', '?')} "
-                                    f"({int(payload.get('step_index', 0)) + 1}/"
-                                    f"{payload.get('total_steps', '?')}) — "
-                                    f"{payload.get('status', '')}"
-                                )
-                                if msg != last_progress:
-                                    last_progress = msg
-                                    q.put(
-                                        json.dumps(
-                                            {"type": "progress", "message": msg, **payload},
-                                            ensure_ascii=False,
-                                        )
-                                    )
-                            except (OSError, json.JSONDecodeError):
-                                pass
-                        stop_poll.wait(1.0)
-
-                poll_thread = threading.Thread(target=poll_heartbeat, daemon=True)
-                poll_thread.start()
+        try:
+            with execute_lock:
+                clear_generation_cancel()
+                heartbeat_path: Path | None = None
                 try:
-                    manifest = runner.run(run_id=run_id, steps=steps)
-                finally:
-                    stop_poll.set()
-                    poll_thread.join(timeout=2.0)
-
-                for evt in _manifest_artifact_events(manifest):
-                    q.put(json.dumps(evt, ensure_ascii=False))
-                q.put(
-                    json.dumps(
-                        {
-                            "type": "done",
-                            "run_id": manifest.run_id,
-                            "run_root": manifest.run_root,
-                            "profile": run_request.profile,
-                            "artifacts": manifest.artifacts,
-                        },
-                        ensure_ascii=False,
+                    ns, profile_settings = prepare_pipeline_run(run_request)
+                    validate_pipeline_run(ns, profile_settings)
+                    run_id = str(ns.run_id)
+                    heartbeat_path = run_root / run_id / "heartbeat.json"
+                    steps = build_pipeline_steps(ns, profile_settings)
+                    q.put(
+                        json.dumps(
+                            {
+                                "type": "meta",
+                                "profile": run_request.profile,
+                                "run_id": run_id,
+                                "total_steps": len(steps),
+                            },
+                            ensure_ascii=False,
+                        )
                     )
-                )
-            except BaseException as exc:
-                q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
-            finally:
-                q.put(None)
+
+                    runner = PipelineRunner(
+                        run_root,
+                        allow_cache=run_request.allow_cache,
+                        max_oom_retries=max(0, int(run_request.max_oom_retries or 1)),
+                    )
+                    last_progress = ""
+                    stop_poll = threading.Event()
+
+                    def poll_heartbeat() -> None:
+                        nonlocal last_progress
+                        while not stop_poll.is_set():
+                            if heartbeat_path.is_file():
+                                try:
+                                    payload = json.loads(heartbeat_path.read_text(encoding="utf-8"))
+                                    msg = (
+                                        f"Step {payload.get('step_id', '?')} "
+                                        f"({int(payload.get('step_index', 0)) + 1}/"
+                                        f"{payload.get('total_steps', '?')}) — "
+                                        f"{payload.get('status', '')}"
+                                    )
+                                    if msg != last_progress:
+                                        last_progress = msg
+                                        q.put(
+                                            json.dumps(
+                                                {"type": "progress", "message": msg, **payload},
+                                                ensure_ascii=False,
+                                            )
+                                        )
+                                except (OSError, json.JSONDecodeError):
+                                    pass
+                            stop_poll.wait(1.0)
+
+                    poll_thread = threading.Thread(target=poll_heartbeat, daemon=True)
+                    poll_thread.start()
+                    try:
+                        manifest = runner.run(run_id=run_id, steps=steps)
+                    finally:
+                        stop_poll.set()
+                        poll_thread.join(timeout=2.0)
+
+                    for evt in _manifest_artifact_events(manifest):
+                        q.put(json.dumps(evt, ensure_ascii=False))
+                    q.put(
+                        json.dumps(
+                            {
+                                "type": "done",
+                                "run_id": manifest.run_id,
+                                "run_root": manifest.run_root,
+                                "profile": run_request.profile,
+                                "artifacts": manifest.artifacts,
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
+                except BaseException as exc:
+                    q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
+                finally:
+                    q.put(None)
+        finally:
+            if input_tmp:
+                input_tmp.cleanup()
 
     threading.Thread(target=worker, daemon=True).start()
 
@@ -1088,12 +1222,22 @@ async def api_pipeline_run_stream(request: Request) -> StreamingResponse | JSONR
     data, err = _parse_pipeline_payload(body)
     if err:
         return err
+    batch_err = _validate_pipeline_input_images(data)
+    if batch_err:
+        return batch_err
 
-    run_request, err = _build_pipeline_run_request(data)
+    input_paths, input_tmp, img_err = _materialize_request_input_images(data)
+    if img_err:
+        return img_err
+    image_path = input_paths[0] if input_paths else None
+
+    run_request, err = _build_pipeline_run_request(data, input_image_path=image_path)
     if err:
+        if input_tmp:
+            input_tmp.cleanup()
         return err
 
-    return _streaming_prompt_to_video_response(run_request)
+    return _streaming_prompt_to_video_response(run_request, input_tmp=input_tmp)
 
 
 async def api_pipeline_artifact(request: Request) -> Response:

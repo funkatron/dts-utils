@@ -27,6 +27,7 @@ from dts_utils.grpc.connection import create_channel
 from dts_utils.grpc.proto.upstream import imageService_pb2 as up_pb2
 from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as up_grpc
 from dts_utils.image_output import unique_ms_timestamp_output_path, write_images
+from dts_utils.input_image import normalize_input_image_path
 from PIL import Image
 
 from dts_utils.tensor_png import decode_dt_tensor_to_png, encode_png_to_dt_tensor
@@ -135,7 +136,8 @@ def prepare_image_generation_request(
     if gen.shared_secret:
         request.sharedSecret = gen.shared_secret
     if gen.input_image_path is not None:
-        request.image = encode_png_to_dt_tensor(gen.input_image_path.read_bytes())
+        png_bytes = normalize_input_image_path(gen.input_image_path)
+        request.image = encode_png_to_dt_tensor(png_bytes)
     return request, prompt_expanded, negative_expanded
 
 
@@ -231,6 +233,14 @@ def _validate_per_run_prompt_lengths(
         raise ConfigurationError("'negative_prompts' length must equal generations.")
 
 
+def _validate_input_images_per_run(
+    n: int,
+    input_images_per_run: Sequence[Path | None] | None,
+) -> None:
+    if input_images_per_run is not None and len(input_images_per_run) != n:
+        raise ConfigurationError("'input_images' length must equal generations.")
+
+
 def _generation_runs_iter(
     client: GrpcClientOptions,
     gen: ImageGenerationRequestOptions,
@@ -238,6 +248,7 @@ def _generation_runs_iter(
     cancel_event: threading.Event | None,
     prompts_per_run: Sequence[str] | None,
     negative_prompts_per_run: Sequence[str] | None,
+    input_images_per_run: Sequence[Path | None] | None = None,
 ) -> Iterator[tuple[int, str, str, list[bytes]]]:
     """Yield ``(run_index_zero_based, expanded_prompt, expanded_negative, png_bytes_for_run)`` per generation RPC."""
     for i in range(n):
@@ -248,6 +259,9 @@ def _generation_runs_iter(
             g = dataclasses.replace(g, prompt=prompts_per_run[i])
         if negative_prompts_per_run is not None:
             g = dataclasses.replace(g, negative_prompt=negative_prompts_per_run[i])
+        if input_images_per_run is not None:
+            image_path = input_images_per_run[i]
+            g = dataclasses.replace(g, input_image_path=image_path)
         request, ep, en = prepare_image_generation_request(g)
         tensors = collect_raw_generation_tensors(client, request)
         if not tensors:
@@ -264,9 +278,11 @@ def generate_png_batch(
     cancel_event: threading.Event | None = None,
     prompts_per_run: Sequence[str] | None = None,
     negative_prompts_per_run: Sequence[str] | None = None,
+    input_images_per_run: Sequence[Path | None] | None = None,
 ) -> GeneratePngBatchResult:
     n = validate_batch_generations(generations)
     _validate_per_run_prompt_lengths(n, prompts_per_run, negative_prompts_per_run)
+    _validate_input_images_per_run(n, input_images_per_run)
     pngs: list[bytes] = []
     expanded_prompts: list[str] = []
     expanded_negatives: list[str] = []
@@ -277,6 +293,7 @@ def generate_png_batch(
         cancel_event,
         prompts_per_run,
         negative_prompts_per_run,
+        input_images_per_run,
     ):
         expanded_prompts.append(ep)
         expanded_negatives.append(en)
@@ -296,10 +313,12 @@ def iter_generate_stream_dicts(
     cancel_event: threading.Event | None = None,
     prompts_per_run: Sequence[str] | None = None,
     negative_prompts_per_run: Sequence[str] | None = None,
+    input_images_per_run: Sequence[Path | None] | None = None,
 ) -> Iterator[dict[str, object]]:
     """Yield serializable dicts for SSE: meta, progress, preview (live frames), image, done."""
     n = validate_batch_generations(generations)
     _validate_per_run_prompt_lengths(n, prompts_per_run, negative_prompts_per_run)
+    _validate_input_images_per_run(n, input_images_per_run)
     yield {"type": "meta", "total_runs": n}
     global_idx = 0
     expanded_prompts: list[str] = []
@@ -312,6 +331,8 @@ def iter_generate_stream_dicts(
             g = dataclasses.replace(g, prompt=prompts_per_run[i])
         if negative_prompts_per_run is not None:
             g = dataclasses.replace(g, negative_prompt=negative_prompts_per_run[i])
+        if input_images_per_run is not None:
+            g = dataclasses.replace(g, input_image_path=input_images_per_run[i])
         request, ep, en = prepare_image_generation_request(g)
         expanded_prompts.append(ep)
         expanded_negatives.append(en)
@@ -408,9 +429,11 @@ def generate_to_paths(
     output_base: Path,
     *,
     generations: int = 1,
+    input_images_per_run: Sequence[Path | None] | None = None,
 ) -> list[Path]:
     n = validate_batch_generations(generations)
-    if n == 1:
+    _validate_input_images_per_run(n, input_images_per_run)
+    if n == 1 and input_images_per_run is None:
         request, _, _ = prepare_image_generation_request(gen)
         tensors = collect_raw_generation_tensors(client, request)
         if not tensors:
@@ -420,7 +443,10 @@ def generate_to_paths(
     paths_out: list[Path] = []
     for i in range(n):
         batch_base = output_base.with_name(f"{output_base.stem}-{stamp}-{i}{output_base.suffix}")
-        request, _, _ = prepare_image_generation_request(gen)
+        g = gen
+        if input_images_per_run is not None:
+            g = dataclasses.replace(g, input_image_path=input_images_per_run[i])
+        request, _, _ = prepare_image_generation_request(g)
         tensors = collect_raw_generation_tensors(client, request)
         if not tensors:
             raise GenerationEmptyError("No generated images returned by the server.")

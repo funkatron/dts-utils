@@ -101,7 +101,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--image",
         type=Path,
-        help="Existing image for pipeline image-to-video only (requires a pipeline --profile).",
+        help="Input image for img2img (with --configuration) or image-to-video (with pipeline --profile).",
+    )
+    parser.add_argument(
+        "--images",
+        nargs="+",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Batch input images for img2img: one generation per image, same prompt "
+            f"(max {MAX_BATCH_GENERATIONS}; mutually exclusive with --image)."
+        ),
     )
     parser.add_argument("--fps", type=int, default=None, help="Pipeline video FPS (overrides profile).")
     parser.add_argument("--seconds", type=float, default=None, help="Pipeline video duration in seconds (overrides profile).")
@@ -171,9 +181,22 @@ def main(argv: list[str] | None = None) -> int:
         return run_generate_pipeline(args)
     if args.profile and not args.configuration and not args.configuration_json:
         args.configuration = args.profile
-    if args.image and not (args.profile and generate_uses_pipeline_profile(args.profile)):
-        print("--image requires a pipeline --profile (for example prompt-to-video).", file=sys.stderr)
+    if args.images and args.image:
+        print("Use --image or --images, not both.", file=sys.stderr)
         return 2
+    input_images_per_run: list[Path] | None = None
+    generations = args.generations
+    if args.images:
+        from dts_utils.input_image import validate_input_image_paths
+
+        input_images_per_run = list(args.images)
+        validate_input_image_paths(input_images_per_run)
+        generations = len(input_images_per_run)
+    elif args.image and not (args.profile and generate_uses_pipeline_profile(args.profile)):
+        from dts_utils.input_image import validate_input_image_paths
+
+        validate_input_image_paths([args.image])
+        input_images_per_run = [args.image] * generations
     client_opts = GrpcClientOptions(
         host=args.host,
         port=args.port,
@@ -192,12 +215,18 @@ def main(argv: list[str] | None = None) -> int:
         shared_secret=args.shared_secret,
     )
     try:
-        validate_batch_generations(args.generations)
+        validate_batch_generations(generations)
     except ConfigurationError as e:
         print(f"Configuration error: {e}", file=sys.stderr)
         return 1
     try:
-        written_paths = generate_to_paths(client_opts, gen_opts, args.output, generations=args.generations)
+        written_paths = generate_to_paths(
+            client_opts,
+            gen_opts,
+            args.output,
+            generations=generations,
+            input_images_per_run=input_images_per_run,
+        )
     except ConfigurationError as e:
         print(f"Configuration error: {e}", file=sys.stderr)
         return 1

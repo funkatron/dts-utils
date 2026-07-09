@@ -80,7 +80,9 @@ Used in **`POST /api/generate`**, **`POST /api/generate/stream`**, and pipeline 
 | **`prompts`** | string[] | — | Length must equal **`generations`** |
 | **`negative_prompt`** | string | `""` | |
 | **`negative_prompts`** | string[] | — | Same length as **`prompts`** when set |
-| **`generations`** | int | `1` | **1–25** |
+| **`generations`** | int | `1` | **1–25**; with **`input_images`**, defaults to array length |
+| **`input_image`** | string | — | Base64 raster (PNG/JPEG/WebP, …) for img2img or a single pipeline start frame |
+| **`input_images`** | string[] | — | Batch img2img only (one generation per image, same **`prompt`**); not allowed with pipeline **`profile`** |
 | **`configuration`** | string | `"default"` | Saved profile stem (single-image generation) |
 | **`profile`** | string | — | Pipeline profile name (e.g. **`prompt-to-video`**) |
 | **`host`** | string | `"localhost"` | gRPC host |
@@ -216,12 +218,13 @@ Preferred for agents and UIs that want live previews.
 
 **Image generation:** same JSON body as **`POST /api/generate`**.
 
-**Pipeline:** set **`profile`** (not **`configuration`**):
+**Pipeline:** set **`profile`** (not **`configuration`**). **`prompt`** is always required (including when **`input_image`** supplies a start frame):
 
 ```json
 {
   "profile": "prompt-to-video",
-  "prompt": "calm lake at dawn"
+  "prompt": "calm lake at dawn",
+  "input_image": "<optional base64 start frame>"
 }
 ```
 

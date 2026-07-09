@@ -61,7 +61,8 @@ uv run dts-utils generate \
 | `--profile NAME` | Saved profile. JSON with **`_dts_utils_pipeline`** (e.g. **`prompt-to-video`**) runs prompt → image → video under **`--run-root`** (default `~/Movies/infomux-runs`). Other names act like **`--configuration`** for a single PNG. |
 | `--fps`, `--seconds`, `--video-width`, `--video-height` | Override pipeline video timing/size (with **`--profile`**). |
 | `--run-root`, `--run-id`, `--no-cache` | Pipeline run layout and caching (with **`--profile`**). |
-| `--image PATH` | Existing image for pipeline image-to-video only (with a pipeline **`--profile`**). |
+| `--image PATH` | Input image for img2img (with **`--configuration`**) or pipeline I2V (with pipeline **`--profile`**). |
+| `--images PATH …` | Batch img2img: one generation per image, same **`--prompt`** (max 25; not with **`--image`**). |
 | `--output PATH` | Base path for PNG output. Default: `output/generated.png`. Inserts `-<unix_ms>` before the extension; multiple images use `-2`, `-3`, … Success lines print `Wrote …` on stdout. Ignored for pipeline profiles (use artifact paths printed after the run). |
 | `--configuration VALUE` | Draw Things configuration: saved `.json` (converted via **`flatc`**), raw FlatBuffer file, or simple name resolving to saved JSON. |
 | `--configuration-json VALUE` | JSON file or saved config name (mutually exclusive with **`--profile`** / **`--configuration`**). |

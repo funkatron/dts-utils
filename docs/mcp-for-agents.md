@@ -53,7 +53,7 @@ uv run --extra mcp dts-utils-mcp serve
 # default: http://127.0.0.1:1976/mcp
 ```
 
-Remote MCP clients (on a tailnet/VPN) point at **`http://<dt-host>:1976/mcp`** with **`Authorization: Bearer $DTS_MCP_TOKEN`**. Lifecycle tools are not available over HTTP — use Terminal **`dts-utils server …`** locally. For non-MCP apps, see **[web-api.md](web-api.md)** (REST on port **1975**).
+Remote MCP clients on another host use **`http://<host>:1976/mcp`** with **`Authorization: Bearer $DTS_MCP_TOKEN`** (after **`serve --bind`** on the Draw Things Mac). Lifecycle tools are not available over HTTP — use Terminal **`dts-utils server …`** locally. For non-MCP apps, see **[web-api.md](web-api.md)** (REST on port **1975**).
 
 **Prerequisites on the Mac:** Python 3.12+, **`uv`**, **`flatc`** (for JSON profiles), a listening **`gRPCServerCLI`**, and at least one saved profile (e.g. **`default.json`**).
 

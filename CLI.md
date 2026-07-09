@@ -498,7 +498,7 @@ uv run --extra mcp dts-utils-mcp serve
 # http://127.0.0.1:1976/mcp  (Authorization: Bearer $DTS_MCP_TOKEN)
 ```
 
-It starts Streamable HTTP on loopback **1976** (web UI default **1975**). Point tailnet/VPN clients at **`http://<dt-host>:1976/mcp`** with the bearer token.
+It starts Streamable HTTP on loopback **1976** (web UI default **1975**). Set **`DTS_MCP_TOKEN`**; clients send **`Authorization: Bearer`**. Default bind is **`127.0.0.1`** — use **`--bind`** only when you intend network reachability.
 
 ```bash
 # Local stdio (explicit)

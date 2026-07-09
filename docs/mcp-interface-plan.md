@@ -2,7 +2,7 @@
 
 Maintainer record for the stdio MCP server (**`dts-utils-mcp`**). Operator setup, tool list, and Cursor config: [CLI.md § MCP](../CLI.md#mcp-dts-utils-mcp).
 
-**Status:** Shipped (Phases 1–5). Merged in PRs [#13](https://github.com/funkatron/dts-utils/pull/13), [#14](https://github.com/funkatron/dts-utils/pull/14), [#15](https://github.com/funkatron/dts-utils/pull/15); follow-up fixes in [#16](https://github.com/funkatron/dts-utils/pull/16). Phase 5 (Streamable HTTP) on feature branch.
+**Status:** Shipped (Phases 1–5). Merged in PRs [#13](https://github.com/funkatron/dts-utils/pull/13), [#14](https://github.com/funkatron/dts-utils/pull/14), [#15](https://github.com/funkatron/dts-utils/pull/15); follow-up fixes in [#16](https://github.com/funkatron/dts-utils/pull/16). Phase 5 (Streamable HTTP) in [#24](https://github.com/funkatron/dts-utils/pull/24) — merge-ready on **`feature/phase-5-mcp-streamable-http`**.
 
 ---
 
@@ -61,7 +61,7 @@ gRPCServerCLI  (TLS default; plaintext when installed with --no-tls)
 
 ```text
 src/dts_utils/mcp/
-  server.py          # FastMCP registration, main()
+  server.py          # FastMCP registration; stdio default, serve → HTTP
   tools.py           # core + pipeline + models tools
   lifecycle.py       # gated macOS LaunchAgent tools
   resources.py       # URI templates + generate_image prompt

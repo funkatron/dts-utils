@@ -319,7 +319,7 @@ curl -N -H "Authorization: Bearer $TOKEN" \
   "$BASE/api/generate/stream"
 ```
 
-For remote access, bind only over VPN/Tailscale, set **`DTS_WEB_TOKEN`**, and avoid exposing generation to the public internet.
+For remote access, use a private network, set **`DTS_WEB_TOKEN`**, and avoid exposing generation to the public internet.
 
 ---
 

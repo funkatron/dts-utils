@@ -51,7 +51,7 @@ Example snippet for the next release:
 - **`dts-utils web`:** default HTTP port **8765 → 1975** (`src/dts_utils/web/defaults.py`). Override with **`--port`** or reinstall LaunchAgent if you relied on the old default.
 - **docs/mcp-interface-plan.md:** Updated from planning draft to shipped maintainer record (Phases 1–4 complete; links to PRs #13–#16).
 - **MCP:** lifecycle status redacts `--shared-secret` values; plist model-browser sync no longer terminates the MCP process on bad LaunchAgent plists; non-loopback TLS with `root_cert` or `force_trust_server_cert` clears conflicting `trust_server_cert` defaults.
-- **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN/Tailscale bind addresses.
+- **Remote gRPC (TLS):** non-loopback hosts use **`grpc.ssl_target_name_override=localhost`** because **`gRPCServerCLI`** presents **`CN=localhost`** even on LAN bind addresses.
 - **JSON → FlatBuffer:** **`flatc`** resolution checks **`PATH`** first, then common macOS package-manager locations so LaunchAgent-started web sessions can still convert saved JSON profiles.
 - **CLI help:** top-level, **`server --help`**, and **`web --help`** now describe the command tree and LaunchAgent modes more clearly.
 - **Tests:** default **`uv run pytest`** deselects **`live_grpc_cli`** tests; opt in with **`pytest -m live_grpc_cli`** and **`DTS_GRPC_TEST_SPAWN_SERVER=1`**.

@@ -39,6 +39,15 @@ Example snippet for the next release:
 
 ## [Unreleased]
 
+---
+
+## [0.6.0] - 2026-07-09
+
+### Tested with
+
+- **pytest:** 464 passed, 1 skipped (7 deselected; release cut). **CI:** `pytest` on Ubuntu (`ci.yml`).
+- **gRPCServerCLI:** macOS manual smoke (2026-07-08): `server check`, `generate` with **`default`**, img2img **`--image`** / **`--images`**, MCP **`dts_generate_image`** with **`input_image_path`**; see **[0.5.0](#050---2026-06-02)** for pinned server tag baseline.
+
 ### Added
 
 - **Image-to-image and batch input images:** **`--image`** / **`--images`** on **`dts-utils generate`**; web/MCP **`input_image`** / **`input_images`** (base64); Pillow normalizes PNG/JPEG/WebP before gRPC tensor encode; one shared prompt for batch runs.

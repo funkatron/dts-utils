@@ -238,6 +238,7 @@
       min-height: 0;
     }
     .results .result-slot {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -278,6 +279,31 @@
       text-decoration: underline;
       color: var(--fg);
     }
+    .result-info-button {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 2;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 50%;
+      background: rgba(20,21,24,0.82);
+      color: #fff;
+      font: 700 0.9rem/1 sans-serif;
+      cursor: pointer;
+    }
+    .result-info-button:hover, .result-info-button:focus-visible { background: var(--accent); }
+    .generation-info-grid {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 0.5rem 0.8rem;
+      margin: 0;
+      font-size: 0.82rem;
+    }
+    .generation-info-grid dt { color: var(--muted); }
+    .generation-info-grid dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
     .expanded-prompts-panel {
       flex: 0 1 auto;
       width: 100%;
@@ -850,6 +876,10 @@
       gap: 0.5rem;
       align-items: flex-end;
     }
+    .history-thumbs .result-slot {
+      position: relative;
+      width: min(180px, 100%);
+    }
     .history-thumbs img {
       cursor: zoom-in;
       max-height: 72px;
@@ -858,6 +888,7 @@
       border-radius: 4px;
       border: 1px solid var(--border);
     }
+    .history-thumbs .result-info-button { top: 0.3rem; right: 0.3rem; width: 1.7rem; height: 1.7rem; }
     .history-dl {
       display: flex;
       flex-wrap: wrap;
@@ -1197,6 +1228,14 @@
       <img id="dtsLightboxImg" alt="" decoding="async" />
     </div>
     <p id="dtsLightboxCounter" class="dts-lightbox-counter"></p>
+  </dialog>
+
+  <dialog id="generationInfoDialog" class="tools-dialog" aria-labelledby="generation-info-title">
+    <div class="tools-dialog-inner">
+      <h2 id="generation-info-title">Generation details</h2>
+      <dl id="generationInfoGrid" class="generation-info-grid"></dl>
+    </div>
+    <div class="dialog-close-row"><button type="button" id="btnCloseGenerationInfo">Close</button></div>
   </dialog>
 
   <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title" inert>
@@ -2014,6 +2053,66 @@ uv run dts-utils server tail</pre>
     __dtsResultBlobUrls.length = 0;
   }
 
+  function showGenerationInfo(details) {
+    var dialog = document.getElementById("generationInfoDialog");
+    var grid = document.getElementById("generationInfoGrid");
+    if (!dialog || !grid) return;
+    grid.replaceChildren();
+    var fields = [
+      ["Prompt", details.prompt], ["Negative prompt", details.negative_prompt],
+      ["Configuration", details.configuration], ["Run", details.run],
+      ["Generated", details.generated], ["Elapsed", details.elapsed],
+      ["Dimensions", details.dimensions], ["Expanded prompt", details.expanded_prompt],
+      ["Expanded negative", details.expanded_negative_prompt],
+    ];
+    fields.forEach(function (field) {
+      if (field[1] === undefined || field[1] === null || field[1] === "") return;
+      var dt = document.createElement("dt");
+      var dd = document.createElement("dd");
+      dt.textContent = field[0];
+      dd.textContent = String(field[1]);
+      grid.appendChild(dt);
+      grid.appendChild(dd);
+    });
+    if (typeof dialog.showModal === "function") dialog.showModal();
+  }
+
+  function createGenerationTile(url, downloadName, details) {
+    var wrap = document.createElement("article");
+    wrap.className = "result-slot";
+    var img = document.createElement("img");
+    img.src = url;
+    img.alt = "Generated image" + (details.run ? " " + details.run : "");
+    img.addEventListener("load", function () {
+      details.dimensions = img.naturalWidth + " × " + img.naturalHeight;
+    });
+    var info = document.createElement("button");
+    info.type = "button";
+    info.className = "result-info-button";
+    info.textContent = "i";
+    info.setAttribute("aria-label", "Show generation details");
+    info.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      showGenerationInfo(details);
+    });
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = downloadName || "generated.png";
+    a.textContent = "Download";
+    a.className = "result-download";
+    wrap.appendChild(img);
+    wrap.appendChild(info);
+    wrap.appendChild(a);
+    wrap._generationDetails = details;
+    return wrap;
+  }
+
+  document.getElementById("btnCloseGenerationInfo").addEventListener("click", function () {
+    var dialog = document.getElementById("generationInfoDialog");
+    if (dialog && typeof dialog.close === "function") dialog.close();
+  });
+
   function clearGenerationPreview() {
     var pane = document.getElementById("generationPreview");
     var img = document.getElementById("generationPreviewImage");
@@ -2050,41 +2149,16 @@ uv run dts-utils server tail</pre>
     if (prog) prog.textContent = "Run " + run + " — preview " + seq;
   }
 
-  async function promoteGenerationPreviewToResults(results, historyBuffers) {
-    if (historyBuffers.length || !__dtsPreviewBlobUrl) return false;
+  async function promoteGenerationPreviewToResults(results, receivedImages, details) {
+    if (receivedImages || !__dtsPreviewBlobUrl) return false;
     var previewImg = document.getElementById("generationPreviewImage");
     if (!previewImg || !previewImg.src) return false;
     var url = __dtsPreviewBlobUrl;
     __dtsPreviewBlobUrl = null;
     __dtsResultBlobUrls.push(url);
-    var img = document.createElement("img");
-    img.src = url;
-    img.alt = "Generated preview";
-    var wrap = document.createElement("div");
-    wrap.className = "result-slot";
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "generated_preview.png";
-    a.textContent = "Download";
-    a.className = "result-download";
-    wrap.appendChild(img);
-    wrap.appendChild(a);
-    results.appendChild(wrap);
-    try {
-      var response = await fetch(url);
-      var buf = await response.arrayBuffer();
-      historyBuffers.push(buf);
-    } catch (e) {}
+    results.appendChild(createGenerationTile(url, "generated_preview.png", details || {}));
     clearGenerationPreview();
     return true;
-  }
-
-  function arrayBufferToBase64(buf) {
-    var bin = "";
-    var bytes = new Uint8Array(buf);
-    var len = bytes.byteLength;
-    for (var i = 0; i < len; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
   }
 
   function loadLegacyHistoryState() {
@@ -2109,25 +2183,6 @@ uv run dts-utils server tail</pre>
   async function migrateLegacyHistoryToServer() {
     var legacy = loadLegacyHistoryState();
     if (!legacy.items.length) return;
-    for (var i = legacy.items.length - 1; i >= 0; i--) {
-      var entry = legacy.items[i];
-      if (!entry || !Array.isArray(entry.images) || !entry.images.length) continue;
-      var migBody = {
-        ts: entry.ts,
-        prompt: String(entry.prompt || ""),
-        negative_prompt: entry.negative_prompt || "",
-        generations: entry.generations || entry.image_count || entry.images.length,
-        images: entry.images,
-      };
-      if (typeof entry.configuration === "string" && entry.configuration.trim()) {
-        migBody.configuration = entry.configuration.trim().slice(0, 4096);
-      }
-      await fetch("/api/history", {
-        method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(migBody),
-      });
-    }
     try {
       localStorage.removeItem(HISTORY_KEY);
     } catch (e) {}
@@ -2142,27 +2197,11 @@ uv run dts-utils server tail</pre>
     return state;
   }
 
-  async function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers, configuration) {
-    if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
-    var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
-    var payload = {
-      ts: Date.now(),
-      prompt: promptText.slice(0, 4000),
-      negative_prompt: String(negativePromptText || "").trim().slice(0, 4000),
-      generations: coerceHistoryGenerations(generations) || images.length,
-      images: images,
-    };
-    var cfg =
-      typeof configuration === "string" && configuration.trim()
-        ? configuration.trim().slice(0, 4096)
-        : "";
-    if (cfg) payload.configuration = cfg;
-    await fetch("/api/history", {
-      method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-    });
-    await renderHistoryList();
+  async function fetchHistoryArtifacts(entryId) {
+    var r = await fetch("/api/history/" + encodeURIComponent(entryId) + "/artifacts", { headers: authHeaders() });
+    if (!r.ok) return [];
+    var payload = await r.json();
+    return payload && Array.isArray(payload.items) ? payload.items : [];
   }
 
   /** Match saved profile name to #profile or set #profileCustom (same rules as effectiveProfile). */
@@ -2249,12 +2288,13 @@ uv run dts-utils server tail</pre>
       root.appendChild(empty);
       return;
     }
-    state.items.forEach(function (entry) {
+    for (var entryIndex = 0; entryIndex < state.items.length; entryIndex++) {
+      var entry = state.items[entryIndex];
       var row = document.createElement("article");
       row.className = "history-row";
       var meta = document.createElement("div");
       meta.className = "history-row-meta";
-      var images = Array.isArray(entry.images) ? entry.images : [];
+      var images = await fetchHistoryArtifacts(entry.id);
       var d = new Date(entry.ts);
       var imageCount = coerceHistoryGenerations(entry.image_count) || images.length;
       var cfg =
@@ -2271,10 +2311,20 @@ uv run dts-utils server tail</pre>
       var thumbs = document.createElement("div");
       thumbs.className = "history-thumbs";
       images.forEach(function (imageRef, i) {
-        var img = document.createElement("img");
-        img.src = imageRef.url;
-        img.alt = "Thumbnail " + (i + 1);
-        thumbs.appendChild(img);
+        var expanded = Array.isArray(entry.expanded_prompts) ? entry.expanded_prompts[i] : "";
+        var expandedNegative = Array.isArray(entry.expanded_negative_prompts)
+          ? entry.expanded_negative_prompts[i]
+          : "";
+        thumbs.appendChild(createGenerationTile(imageRef.url, imageRef.download, {
+          prompt: entry.prompt || "",
+          negative_prompt: entry.negative_prompt || "",
+          configuration: entry.configuration || "",
+          run: (i + 1) + " / " + imageCount,
+          generated: d.toLocaleString(),
+          elapsed: entry.elapsed_seconds ? entry.elapsed_seconds + "s" : "",
+          expanded_prompt: expanded,
+          expanded_negative_prompt: expandedNegative,
+        }));
       });
       row.appendChild(thumbs);
       var dl = document.createElement("div");
@@ -2299,7 +2349,7 @@ uv run dts-utils server tail</pre>
       actions.appendChild(reuse);
       row.appendChild(actions);
       root.appendChild(row);
-    });
+    }
   }
 
   function prefersReducedMotion() {
@@ -2632,7 +2682,7 @@ uv run dts-utils server tail</pre>
         return;
       }
 
-      const historyBuffers = [];
+      let receivedImages = 0;
       let donePayload = null;
       await readSSEStream(r, function (msg) {
         if (msg.type === "meta") {
@@ -2652,23 +2702,24 @@ uv run dts-utils server tail</pre>
           var bin = atob(msg.png_b64);
           var bytes = new Uint8Array(bin.length);
           for (var j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-          historyBuffers.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
+          receivedImages += 1;
           var blob = new Blob([bytes], { type: "image/png" });
           var url = URL.createObjectURL(blob);
           __dtsResultBlobUrls.push(url);
-          var img = document.createElement("img");
-          img.src = url;
-          img.alt = "Generated " + msg.index + " (run " + msg.run + ")";
-          img.className = "result-inflight";
-          var wrap = document.createElement("div");
-          wrap.className = "result-slot";
-          var a = document.createElement("a");
-          a.href = url;
-          a.download = "generated_" + msg.index + ".png";
-          a.textContent = "Download";
-          a.className = "result-download";
-          wrap.appendChild(img);
-          wrap.appendChild(a);
+          var expandedPrompt = body.prompts && body.prompts[msg.run - 1] ? body.prompts[msg.run - 1] : prompt;
+          var expandedNegative = body.negative_prompts && body.negative_prompts[msg.run - 1]
+            ? body.negative_prompts[msg.run - 1]
+            : document.getElementById("neg").value;
+          var wrap = createGenerationTile(url, "generated_" + msg.index + ".png", {
+            prompt: prompt,
+            negative_prompt: document.getElementById("neg").value,
+            configuration: body.configuration,
+            run: msg.run + " / " + msg.total_runs,
+            generated: new Date().toLocaleString(),
+            expanded_prompt: expandedPrompt,
+            expanded_negative_prompt: expandedNegative,
+          });
+          wrap.querySelector("img").className = "result-inflight";
           results.appendChild(wrap);
           var prog2 = document.getElementById("busyProgress");
           if (prog2)
@@ -2683,20 +2734,22 @@ uv run dts-utils server tail</pre>
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       elapsed.textContent = "Done in " + dt + "s";
 
+      results.querySelectorAll(".result-slot").forEach(function (tile) {
+        if (tile._generationDetails) tile._generationDetails.elapsed = dt + "s";
+      });
+
       results.querySelectorAll("img.result-inflight").forEach(function (im) {
         im.classList.remove("result-inflight");
       });
 
-      await promoteGenerationPreviewToResults(results, historyBuffers);
+      await promoteGenerationPreviewToResults(results, receivedImages, {
+        prompt: prompt,
+        negative_prompt: document.getElementById("neg").value,
+        configuration: body.configuration,
+        generated: new Date().toLocaleString(),
+      });
 
-      if (historyBuffers.length) {
-        await historyAppend(
-          prompt,
-          document.getElementById("neg").value,
-          generations,
-          historyBuffers,
-          body.configuration,
-        );
+      if (receivedImages) {
         trackRecentProfile(body.configuration);
       }
 
@@ -2713,7 +2766,7 @@ uv run dts-utils server tail</pre>
         expNote.replaceChildren();
       }
 
-      placeholder.hidden = historyBuffers.length > 0;
+      placeholder.hidden = receivedImages > 0;
     } catch (e) {
       if (e.name === "AbortError") {
         requestGenerationCancel();

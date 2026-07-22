@@ -84,7 +84,6 @@ _GENERATE_STREAM_QUEUE_MAXSIZE = 64
 
 # Some proxies cap individual header values; omit expanded-prompt metadata when larger.
 _MAX_EXPANDED_WILDCARDS_B64_LEN = 6000
-_HISTORY_MAX_ITEMS = 30
 _HISTORY_INDEX = "index.json"
 _UI_PIPELINE_PROFILES_FALLBACK = (
     "sdxl-turbo",
@@ -187,50 +186,65 @@ def _coerce_history_generations(value: object) -> int | None:
     return n
 
 
-def _coerce_history_images(images_raw: object) -> list[bytes] | JSONResponse:
-    if not isinstance(images_raw, list):
-        return JSONResponse({"detail": "images must be an array of PNG base64 strings."}, status_code=400)
-    if len(images_raw) > 25:
-        return JSONResponse({"detail": "images cannot contain more than 25 entries."}, status_code=400)
-    images: list[bytes] = []
-    for i, image_raw in enumerate(images_raw):
-        if not isinstance(image_raw, str):
-            return JSONResponse({"detail": f"images[{i}] must be a base64 string."}, status_code=400)
-        try:
-            png = base64.b64decode(image_raw, validate=True)
-        except ValueError:
-            return JSONResponse({"detail": f"images[{i}] is not valid base64."}, status_code=400)
-        if not png.startswith(b"\x89PNG\r\n\x1a\n"):
-            return JSONResponse({"detail": f"images[{i}] is not a PNG."}, status_code=400)
-        images.append(png)
-    return images
-
-
 def _history_public_item(entry: dict[str, object]) -> dict[str, object]:
-    item_id = str(entry.get("id") or "")
-    images = entry.get("images") if isinstance(entry.get("images"), list) else []
     out = dict(entry)
-    out["images"] = [
-        {
-            "url": f"/history/{item_id}/{str(name)}",
-            "download": str(name),
-        }
-        for name in images
-        if isinstance(name, str)
-    ]
+    out.pop("images", None)
     return out
 
 
-def _cleanup_history_files(items: list[object]) -> None:
-    keep_ids = {str(item.get("id")) for item in items if isinstance(item, dict) and item.get("id")}
-    directory = _history_dir()
-    if not directory.is_dir():
-        return
-    for child in directory.iterdir():
-        if child.name == _HISTORY_INDEX:
-            continue
-        if child.is_dir() and child.name not in keep_ids:
-            shutil.rmtree(child, ignore_errors=True)
+def _history_artifacts(item_id: str) -> list[dict[str, str]]:
+    item_dir = _history_dir() / item_id
+    if not item_dir.is_dir():
+        return []
+    return [
+        {"url": f"/history/{item_id}/{path.name}", "download": path.name}
+        for path in sorted(item_dir.glob("generated-*.png"))
+        if path.is_file()
+    ]
+
+
+def _record_generation_history(
+    *,
+    data: dict[str, object],
+    images: list[bytes],
+    elapsed_seconds: float,
+    expanded_prompts: list[str],
+    expanded_negative_prompts: list[str],
+) -> dict[str, object] | None:
+    """Persist a completed job without putting image payloads in the history index."""
+    if not images:
+        return None
+    item_id = secrets.token_urlsafe(12).replace("-", "_")
+    item_dir = _history_dir() / item_id
+    item_dir.mkdir(parents=True, exist_ok=True)
+    for index, png in enumerate(images, start=1):
+        (item_dir / f"generated-{index}.png").write_bytes(png)
+
+    prompt = str(data.get("prompt") or "").strip()
+    entry: dict[str, object] = {
+        "id": item_id,
+        "ts": int(time.time() * 1000),
+        "prompt": prompt[:4000],
+        "generations": len(images),
+        "image_count": len(images),
+        "elapsed_seconds": round(elapsed_seconds, 3),
+    }
+    negative_prompt = data.get("negative_prompt")
+    if isinstance(negative_prompt, str) and negative_prompt.strip():
+        entry["negative_prompt"] = negative_prompt.strip()[:4000]
+    configuration = data.get("configuration")
+    if isinstance(configuration, str) and configuration.strip():
+        entry["configuration"] = configuration.strip()[:4096]
+    if expanded_prompts:
+        entry["expanded_prompts"] = expanded_prompts
+    if expanded_negative_prompts:
+        entry["expanded_negative_prompts"] = expanded_negative_prompts
+
+    state = _load_history_state()
+    items = state.get("items") if isinstance(state.get("items"), list) else []
+    items.insert(0, entry)
+    _save_history_state({"version": 1, "items": items})
+    return entry
 
 
 def _multipart_png_response(
@@ -772,57 +786,16 @@ async def api_history(request: Request) -> JSONResponse:
         shutil.rmtree(_history_dir(), ignore_errors=True)
         return JSONResponse(_empty_history_state())
 
-    try:
-        body = await request.json()
-    except json.JSONDecodeError:
-        return JSONResponse({"detail": "Invalid JSON"}, status_code=400)
-    if not isinstance(body, dict):
-        return JSONResponse({"detail": "Expected JSON object"}, status_code=400)
+    return JSONResponse({"detail": "History is recorded automatically after generation."}, status_code=405)
 
-    prompt = body.get("prompt")
-    if not isinstance(prompt, str) or not prompt.strip():
-        return JSONResponse({"detail": "prompt is required."}, status_code=400)
-    images = _coerce_history_images(body.get("images"))
-    if isinstance(images, JSONResponse):
-        return images
 
-    item_id = secrets.token_urlsafe(12).replace("-", "_")
-    item_dir = _history_dir() / item_id
-    item_dir.mkdir(parents=True, exist_ok=True)
-    image_names: list[str] = []
-    for i, png in enumerate(images, start=1):
-        name = f"generated-{i}.png"
-        (item_dir / name).write_bytes(png)
-        image_names.append(name)
-
-    entry: dict[str, object] = {
-        "id": item_id,
-        "ts": int(body.get("ts")) if isinstance(body.get("ts"), int) else int(time.time() * 1000),
-        "prompt": prompt.strip()[:4000],
-        "images": image_names,
-        "image_count": len(image_names),
-    }
-    negative_prompt = body.get("negative_prompt")
-    if isinstance(negative_prompt, str) and negative_prompt.strip():
-        entry["negative_prompt"] = negative_prompt.strip()[:4000]
-    generations = _coerce_history_generations(body.get("generations"))
-    if generations is not None:
-        entry["generations"] = generations
-
-    configuration = body.get("configuration")
-    if isinstance(configuration, str):
-        ctrim = configuration.strip()
-        if ctrim:
-            entry["configuration"] = ctrim[:4096]
-
-    state = _load_history_state()
-    items = state.get("items") if isinstance(state.get("items"), list) else []
-    items.insert(0, entry)
-    del items[_HISTORY_MAX_ITEMS:]
-    state = {"version": 1, "items": items}
-    _save_history_state(state)
-    _cleanup_history_files(items)
-    return JSONResponse(_history_public_item(entry), status_code=201)
+async def api_history_artifacts(request: Request) -> JSONResponse:
+    if err := _require_bearer(request):
+        return err
+    item_id = request.path_params["item_id"]
+    if not _safe_history_id(item_id):
+        return JSONResponse({"detail": "Invalid history id."}, status_code=400)
+    return JSONResponse({"items": _history_artifacts(item_id)})
 
 
 async def history_image(request: Request) -> Response:
@@ -929,6 +902,10 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
     timeout_sec = _generate_timeout_seconds()
 
     def worker() -> None:
+        started = time.monotonic()
+        completed_images: list[bytes] = []
+        expanded_prompts: list[str] = []
+        expanded_negative_prompts: list[str] = []
         try:
             with execute_lock:
                 clear_generation_cancel()
@@ -942,6 +919,22 @@ async def api_generate_stream(request: Request) -> StreamingResponse | JSONRespo
                         negative_prompts_per_run=negative_prompts_per_run,
                         input_images_per_run=input_images_per_run,
                     ):
+                        if evt.get("type") == "image" and isinstance(evt.get("png_b64"), str):
+                            completed_images.append(base64.b64decode(evt["png_b64"]))
+                        elif evt.get("type") == "done":
+                            expanded_prompts = [str(value) for value in evt.get("expanded_prompts", [])]
+                            expanded_negative_prompts = [
+                                str(value) for value in evt.get("expanded_negative_prompts", [])
+                            ]
+                            history_entry = _record_generation_history(
+                                data=data,
+                                images=completed_images,
+                                elapsed_seconds=time.monotonic() - started,
+                                expanded_prompts=expanded_prompts,
+                                expanded_negative_prompts=expanded_negative_prompts,
+                            )
+                            if history_entry is not None:
+                                evt["history_id"] = history_entry["id"]
                         q.put(json.dumps(evt, ensure_ascii=False))
                 except BaseException as exc:
                     q.put(json.dumps(_generate_stream_exception_payload(exc), ensure_ascii=False))
@@ -1267,7 +1260,8 @@ def create_app() -> Starlette:
         Route("/api/health", health, methods=["GET"]),
         Route("/api/server-status", server_status, methods=["GET"]),
         Route("/api/configs", api_configs, methods=["GET"]),
-        Route("/api/history", api_history, methods=["GET", "POST", "DELETE"]),
+        Route("/api/history", api_history, methods=["GET", "DELETE"]),
+        Route("/api/history/{item_id:str}/artifacts", api_history_artifacts, methods=["GET"]),
         Route("/api/prompt/expand", api_prompt_expand, methods=["GET", "POST"]),
         Route("/api/generate/cancel", api_generate_cancel, methods=["POST"]),
         Route("/api/generate/stream", api_generate_stream, methods=["POST"]),

@@ -288,11 +288,11 @@ Download a pipeline artifact (PNG or MP4). Path traversal (**`..`**, **`/`** in 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | **GET** | **`/api/history`** | List saved UI history items |
-| **POST** | **`/api/history`** | Store prompt + PNG bytes from the client |
 | **DELETE** | **`/api/history`** | Clear all history |
+| **GET** | **`/api/history/{item_id}/artifacts`** | List image URLs for one history job |
 | **GET** | **`/history/{item_id}/{filename}`** | Serve a stored PNG (no bearer check on this route) |
 
-Override storage with **`DTS_WEB_HISTORY_DIR`**.
+Completed streaming generations are recorded automatically. The uncapped **`index.json`** contains job metadata only—never image arrays or base64 data. PNGs live as separate files and are discovered through the artifacts route. Override storage with **`DTS_WEB_HISTORY_DIR`**; use **`DELETE /api/history`** when you want to reclaim all history storage.
 
 ---
 

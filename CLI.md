@@ -436,7 +436,7 @@ uv run dts-utils web tail [-n N] [--file PATH] [--no-follow]
 | **`POST /api/generate/cancel`** | Cooperative cancel between runs; multipart in-flight → **499**, stream → SSE **`error`** |
 | **`POST /api/prompt/expand`** | Random **`{…}`** expansions without generating (**`GET`** describes POST shape) |
 
-**Browser UI** (composer, Setup/History FABs, fullscreen viewer, **`localStorage`** defaults): **[docs/web-ui-layout.md](docs/web-ui-layout.md)**. **`DTS_WEB_HISTORY_DIR`** overrides on-disk history location. Server LaunchAgent remains **`dts-utils server …`** in Terminal.
+**Browser UI** (composer, Setup/History FABs, generation tiles, fullscreen viewer, per-image info, **`localStorage`** defaults): **[docs/web-ui-layout.md](docs/web-ui-layout.md)**. Uncapped history uses a metadata-only index plus separate PNG files; **`DTS_WEB_HISTORY_DIR`** overrides its location. Server LaunchAgent remains **`dts-utils server …`** in Terminal.
 
 ### reflect
 

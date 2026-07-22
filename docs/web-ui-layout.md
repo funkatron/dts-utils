@@ -57,7 +57,7 @@ Connection + advanced    Server-side PNG list, Reuse, Clear all
 | **Runs** | **`#generations`** 1–25 (image mode); hidden for single-run video pipelines |
 | **Negative prompt** | Optional **`#neg`** above the main prompt |
 | **Setup** | Host, port, no-TLS, trust loopback, Check listener, shared secret, cert paths, config dir, web log tail hint |
-| **History** | Job tiles retain prompt + configuration metadata; **Reuse** restores prompt, profile, runs, and negative prompt; **Clear all** deletes server history files |
+| **History** | Wide viewport-height dialog; each job has a responsive thumbnail-card grid with overlaid **i**, one Download action, and Reuse. Prompt + configuration metadata stays above its grid; **Clear all** deletes server history files |
 | **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. **Escape** or backdrop closes. **← / →**, side zones, swipe within batch. **F** = Fit vs Fill |
 | **Generation info** | Select a tile’s **i** button → **`#generationInfoDialog`** with prompt, profile, run, timing, dimensions, and expanded wildcard values |
 | **Busy state** | Live preview (**`#generationPreview`**), progress text, request JSON (**`shared_secret`** redacted in **`#busyRequestJson`**) |

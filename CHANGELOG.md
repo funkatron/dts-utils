@@ -42,6 +42,7 @@ Example snippet for the next release:
 ### Added
 
 - **`dts-utils web`:** responsive generation-job tiles open images fullscreen and expose an **i** details dialog; uncapped prompt/config history is now written directly by the server with a metadata-only index and separate PNG artifacts, avoiding browser-side base64 history uploads.
+- **`dts-utils web`:** History now uses the complete shared tile styling in a wide responsive grid, keeps its footer fixed, resets scroll when opened, and removes duplicate download links.
 - **Doc drift tests:** `tests/test_docs_drift.py` keeps web routes, MCP tool names, and CLI sections aligned with user docs; **`scripts/generate_docs.py`** emits **`docs/generated/mcp-tools.md`**.
 
 ---

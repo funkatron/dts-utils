@@ -237,7 +237,7 @@
       flex: 0 1 auto;
       min-height: 0;
     }
-    .results .result-slot {
+    .result-slot {
       position: relative;
       display: flex;
       flex-direction: column;
@@ -245,16 +245,18 @@
       justify-content: center;
       gap: 0.35rem;
       box-sizing: border-box;
-      flex: 1 1 16rem;
-      max-width: min(22rem, 100%);
-      min-width: min(14rem, 100%);
       min-height: 0;
       padding: 0.5rem;
       background: rgba(34, 35, 40, 0.36);
       border: 1px solid var(--border);
       border-radius: max(6px, calc(var(--dts-display-radius) * 0.55));
     }
-    .results img {
+    .results .result-slot {
+      flex: 1 1 16rem;
+      max-width: min(22rem, 100%);
+      min-width: min(14rem, 100%);
+    }
+    .result-slot img {
       display: block;
       max-width: 100%;
       width: auto;
@@ -270,12 +272,12 @@
       outline-offset: 2px;
       opacity: 0.94;
     }
-    .results .result-download {
+    .result-download {
       font-size: 0.78rem;
       color: var(--accent);
       text-decoration: none;
     }
-    .results .result-download:hover {
+    .result-download:hover {
       text-decoration: underline;
       color: var(--fg);
     }
@@ -773,6 +775,14 @@
       width: calc(100vw - 2rem);
       max-height: min(85vh, 640px);
     }
+    dialog#historyDialog {
+      width: min(76rem, calc(100vw - 2rem));
+      max-width: 76rem;
+      height: min(84dvh, 56rem);
+      max-height: calc(100dvh - 2rem);
+      flex-direction: column;
+    }
+    dialog#historyDialog[open] { display: flex; }
     dialog.tools-dialog::backdrop {
       background: rgba(0, 0, 0, 0.55);
     }
@@ -847,7 +857,10 @@
     .history-dialog-inner {
       padding: 1rem;
       overflow-y: auto;
-      max-height: min(70vh, 520px);
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overscroll-behavior: contain;
     }
     .history-list {
       display: flex;
@@ -871,32 +884,29 @@
       word-break: break-word;
     }
     .history-thumbs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: flex-end;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr));
+      gap: 0.65rem;
+      align-items: stretch;
     }
     .history-thumbs .result-slot {
-      position: relative;
-      width: min(180px, 100%);
+      width: 100%;
+      min-width: 0;
+      padding: 0.4rem;
+      justify-content: space-between;
     }
     .history-thumbs img {
       cursor: zoom-in;
-      max-height: 72px;
-      max-width: 120px;
-      object-fit: contain;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      max-height: none;
+      object-fit: cover;
       border-radius: 4px;
       border: 1px solid var(--border);
     }
     .history-thumbs .result-info-button { top: 0.3rem; right: 0.3rem; width: 1.7rem; height: 1.7rem; }
-    .history-dl {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem 0.65rem;
-      margin-top: 0.45rem;
-      font-size: 0.8rem;
-    }
-    .history-dl a { color: var(--accent); }
+    .history-thumbs .result-download { padding: 0.15rem 0.3rem; }
     .history-actions {
       display: flex;
       flex-wrap: wrap;
@@ -925,6 +935,16 @@
       flex-wrap: wrap;
       background: var(--bg);
     }
+    .dialog-actions-split > button {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--fg);
+      padding: 0.45rem 0.8rem;
+      font: inherit;
+      cursor: pointer;
+    }
+    .dialog-actions-split > button:hover { border-color: var(--muted); }
     button.btn-danger-ghost {
       background: transparent;
       color: var(--bad);
@@ -2327,16 +2347,6 @@ uv run dts-utils server tail</pre>
         }));
       });
       row.appendChild(thumbs);
-      var dl = document.createElement("div");
-      dl.className = "history-dl";
-      images.forEach(function (imageRef, i) {
-        var a = document.createElement("a");
-        a.href = imageRef.url;
-        a.download = imageRef.download || "dts-gen-" + entry.id + "-" + i + ".png";
-        a.textContent = "Download " + (i + 1);
-        dl.appendChild(a);
-      });
-      row.appendChild(dl);
       var actions = document.createElement("div");
       actions.className = "history-actions";
       var reuse = document.createElement("button");
@@ -2963,6 +2973,8 @@ uv run dts-utils server tail</pre>
     openBtn.addEventListener("click", async function () {
       await migrateLegacyHistoryToServer();
       await renderHistoryList();
+      var scroller = dlg.querySelector(".history-dialog-inner");
+      if (scroller) scroller.scrollTop = 0;
       dlg.removeAttribute("inert");
       if (typeof dlg.showModal === "function") dlg.showModal();
       openBtn.setAttribute("aria-expanded", "true");

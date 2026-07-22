@@ -82,6 +82,16 @@ def test_index_history_contract_stores_optional_reuse_metadata(client: TestClien
     assert "body.configuration" in r.text
 
 
+def test_history_tiles_share_result_layout_and_use_a_responsive_grid(client: TestClient) -> None:
+    text = client.get("/").text
+    assert ".result-slot {" in text
+    assert ".history-thumbs {" in text
+    assert "grid-template-columns: repeat(auto-fill" in text
+    assert 'dialog#historyDialog[open] { display: flex; }' in text
+    assert 'scroller.scrollTop = 0' in text
+    assert 'dl.className = "history-dl"' not in text
+
+
 def test_generation_history_keeps_images_out_of_index(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
     client = TestClient(create_app())

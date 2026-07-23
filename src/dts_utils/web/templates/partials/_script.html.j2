@@ -1,0 +1,1990 @@
+  window.__DTS_INIT__ = { token: {{ (api_token or none)|tojson }} };
+
+  function authHeaders(base) {
+    const h = Object.assign({}, base || {});
+    if (window.__DTS_INIT__.token)
+      h["Authorization"] = "Bearer " + window.__DTS_INIT__.token;
+    return h;
+  }
+
+  /** Ask the server to set cooperative cancel (checked between batch RPCs). Fire-and-forget. */
+  function requestGenerationCancel() {
+    fetch("/api/generate/cancel", {
+      method: "POST",
+      headers: authHeaders({ "Content-Type": "application/json" }),
+      body: "{}",
+    }).catch(function () {});
+  }
+
+  function indexOfU8(hay, needle, start) {
+    start = start | 0;
+    outer: for (let i = start; i <= hay.length - needle.length; i++) {
+      for (let j = 0; j < needle.length; j++)
+        if (hay[i + j] !== needle[j]) continue outer;
+      return i;
+    }
+    return -1;
+  }
+
+  function parseMultipartPngs(arrayBuffer, contentType) {
+    const ct = contentType || "";
+    const m = /boundary=([\w'./+:-]+)/i.exec(ct);
+    if (!m) throw new Error("No multipart boundary in Content-Type");
+    const boundary = m[1].trim().replace(/^["']|["']$/g, "");
+    const u8 = new Uint8Array(arrayBuffer);
+    const enc = new TextEncoder();
+    const dec = new TextDecoder("latin1");
+    const sep = enc.encode("\r\n--" + boundary);
+    const preamble = enc.encode("--" + boundary);
+    const parts = [];
+    let idx = indexOfU8(u8, preamble, 0);
+    while (idx !== -1) {
+      idx += 2 + boundary.length;
+      if (idx + 1 < u8.length && u8[idx] === 45 && u8[idx + 1] === 45) break;
+      if (idx + 1 < u8.length && u8[idx] === 13 && u8[idx + 1] === 10) idx += 2;
+      const hdrEnd = indexOfU8(u8, enc.encode("\r\n\r\n"), idx);
+      if (hdrEnd === -1) break;
+      const headers = dec.decode(u8.subarray(idx, hdrEnd));
+      const bodyStart = hdrEnd + 4;
+      const nextSep = indexOfU8(u8, sep, bodyStart);
+      if (nextSep === -1) break;
+      if (headers.toLowerCase().includes("content-type: image/png"))
+        parts.push(arrayBuffer.slice(bodyStart, nextSep));
+      idx = nextSep;
+    }
+    return parts;
+  }
+
+  function decodeExpandedWildcardsHeader(b64) {
+    if (!b64 || typeof b64 !== "string") return null;
+    try {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const json = new TextDecoder().decode(bytes);
+      const o = JSON.parse(json);
+      if (!o || typeof o !== "object") return null;
+      if (!Array.isArray(o.prompts) || !Array.isArray(o.negative_prompts)) return null;
+      return o;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function formatListenerLine(j) {
+    const probe = j.probe ? " (" + j.probe + ")" : "";
+    if (j.listener_ok) {
+      var raw = String(j.message || "").trim();
+      raw = raw.replace(/^Listener OK\s*[—-]\s*/i, "").trim();
+      if (!raw) raw = "probe only — generation may still fail";
+      return { text: "Listener OK — " + raw + probe, ok: true };
+    }
+    return { text: "Unreachable — " + (j.message || "") + probe, ok: false };
+  }
+
+  function setComposerListenerStatus(text, ok) {
+    var el = document.getElementById("statusComposerListener");
+    var fab = document.getElementById("btnOpenSetup");
+    if (!el) return;
+    el.textContent = text;
+    el.className = ok === true ? "ok" : ok === false ? "bad" : "";
+    if (fab) {
+      fab.classList.remove("fab-dot-ok", "fab-dot-bad");
+      if (ok === true) fab.classList.add("fab-dot-ok");
+      else if (ok === false) fab.classList.add("fab-dot-bad");
+    }
+  }
+
+  async function refreshStatus() {
+    const host = document.getElementById("host").value.trim() || "localhost";
+    const port = document.getElementById("port").value || "7859";
+    const noTls = document.getElementById("noTls").checked;
+    const el = document.getElementById("statusLine");
+    el.textContent = "Checking…";
+    el.className = "status";
+    setComposerListenerStatus("Checking…", null);
+    const q = new URLSearchParams({ host, port, no_tls: noTls ? "true" : "false" });
+    const r = await fetch("/api/server-status?" + q.toString(), { headers: authHeaders() });
+    if (r.status === 401) {
+      el.textContent = "Unauthorized — set DTS_WEB_TOKEN and reload.";
+      el.className = "status bad";
+      setComposerListenerStatus("Unauthorized", false);
+      return;
+    }
+    const j = await r.json();
+    if (!r.ok) {
+      el.textContent = j.detail || "Error";
+      el.className = "status bad";
+      setComposerListenerStatus("Error", false);
+      return;
+    }
+    const fmt = formatListenerLine(j);
+    el.textContent = fmt.text;
+    el.className = "status " + (fmt.ok ? "ok" : "bad");
+    setComposerListenerStatus(fmt.ok ? "Listener OK" : "Unreachable", fmt.ok);
+  }
+
+  var UI_PREFS_KEY = "dts_web_ui_v1";
+  var videoProfileSet = new Set();
+  var pipelineProfileSet = new Set();
+  var allProfileNames = [];
+  var defaultProfileName = "default";
+  var configCatalog = { image: [], video: [], recent: [] };
+
+  function loadUiPrefs() {
+    try {
+      var s = localStorage.getItem(UI_PREFS_KEY);
+      if (!s) return {};
+      var o = JSON.parse(s);
+      return o && typeof o === "object" ? o : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveUiPrefs(partial) {
+    var merged = Object.assign(loadUiPrefs(), partial || {});
+    try {
+      localStorage.setItem(UI_PREFS_KEY, JSON.stringify(merged));
+    } catch (e) {}
+    return merged;
+  }
+
+  function isVideoConfigName(name) {
+    return pipelineProfileSet.has(name);
+  }
+
+  function imageProfileGroup(name) {
+    var lower = String(name || "").toLowerCase();
+    if (lower.indexOf("ltx") === 0 || lower.indexOf("wan") === 0) return "Video configs (I2V)";
+    if (name === "default" || name.indexOf("zit") === 0) return "ZIT & default";
+    if (name.indexOf("pikon") === 0) return "Pikon";
+    if (name.indexOf("ddm") === 0) return "DDM";
+    if (name.indexOf("flux") === 0) return "Flux";
+    if (name.indexOf("big-love") === 0 || name.indexOf("hyphoria") === 0) return "Mixes";
+    return "Other images";
+  }
+
+  function getOutputMode() {
+    var v = document.querySelector('input[name="outputMode"]:checked');
+    return v && v.value === "video" ? "video" : "image";
+  }
+
+  function profilesForOutputMode(mode) {
+    if (mode === "video") return configCatalog.video.slice();
+    return configCatalog.image.slice();
+  }
+
+  function trackRecentProfile(name) {
+    if (!name || typeof name !== "string") return;
+    var prefs = loadUiPrefs();
+    var recent = Array.isArray(prefs.recentProfiles) ? prefs.recentProfiles.slice() : [];
+    recent = recent.filter(function (n) { return n !== name; });
+    recent.unshift(name);
+    if (recent.length > 5) recent.length = 5;
+    saveUiPrefs({ recentProfiles: recent });
+    configCatalog.recent = recent.filter(function (n) {
+      return allProfileNames.indexOf(n) !== -1;
+    });
+  }
+
+  function appendProfileOption(sel, name, selectedName) {
+    var o = document.createElement("option");
+    o.value = name;
+    if (pipelineProfileSet.has(name)) {
+      o.textContent = name + " (prompt → video)";
+    } else {
+      o.textContent = name;
+    }
+    if (name === selectedName) o.selected = true;
+    sel.appendChild(o);
+  }
+
+  function populateProfileSelect(selectedName) {
+    var sel = document.getElementById("profile");
+    if (!sel) return;
+    sel.innerHTML = "";
+    var mode = getOutputMode();
+    var pool = profilesForOutputMode(mode);
+    if (!pool.length) {
+      appendProfileOption(sel, defaultProfileName, selectedName || defaultProfileName);
+      return;
+    }
+    var recent = configCatalog.recent.filter(function (n) {
+      return pool.indexOf(n) !== -1;
+    });
+    if (recent.length) {
+      var ogR = document.createElement("optgroup");
+      ogR.label = "Recent";
+      sel.appendChild(ogR);
+      recent.forEach(function (n) {
+        appendProfileOption(ogR, n, selectedName);
+      });
+    }
+    if (mode === "video") {
+      var pipes = pool.filter(function (n) { return pipelineProfileSet.has(n); });
+      if (pipes.length) {
+        var ogP = document.createElement("optgroup");
+        ogP.label = "Pipeline";
+        sel.appendChild(ogP);
+        pipes.forEach(function (n) { appendProfileOption(ogP, n, selectedName); });
+      }
+    } else {
+      var groups = {};
+      pool.forEach(function (n) {
+        var g = imageProfileGroup(n);
+        if (!groups[g]) groups[g] = [];
+        groups[g].push(n);
+      });
+      Object.keys(groups).sort().forEach(function (label) {
+        var og = document.createElement("optgroup");
+        og.label = label;
+        sel.appendChild(og);
+        groups[label].sort().forEach(function (n) {
+          appendProfileOption(og, n, selectedName);
+        });
+      });
+    }
+    if (selectedName && !sel.value) {
+      appendProfileOption(sel, selectedName, selectedName);
+    }
+  }
+
+  function pickInitialProfile(prefs) {
+    var mode = prefs.outputMode === "video" ? "video" : "image";
+    var pool = mode === "video" ? configCatalog.video : configCatalog.image;
+    if (prefs.profileCustom && String(prefs.profileCustom).trim()) {
+      return { mode: mode, profile: String(prefs.profileCustom).trim(), custom: true };
+    }
+    var want = prefs.profile;
+    if (want && pool.indexOf(want) !== -1) {
+      return { mode: mode, profile: want, custom: false };
+    }
+    if (mode === "video" && pool.length) {
+      return { mode: "video", profile: pool.indexOf("prompt-to-video") !== -1 ? "prompt-to-video" : pool[0], custom: false };
+    }
+    return { mode: "image", profile: defaultProfileName, custom: false };
+  }
+
+  function applyOutputMode(mode, profileName) {
+    var imageRadio = document.getElementById("outputModeImage");
+    var videoRadio = document.getElementById("outputModeVideo");
+    if (mode === "video" && videoRadio) videoRadio.checked = true;
+    else if (imageRadio) imageRadio.checked = true;
+    populateProfileSelect(profileName);
+    var sel = document.getElementById("profile");
+    if (sel && profileName) {
+      var found = false;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === profileName) {
+          sel.selectedIndex = i;
+          found = true;
+          break;
+        }
+      }
+      if (!found && sel.options.length) sel.selectedIndex = 0;
+    }
+    updateComposerMode();
+  }
+
+  async function loadConfigs() {
+    const sel = document.getElementById("profile");
+    function appendDefaultProfileFallback(label) {
+      sel.innerHTML = "";
+      const o = document.createElement("option");
+      o.value = "default";
+      o.textContent = label;
+      o.selected = true;
+      sel.appendChild(o);
+      defaultProfileName = "default";
+      allProfileNames = ["default"];
+      configCatalog = { image: ["default"], video: [], recent: [] };
+      updateComposerMode();
+    }
+    try {
+      const r = await fetch("/api/configs", { headers: authHeaders() });
+      if (r.status === 401) {
+        appendDefaultProfileFallback("default (set DTS_WEB_TOKEN to list profiles)");
+        return;
+      }
+      let j = {};
+      try {
+        j = await r.json();
+      } catch (parseErr) {
+        console.error("loadConfigs: response was not JSON", r.status, parseErr);
+        appendDefaultProfileFallback("default — configs response invalid (see console)");
+        return;
+      }
+      if (!r.ok) {
+        const detail = j && typeof j.detail === "string" ? j.detail : "";
+        console.error("loadConfigs failed", r.status, detail || j);
+        appendDefaultProfileFallback(
+          detail ? "default — configs error (see console)" : "default — configs HTTP " + r.status,
+        );
+        return;
+      }
+      defaultProfileName = j.default_profile || "default";
+      const videoProfiles = Array.isArray(j.video_profiles)
+        ? j.video_profiles
+        : (Array.isArray(j.pipeline_profiles) ? j.pipeline_profiles : []);
+      videoProfileSet = new Set(videoProfiles);
+      pipelineProfileSet = new Set(videoProfiles);
+      const rawNames = j.names;
+      const nameList = Array.isArray(rawNames) ? rawNames : [];
+      allProfileNames = [...new Set([...nameList, defaultProfileName, ...videoProfiles])].sort();
+      configCatalog.video = allProfileNames.filter(isVideoConfigName);
+      configCatalog.image = allProfileNames.filter(function (n) {
+        return !isVideoConfigName(n);
+      });
+      if (configCatalog.image.indexOf(defaultProfileName) === -1) {
+        configCatalog.image.unshift(defaultProfileName);
+      }
+      var prefs = loadUiPrefs();
+      configCatalog.recent = (Array.isArray(prefs.recentProfiles) ? prefs.recentProfiles : []).filter(function (n) {
+        return allProfileNames.indexOf(n) !== -1;
+      });
+      var init = pickInitialProfile(prefs);
+      if (init.custom) {
+        document.getElementById("profileCustom").value = init.profile;
+      }
+      applyOutputMode(init.mode, init.custom ? null : init.profile);
+    } catch (e) {
+      console.error("loadConfigs:", e);
+      appendDefaultProfileFallback("default — network error (see console)");
+    }
+  }
+
+  function effectiveProfile() {
+    const c = document.getElementById("profileCustom").value.trim();
+    if (c) return c;
+    return document.getElementById("profile").value || defaultProfileName || "default";
+  }
+
+  function isVideoProfileMode() {
+    const name = effectiveProfile();
+    return pipelineProfileSet.has(name);
+  }
+
+  function outputLabelForProfile(name) {
+    if (pipelineProfileSet.has(name)) return "Video pipeline";
+    if (isVideoConfigName(name)) return "Video (I2V)";
+    return "PNG";
+  }
+
+  function persistUiPrefsFromComposer() {
+    var custom = document.getElementById("profileCustom").value.trim();
+    saveUiPrefs({
+      outputMode: getOutputMode(),
+      profile: custom ? "" : effectiveProfile(),
+      profileCustom: custom,
+    });
+  }
+
+  function updateComposerMode() {
+    const videoMode = isVideoProfileMode();
+    const btnGen = document.getElementById("btnGen");
+    const runsEl = document.getElementById("generations");
+    const splitEl = document.querySelector(".split-run-gen");
+    const hint = document.getElementById("composerShortcutHint");
+    const busySummary = document.querySelector(".busy-summary");
+    const profName = effectiveProfile();
+    btnGen.setAttribute("aria-label", "Generate");
+    if (videoMode) {
+      btnGen.title = "Generate prompt → image → video for this profile";
+      if (splitEl) splitEl.classList.add("runs-locked");
+      runsEl.disabled = true;
+      runsEl.title = "Prompt-to-video profiles use one prompt chain (runs disabled)";
+      if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate video";
+    } else {
+      btnGen.title = "Generate a PNG for this profile";
+      if (splitEl) splitEl.classList.remove("runs-locked");
+      runsEl.disabled = false;
+      runsEl.title = "Runs — each run sends one entry from the expanded prompts array";
+      if (hint) hint.textContent = "⌘↵ · Ctrl+Enter generate";
+    }
+    if (busySummary) busySummary.textContent = "Technical details (request JSON)";
+    syncInputImagesUi();
+    persistUiPrefsFromComposer();
+  }
+
+  function onOutputModeChange() {
+    var mode = getOutputMode();
+    var pool = profilesForOutputMode(mode);
+    var prefs = loadUiPrefs();
+    var pick = mode === "video"
+      ? (pool.indexOf("prompt-to-video") !== -1 ? "prompt-to-video" : pool[0] || defaultProfileName)
+      : (pool.indexOf(defaultProfileName) !== -1 ? defaultProfileName : pool[0] || defaultProfileName);
+    if (prefs.profile && pool.indexOf(prefs.profile) !== -1 && mode === (prefs.outputMode === "video" ? "video" : "image")) {
+      pick = prefs.profile;
+    }
+    document.getElementById("profileCustom").value = "";
+    populateProfileSelect(pick);
+    updateComposerMode();
+  }
+
+  function showComposerError(message) {
+    var errEl = document.getElementById("err");
+    if (!errEl) return;
+    if (message) {
+      errEl.textContent = message;
+      errEl.hidden = false;
+      errEl.style.display = "block";
+    } else {
+      errEl.textContent = "";
+      errEl.hidden = true;
+      errEl.style.display = "none";
+    }
+  }
+
+  function renderVideoDonePanel(msg) {
+    var panel = document.getElementById("videoDonePanel");
+    if (!panel) return;
+    panel.replaceChildren();
+    if (!msg || !msg.run_root) {
+      panel.hidden = true;
+      return;
+    }
+    var title = document.createElement("p");
+    title.style.margin = "0";
+    title.textContent = "Video run finished. Artifacts are under:";
+    panel.appendChild(title);
+    var code = document.createElement("code");
+    code.textContent = String(msg.run_root);
+    panel.appendChild(code);
+    var actions = document.createElement("div");
+    actions.className = "video-done-actions";
+    var copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copy path";
+    copyBtn.addEventListener("click", function () {
+      navigator.clipboard.writeText(String(msg.run_root)).catch(function () {});
+    });
+    actions.appendChild(copyBtn);
+    panel.appendChild(actions);
+    panel.hidden = false;
+  }
+
+  function buildVideoGenerateBody() {
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const body = Object.assign(connectionPayload(), {
+      profile: effectiveProfile(),
+      prompt: document.getElementById("prompt").value.trim(),
+      negative_prompt: document.getElementById("neg").value,
+    });
+    if (shared) body.shared_secret = shared;
+    return body;
+  }
+
+  var selectedInputFiles = [];
+  var inputImageObjectUrls = [];
+
+  function revokeInputImageObjectUrls() {
+    for (var i = 0; i < inputImageObjectUrls.length; i++) {
+      URL.revokeObjectURL(inputImageObjectUrls[i]);
+    }
+    inputImageObjectUrls = [];
+  }
+
+  function resetInputImagesFileInput() {
+    var inputEl = document.getElementById("inputImages");
+    if (inputEl) inputEl.value = "";
+  }
+
+  function clearInputImages() {
+    selectedInputFiles = [];
+    revokeInputImageObjectUrls();
+    resetInputImagesFileInput();
+    renderInputImagesThumbs();
+    syncInputImagesUi();
+  }
+
+  function isImageFile(file) {
+    return file && file.type && file.type.indexOf("image/") === 0;
+  }
+
+  function mergeInputImageFiles(incoming) {
+    var videoMode = isVideoProfileMode();
+    var next = selectedInputFiles.slice();
+    for (var i = 0; i < incoming.length; i++) {
+      var f = incoming[i];
+      if (!isImageFile(f)) continue;
+      var dup = false;
+      for (var j = 0; j < next.length; j++) {
+        var o = next[j];
+        if (o.name === f.name && o.size === f.size && o.lastModified === f.lastModified) {
+          dup = true;
+          break;
+        }
+      }
+      if (!dup) next.push(f);
+    }
+    if (videoMode && next.length > 1) next = next.slice(0, 1);
+    if (!videoMode && next.length > 25) next = next.slice(0, 25);
+    selectedInputFiles = next;
+  }
+
+  function removeInputImageAt(index) {
+    if (index < 0 || index >= selectedInputFiles.length) return;
+    selectedInputFiles = selectedInputFiles.slice(0, index).concat(selectedInputFiles.slice(index + 1));
+    renderInputImagesThumbs();
+    syncInputImagesUi();
+  }
+
+  function renderInputImagesThumbs() {
+    var wrap = document.getElementById("inputImagesThumbs");
+    if (!wrap) return;
+    revokeInputImageObjectUrls();
+    wrap.replaceChildren();
+    if (!selectedInputFiles.length) {
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
+    for (var i = 0; i < selectedInputFiles.length; i++) {
+      (function (idx) {
+        var file = selectedInputFiles[idx];
+        var card = document.createElement("div");
+        card.className = "input-images-thumb";
+        var url = URL.createObjectURL(file);
+        inputImageObjectUrls.push(url);
+        var img = document.createElement("img");
+        img.src = url;
+        img.alt = file.name || "Input image";
+        var rm = document.createElement("button");
+        rm.type = "button";
+        rm.className = "input-images-thumb-remove";
+        rm.setAttribute("aria-label", "Remove " + (file.name || "image"));
+        rm.textContent = "×";
+        rm.addEventListener("click", function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+          removeInputImageAt(idx);
+        });
+        var name = document.createElement("span");
+        name.className = "input-images-thumb-name";
+        name.textContent = file.name || "image";
+        name.title = file.name || "";
+        card.appendChild(img);
+        card.appendChild(rm);
+        card.appendChild(name);
+        wrap.appendChild(card);
+      })(i);
+    }
+  }
+
+  function syncInputImagesUi() {
+    var inputEl = document.getElementById("inputImages");
+    var hint = document.getElementById("inputImagesHint");
+    var dropHint = document.getElementById("inputImagesDropzoneHint");
+    var badge = document.getElementById("inputImagesBadge");
+    var clearBtn = document.getElementById("btnClearInputImages");
+    var runsEl = document.getElementById("generations");
+    if (!hint || !runsEl) return;
+    var videoMode = isVideoProfileMode();
+    if (inputEl) inputEl.multiple = !videoMode;
+    if (dropHint) {
+      dropHint.textContent = videoMode
+        ? "One start frame for video pipeline (PNG, JPEG, WebP)"
+        : "Up to 25 images · batch uses one prompt per file";
+    }
+    if (badge) {
+      if (selectedInputFiles.length) {
+        badge.hidden = false;
+        badge.textContent = "(" + selectedInputFiles.length + ")";
+      } else {
+        badge.hidden = true;
+        badge.textContent = "";
+      }
+    }
+    if (clearBtn) clearBtn.hidden = !selectedInputFiles.length;
+    if (videoMode && selectedInputFiles.length > 1) {
+      selectedInputFiles = selectedInputFiles.slice(0, 1);
+      renderInputImagesThumbs();
+      hint.hidden = false;
+      hint.textContent = "Video pipeline uses one start frame; extra files were removed.";
+      runsEl.disabled = true;
+      return;
+    }
+    if (selectedInputFiles.length > 1) {
+      hint.hidden = false;
+      hint.textContent =
+        selectedInputFiles.length + " input images — one generation each (same prompt).";
+      runsEl.value = String(Math.min(selectedInputFiles.length, 25));
+      runsEl.disabled = true;
+    } else if (selectedInputFiles.length === 1) {
+      hint.hidden = false;
+      hint.textContent = "1 input image for img2img or video start frame.";
+      runsEl.disabled = isVideoProfileMode();
+    } else {
+      hint.hidden = true;
+      if (!isVideoProfileMode()) runsEl.disabled = false;
+    }
+  }
+
+  async function readInputImagesBase64() {
+    if (!selectedInputFiles.length) return null;
+    var out = [];
+    for (var i = 0; i < selectedInputFiles.length; i++) {
+      var buf = await selectedInputFiles[i].arrayBuffer();
+      out.push(arrayBufferToBase64(buf));
+    }
+    return out;
+  }
+
+  async function attachInputImagesToBody(body) {
+    var imgs = await readInputImagesBase64();
+    if (!imgs || !imgs.length) return body;
+    if (imgs.length === 1) {
+      body.input_image = imgs[0];
+      return body;
+    }
+    body.input_images = imgs;
+    body.generations = imgs.length;
+    return body;
+  }
+
+  function connectionPayload() {
+    const host = document.getElementById("host").value.trim() || "localhost";
+    const port = parseInt(document.getElementById("port").value, 10) || 7859;
+    const noTls = document.getElementById("noTls").checked;
+    const trust = document.getElementById("trustCert").checked;
+    const force = document.getElementById("forceTrust").checked;
+    const rootCert = document.getElementById("rootCert").value.trim();
+    const configDir = document.getElementById("configDir").value.trim();
+    const body = { host, port, no_tls: noTls, trust_server_cert: trust, force_trust_server_cert: force };
+    if (rootCert) body.root_cert = rootCert;
+    if (configDir) body.config_dir = configDir;
+    return body;
+  }
+
+  /** Full JSON body for POST /api/generate after wildcards are resolved server-side. */
+  function buildResolvedGenerateBody(expanded, generations) {
+    const shared = document.getElementById("sharedSecret").value.trim();
+    const body = Object.assign(connectionPayload(), {
+      prompts: expanded.prompts,
+      negative_prompts: expanded.negative_prompts,
+      configuration: effectiveProfile(),
+      generations,
+    });
+    if (shared) body.shared_secret = shared;
+    return body;
+  }
+
+  /** Pretty JSON for UI; never echo raw shared_secret. */
+  function formatGenerateBodyForDisplay(body) {
+    var copy = {};
+    Object.keys(body).forEach(function (k) {
+      copy[k] = body[k];
+    });
+    if (copy.shared_secret) copy.shared_secret = "***";
+    return JSON.stringify(copy, null, 2);
+  }
+
+  var HISTORY_KEY = "dts_web_gen_history_v1";
+
+  /** Blob URLs from the current result pane; must revoke before dropping DOM or each leaks until tab exit. */
+  var __dtsResultBlobUrls = [];
+  var __dtsLastRequestJson = "";
+
+  function revokeResultBlobUrls() {
+    __dtsResultBlobUrls.forEach(function (u) {
+      try {
+        URL.revokeObjectURL(u);
+      } catch (e) {}
+    });
+    __dtsResultBlobUrls.length = 0;
+  }
+
+  function revokeTrackedBlobUrl(url) {
+    if (!url) return;
+    try {
+      URL.revokeObjectURL(url);
+    } catch (e) {}
+    var idx = __dtsResultBlobUrls.indexOf(url);
+    if (idx >= 0) __dtsResultBlobUrls.splice(idx, 1);
+  }
+
+  function pngB64ToObjectUrl(pngB64) {
+    var bin = atob(pngB64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var blob = new Blob([bytes], { type: "image/png" });
+    var url = URL.createObjectURL(blob);
+    __dtsResultBlobUrls.push(url);
+    return url;
+  }
+
+  function showGenerationInfo(details) {
+    var dialog = document.getElementById("generationInfoDialog");
+    var grid = document.getElementById("generationInfoGrid");
+    var title = document.getElementById("generation-info-title");
+    if (!dialog || !grid) return;
+    grid.replaceChildren();
+    if (title) {
+      title.textContent = details._dialogTitle ? String(details._dialogTitle) : "Generation details";
+    }
+    var fields = [
+      ["Prompt", details.prompt], ["Negative prompt", details.negative_prompt],
+      ["Configuration", details.configuration], ["Run", details.run],
+      ["Generated", details.generated], ["Elapsed", details.elapsed],
+      ["Dimensions", details.dimensions], ["Expanded prompt", details.expanded_prompt],
+      ["Expanded negative", details.expanded_negative_prompt],
+      ["Response", details.response_summary],
+      ["Request JSON", details.request_json],
+    ];
+    fields.forEach(function (field) {
+      if (field[1] === undefined || field[1] === null || field[1] === "") return;
+      var dt = document.createElement("dt");
+      var dd = document.createElement("dd");
+      dt.textContent = field[0];
+      dd.textContent = String(field[1]);
+      grid.appendChild(dt);
+      grid.appendChild(dd);
+    });
+    if (typeof dialog.showModal === "function") dialog.showModal();
+  }
+
+  function showRequestDetails() {
+    showGenerationInfo({
+      _dialogTitle: "Request details",
+      request_json: __dtsLastRequestJson || "(no request body yet)",
+    });
+  }
+
+  function appendInfoButton(wrap, details) {
+    var info = document.createElement("button");
+    info.type = "button";
+    info.className = "result-info-button";
+    info.textContent = "i";
+    info.setAttribute("aria-label", "Show generation details");
+    info.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      showGenerationInfo(wrap._generationDetails || details);
+    });
+    wrap.appendChild(info);
+  }
+
+  function createPendingGenerationTile(details) {
+    var wrap = document.createElement("article");
+    wrap.className = "result-slot result-slot--pending";
+    var ph = document.createElement("div");
+    ph.className = "result-slot-placeholder";
+    ph.setAttribute("aria-hidden", "true");
+    var spin = document.createElement("span");
+    spin.className = "spinner";
+    ph.appendChild(spin);
+    wrap.appendChild(ph);
+    appendInfoButton(wrap, details);
+    var a = document.createElement("a");
+    a.href = "#";
+    a.download = "generated.png";
+    a.textContent = "Download";
+    a.className = "result-download";
+    a.hidden = true;
+    a.addEventListener("click", function (event) {
+      if (a.hidden || a.getAttribute("href") === "#") {
+        event.preventDefault();
+      }
+    });
+    wrap.appendChild(a);
+    wrap._generationDetails = details;
+    wrap._slotBlobUrl = null;
+    return wrap;
+  }
+
+  function createGenerationTile(url, downloadName, details) {
+    var wrap = document.createElement("article");
+    wrap.className = "result-slot";
+    var img = document.createElement("img");
+    img.src = url;
+    img.alt = "Generated image" + (details.run ? " " + details.run : "");
+    img.addEventListener("load", function () {
+      details.dimensions = img.naturalWidth + " × " + img.naturalHeight;
+    });
+    wrap.appendChild(img);
+    appendInfoButton(wrap, details);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = downloadName || "generated.png";
+    a.textContent = "Download";
+    a.className = "result-download";
+    wrap.appendChild(a);
+    wrap._generationDetails = details;
+    wrap._slotBlobUrl = null;
+    return wrap;
+  }
+
+  function ensureResultSlots(resultsEl, totalRuns, baseDetails, requestJson) {
+    if (!resultsEl) return null;
+    if (!Number.isFinite(totalRuns) || totalRuns < 0) totalRuns = 0;
+    var placeholder = document.getElementById("resultPlaceholder");
+    var group = document.createElement("section");
+    group.className = "result-group";
+    group.setAttribute("aria-label", "Generation batch");
+
+    var header = document.createElement("header");
+    header.className = "result-group-header";
+    var timeEl = document.createElement("span");
+    timeEl.className = "result-group-time";
+    timeEl.textContent = "Generating…";
+    var metaBtn = document.createElement("button");
+    metaBtn.type = "button";
+    metaBtn.className = "result-group-meta-link";
+    metaBtn.textContent = "Request / response";
+    metaBtn.hidden = true;
+    metaBtn.addEventListener("click", function () {
+      showGenerationInfo(group._groupDetails || {});
+    });
+    header.appendChild(timeEl);
+    header.appendChild(metaBtn);
+
+    var thumbs = document.createElement("div");
+    thumbs.className = "result-group-thumbs";
+
+    var i;
+    for (i = 0; i < totalRuns; i++) {
+      var details = {
+        prompt: baseDetails.prompt || "",
+        negative_prompt: baseDetails.negative_prompt || "",
+        configuration: baseDetails.configuration || "",
+        run: (i + 1) + " / " + totalRuns,
+        generated: baseDetails.generated || "",
+        expanded_prompt: "",
+        expanded_negative_prompt: "",
+      };
+      if (Array.isArray(baseDetails.expanded_prompts) && baseDetails.expanded_prompts[i] != null) {
+        details.expanded_prompt = String(baseDetails.expanded_prompts[i]);
+      }
+      if (
+        Array.isArray(baseDetails.expanded_negative_prompts) &&
+        baseDetails.expanded_negative_prompts[i] != null
+      ) {
+        details.expanded_negative_prompt = String(baseDetails.expanded_negative_prompts[i]);
+      }
+      thumbs.appendChild(createPendingGenerationTile(details));
+    }
+
+    group._groupDetails = {
+      _dialogTitle: "Generation request / response",
+      prompt: baseDetails.prompt || "",
+      negative_prompt: baseDetails.negative_prompt || "",
+      configuration: baseDetails.configuration || "",
+      request_json: typeof requestJson === "string" ? requestJson : "",
+      response_summary: "",
+    };
+    group.appendChild(header);
+    group.appendChild(thumbs);
+    if (resultsEl.firstChild) {
+      resultsEl.insertBefore(group, resultsEl.firstChild);
+    } else {
+      resultsEl.appendChild(group);
+    }
+    if (placeholder) placeholder.hidden = true;
+    return { group: group, thumbs: thumbs, timeEl: timeEl, metaBtn: metaBtn };
+  }
+
+  function stampResultGroupDone(groupApi, opts) {
+    if (!groupApi || !groupApi.group) return;
+    opts = opts || {};
+    var stamp = opts.timestamp || new Date().toLocaleString();
+    if (groupApi.timeEl) groupApi.timeEl.textContent = stamp;
+    if (groupApi.group._groupDetails) {
+      groupApi.group._groupDetails.generated = stamp;
+      if (opts.elapsed) groupApi.group._groupDetails.elapsed = opts.elapsed;
+      if (opts.request_json) groupApi.group._groupDetails.request_json = opts.request_json;
+      if (opts.response_summary) groupApi.group._groupDetails.response_summary = opts.response_summary;
+      if (opts.configuration) groupApi.group._groupDetails.configuration = opts.configuration;
+    }
+    if (groupApi.metaBtn) groupApi.metaBtn.hidden = false;
+  }
+
+  function getResultSlotByRun(thumbsEl, run) {
+    if (!thumbsEl || !run || run < 1) return null;
+    var slots = thumbsEl.querySelectorAll(".result-slot");
+    return slots[run - 1] || null;
+  }
+
+  function setSlotImage(wrap, url, opts) {
+    if (!wrap || !url) return;
+    opts = opts || {};
+    revokeTrackedBlobUrl(wrap._slotBlobUrl);
+    wrap._slotBlobUrl = url;
+    var ph = wrap.querySelector(".result-slot-placeholder");
+    if (ph) ph.remove();
+    var img = wrap.querySelector("img");
+    if (!img) {
+      img = document.createElement("img");
+      wrap.insertBefore(img, wrap.firstChild);
+      img.addEventListener("load", function () {
+        if (wrap._generationDetails) {
+          wrap._generationDetails.dimensions = img.naturalWidth + " × " + img.naturalHeight;
+        }
+      });
+    }
+    img.src = url;
+    img.alt = opts.alt || "Generated image";
+    if (opts.inflight) {
+      img.className = "result-inflight";
+    } else {
+      img.classList.remove("result-inflight");
+    }
+    var a = wrap.querySelector(".result-download");
+    if (a) {
+      a.href = url;
+      if (opts.downloadName) a.download = opts.downloadName;
+      a.hidden = !!opts.hideDownload;
+    }
+    if (opts.final) {
+      wrap.classList.remove("result-slot--pending");
+      if (a) a.hidden = false;
+    }
+  }
+
+  function applySlotPreview(resultsEl, run, pngB64, seq) {
+    var wrap = getResultSlotByRun(resultsEl, run);
+    if (!wrap || !pngB64) return;
+    var url = pngB64ToObjectUrl(pngB64);
+    setSlotImage(wrap, url, {
+      inflight: true,
+      hideDownload: true,
+      alt: "Preview run " + run + ", frame " + seq,
+    });
+    var prog = document.getElementById("busyProgress");
+    if (prog) prog.textContent = "Run " + run + " — preview " + seq;
+  }
+
+  function applySlotFinal(resultsEl, run, pngB64, index, totalRuns, detailPatch) {
+    var wrap = getResultSlotByRun(resultsEl, run);
+    if (!wrap || !pngB64) return;
+    var url = pngB64ToObjectUrl(pngB64);
+    if (wrap._generationDetails && detailPatch) {
+      Object.keys(detailPatch).forEach(function (k) {
+        wrap._generationDetails[k] = detailPatch[k];
+      });
+    }
+    setSlotImage(wrap, url, {
+      final: true,
+      downloadName: "generated_" + index + ".png",
+      alt: "Generated image " + run + (totalRuns ? " / " + totalRuns : ""),
+    });
+    var prog2 = document.getElementById("busyProgress");
+    if (prog2 && totalRuns) {
+      prog2.textContent = "Run " + run + " / " + totalRuns + " · received image " + index;
+    }
+  }
+
+  function finalizePreviewOnlySlots(resultsEl) {
+    if (!resultsEl) return;
+    resultsEl.querySelectorAll(".result-slot").forEach(function (tile) {
+      var img = tile.querySelector("img");
+      if (!img || !img.src) return;
+      if (!img.classList.contains("result-inflight") && !tile.classList.contains("result-slot--pending")) {
+        return;
+      }
+      img.classList.remove("result-inflight");
+      tile.classList.remove("result-slot--pending");
+      var a = tile.querySelector(".result-download");
+      if (a) {
+        a.href = img.src;
+        if (!a.download) a.download = "generated_preview.png";
+        a.hidden = false;
+      }
+    });
+  }
+
+  document.getElementById("btnCloseGenerationInfo").addEventListener("click", function () {
+    var dialog = document.getElementById("generationInfoDialog");
+    if (dialog && typeof dialog.close === "function") dialog.close();
+  });
+
+  var btnRequestDetails = document.getElementById("btnRequestDetails");
+  if (btnRequestDetails) {
+    btnRequestDetails.addEventListener("click", function () {
+      showRequestDetails();
+    });
+  }
+
+  function loadLegacyHistoryState() {
+    try {
+      var s = localStorage.getItem(HISTORY_KEY);
+      if (!s) return { version: 1, items: [] };
+      var o = JSON.parse(s);
+      if (!o || !Array.isArray(o.items)) return { version: 1, items: [] };
+      return o;
+    } catch (e) {
+      return { version: 1, items: [] };
+    }
+  }
+
+  function coerceHistoryGenerations(value) {
+    var n = parseInt(value, 10);
+    if (!Number.isFinite(n) || n < 1) return null;
+    if (n > 25) return null;
+    return n;
+  }
+
+  async function migrateLegacyHistoryToServer() {
+    var legacy = loadLegacyHistoryState();
+    if (!legacy.items.length) return;
+    try {
+      localStorage.removeItem(HISTORY_KEY);
+    } catch (e) {}
+  }
+
+  async function fetchHistoryState() {
+    var r = await fetch("/api/history", { headers: authHeaders() });
+    if (r.status === 401) throw new Error("Unauthorized — set DTS_WEB_TOKEN and reload.");
+    if (!r.ok) throw new Error("Could not load history.");
+    var state = await r.json();
+    if (!state || !Array.isArray(state.items)) return { version: 1, items: [] };
+    return state;
+  }
+
+  async function fetchHistoryArtifacts(entryId) {
+    var r = await fetch("/api/history/" + encodeURIComponent(entryId) + "/artifacts", { headers: authHeaders() });
+    if (!r.ok) return [];
+    var payload = await r.json();
+    return payload && Array.isArray(payload.items) ? payload.items : [];
+  }
+
+  /** Match saved profile name to #profile or set #profileCustom (same rules as effectiveProfile). */
+  function applyHistoryConfiguration(configStr) {
+    var raw = String(configStr || "").trim();
+    if (!raw) return false;
+    var sel = document.getElementById("profile");
+    var custom = document.getElementById("profileCustom");
+    var matched = false;
+    if (sel && sel.options && sel.options.length) {
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].value === raw) {
+          sel.selectedIndex = i;
+          matched = true;
+          break;
+        }
+      }
+    }
+    if (custom) custom.value = matched ? "" : raw;
+    return true;
+  }
+
+  function restoreHistoryEntryToComposer(entry) {
+    var promptEl = document.getElementById("prompt");
+    var negEl = document.getElementById("neg");
+    var runsEl = document.getElementById("generations");
+    var statusEl = document.getElementById("historyStatus");
+    var restoredOptional = [];
+
+    promptEl.value = String(entry.prompt || "");
+
+    if (negEl && typeof entry.negative_prompt === "string") {
+      negEl.value = entry.negative_prompt;
+      if (entry.negative_prompt.trim()) restoredOptional.push("negative prompt");
+    }
+
+    var entryGenerations = coerceHistoryGenerations(entry.generations);
+    if (runsEl && entryGenerations) {
+      runsEl.value = String(entryGenerations);
+      restoredOptional.push("runs");
+    }
+
+    if (typeof entry.configuration === "string" && entry.configuration.trim()) {
+      applyHistoryConfiguration(entry.configuration);
+      restoredOptional.push("profile");
+    }
+
+    if (statusEl) {
+      statusEl.textContent = restoredOptional.length
+        ? "Restored prompt, " + restoredOptional.join(", ") + "."
+        : "Restored prompt.";
+    }
+
+    var dlg = document.getElementById("historyDialog");
+    if (dlg && typeof dlg.close === "function") dlg.close();
+    window.setTimeout(function () {
+      promptEl.focus();
+      try {
+        promptEl.setSelectionRange(promptEl.value.length, promptEl.value.length);
+      } catch (e) {}
+    }, 0);
+  }
+
+  async function renderHistoryList() {
+    var root = document.getElementById("historyList");
+    if (!root) return;
+    root.innerHTML = "";
+    var statusEl = document.getElementById("historyStatus");
+    if (statusEl) statusEl.textContent = "";
+    var state;
+    try {
+      state = await fetchHistoryState();
+    } catch (e) {
+      var fail = document.createElement("p");
+      fail.className = "hint";
+      fail.textContent = String(e);
+      root.appendChild(fail);
+      return;
+    }
+    if (state.items.length === 0) {
+      var empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "No generations yet.";
+      root.appendChild(empty);
+      return;
+    }
+    for (var entryIndex = 0; entryIndex < state.items.length; entryIndex++) {
+      var entry = state.items[entryIndex];
+      var row = document.createElement("article");
+      row.className = "history-row";
+      var meta = document.createElement("div");
+      meta.className = "history-row-meta";
+      var images = await fetchHistoryArtifacts(entry.id);
+      var d = new Date(entry.ts);
+      var imageCount = coerceHistoryGenerations(entry.image_count) || images.length;
+      var cfg =
+        typeof entry.configuration === "string" && entry.configuration.trim()
+          ? entry.configuration.trim()
+          : "";
+      meta.textContent =
+        d.toLocaleString() + " · " + imageCount + " image(s)" + (cfg ? " · " + cfg : "");
+      row.appendChild(meta);
+      var pr = document.createElement("p");
+      pr.className = "history-row-prompt";
+      pr.textContent = entry.prompt || "(no prompt)";
+      row.appendChild(pr);
+      var thumbs = document.createElement("div");
+      thumbs.className = "history-thumbs";
+      images.forEach(function (imageRef, i) {
+        var expanded = Array.isArray(entry.expanded_prompts) ? entry.expanded_prompts[i] : "";
+        var expandedNegative = Array.isArray(entry.expanded_negative_prompts)
+          ? entry.expanded_negative_prompts[i]
+          : "";
+        thumbs.appendChild(createGenerationTile(imageRef.url, imageRef.download, {
+          prompt: entry.prompt || "",
+          negative_prompt: entry.negative_prompt || "",
+          configuration: entry.configuration || "",
+          run: (i + 1) + " / " + imageCount,
+          generated: d.toLocaleString(),
+          elapsed: entry.elapsed_seconds ? entry.elapsed_seconds + "s" : "",
+          expanded_prompt: expanded,
+          expanded_negative_prompt: expandedNegative,
+        }));
+      });
+      row.appendChild(thumbs);
+      var actions = document.createElement("div");
+      actions.className = "history-actions";
+      var reuse = document.createElement("button");
+      reuse.type = "button";
+      reuse.textContent = "Reuse";
+      reuse.setAttribute("aria-label", "Reuse prompt and profile from history");
+      reuse.addEventListener("click", function () {
+        restoreHistoryEntryToComposer(entry);
+      });
+      actions.appendChild(reuse);
+      row.appendChild(actions);
+      root.appendChild(row);
+    }
+  }
+
+  function prefersReducedMotion() {
+    return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  /** Parse newline-delimited SSE (data: …\\n\\n) from a fetch Response body. */
+  function readSSEStream(response, onEvent) {
+    return new Promise(function (resolve, reject) {
+      if (!response.body || !response.body.getReader) {
+        reject(new Error("Streaming response body not supported in this browser."));
+        return;
+      }
+      const reader = response.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "";
+      function pump() {
+        reader
+          .read()
+          .then(function (res) {
+            if (res.done) {
+              resolve();
+              return;
+            }
+            buf += dec.decode(res.value, { stream: true });
+            let sep;
+            while ((sep = buf.indexOf("\n\n")) !== -1) {
+              const block = buf.slice(0, sep);
+              buf = buf.slice(sep + 2);
+              const lines = block.split("\n");
+              for (let li = 0; li < lines.length; li++) {
+                const line = lines[li];
+                if (line.indexOf("data:") !== 0) continue;
+                const raw = line.slice(5).trim();
+                if (!raw) continue;
+                let msg;
+                try {
+                  msg = JSON.parse(raw);
+                } catch (e) {
+                  reject(new Error("Invalid event data from server."));
+                  return;
+                }
+                if (msg.type === "error") {
+                  reject(new Error(msg.detail || "Generation failed."));
+                  return;
+                }
+                try {
+                  onEvent(msg);
+                } catch (e) {
+                  reject(e);
+                  return;
+                }
+              }
+            }
+            pump();
+          })
+          .catch(reject);
+      }
+      pump();
+    });
+  }
+
+  function setGeneratingUi(active, t0, timerRef, requestJsonText) {
+    const placeholder = document.getElementById("resultPlaceholder");
+    const busy = document.getElementById("resultBusy");
+    const busyElapsed = document.getElementById("busyElapsed");
+    const pane = document.getElementById("resultPane");
+    if (active) {
+      placeholder.hidden = true;
+      busy.hidden = false;
+      busyElapsed.textContent = prefersReducedMotion() ? "Generating…" : "0.0s";
+      var bp = document.getElementById("busyProgress");
+      if (bp) bp.textContent = "";
+      if (typeof requestJsonText === "string") __dtsLastRequestJson = requestJsonText;
+      pane.setAttribute("aria-busy", "true");
+      if (timerRef.id) clearInterval(timerRef.id);
+      timerRef.id = setInterval(function () {
+        if (prefersReducedMotion()) return;
+        busyElapsed.textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+      }, 100);
+    } else {
+      if (timerRef.id) {
+        clearInterval(timerRef.id);
+        timerRef.id = null;
+      }
+      busy.hidden = true;
+      var bpOff = document.getElementById("busyProgress");
+      if (bpOff) bpOff.textContent = "";
+      pane.removeAttribute("aria-busy");
+    }
+  }
+
+  var generateAbortController = null;
+  var generationInFlight = false;
+
+  async function runPromptToVideoStream(ac, t0, timerRef, body) {
+    const results = document.getElementById("results");
+    const placeholder = document.getElementById("resultPlaceholder");
+    const elapsed = document.getElementById("elapsed");
+    renderVideoDonePanel(null);
+    var requestJson = formatGenerateBodyForDisplay(body);
+    var groupApi = ensureResultSlots(
+      results,
+      0,
+      {
+        prompt: body.prompt || "",
+        configuration: body.profile || body.configuration || "",
+        generated: new Date().toLocaleString(),
+      },
+      requestJson,
+    );
+    var thumbs = groupApi ? groupApi.thumbs : results;
+
+    const r = await fetch("/api/generate/stream", {
+      method: "POST",
+      headers: authHeaders({
+        "Content-Type": "application/json",
+        Accept: "text/event-stream",
+      }),
+      body: JSON.stringify(body),
+      signal: ac.signal,
+    });
+
+    if (r.status === 401) {
+      showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
+      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+      placeholder.hidden = results.querySelector(".result-group") != null;
+      return;
+    }
+    if (!r.ok) {
+      let msg = r.statusText;
+      try {
+        const j = await r.json();
+        msg = j.detail || msg;
+      } catch (_) {}
+      showComposerError(msg);
+      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+      placeholder.hidden = results.querySelector(".result-group") != null;
+      return;
+    }
+
+    let artifactCount = 0;
+    await readSSEStream(r, async function (msg) {
+      if (msg.type === "meta") {
+        const prog = document.getElementById("busyProgress");
+        if (prog) prog.textContent = "Building video · " + msg.profile + " · run " + msg.run_id;
+      }
+      if (msg.type === "progress" && msg.message) {
+        const prog = document.getElementById("busyProgress");
+        if (prog) prog.textContent = msg.message;
+      }
+      if (msg.type === "artifact" && msg.url) {
+        placeholder.hidden = true;
+        const ar = await fetch(msg.url, { headers: authHeaders() });
+        if (!ar.ok) return;
+        const blob = await ar.blob();
+        const url = URL.createObjectURL(blob);
+        __dtsResultBlobUrls.push(url);
+        const wrap = document.createElement("div");
+        wrap.className = "result-slot";
+        if (msg.kind === "video") {
+          const vid = document.createElement("video");
+          vid.src = url;
+          vid.controls = true;
+          vid.className = "result-inflight";
+          wrap.appendChild(vid);
+        } else {
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = msg.step_id + " " + msg.filename;
+          img.className = "result-inflight";
+          wrap.appendChild(img);
+        }
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = msg.filename || "artifact";
+        a.textContent = "Download";
+        a.className = "result-download";
+        wrap.appendChild(a);
+        thumbs.appendChild(wrap);
+        artifactCount += 1;
+      }
+      if (msg.type === "done") {
+        renderVideoDonePanel(msg);
+        trackRecentProfile(effectiveProfile());
+      }
+      if (msg.type === "error") {
+        showComposerError(msg.detail || "Generate failed.");
+      }
+    });
+
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    elapsed.textContent = "Done in " + dt + "s";
+    thumbs.querySelectorAll(".result-inflight").forEach(function (el) {
+      el.classList.remove("result-inflight");
+    });
+    if (groupApi) {
+      stampResultGroupDone(groupApi, {
+        timestamp: new Date().toLocaleString(),
+        elapsed: dt + "s",
+        request_json: requestJson,
+        response_summary: "Artifacts: " + artifactCount + "\nElapsed: " + dt + "s",
+      });
+    }
+    placeholder.hidden = results.querySelector(".result-group") != null;
+  }
+
+  async function runComposerAction() {
+    await runGenerate();
+  }
+
+  async function runGenerate() {
+    if (generationInFlight) return;
+    const results = document.getElementById("results");
+    const placeholder = document.getElementById("resultPlaceholder");
+    const elapsed = document.getElementById("elapsed");
+    const splitEl = document.querySelector(".split-run-gen");
+    const btnGen = document.getElementById("btnGen");
+    const timerRef = { id: null };
+    showComposerError("");
+    renderVideoDonePanel(null);
+    __dtsLastRequestJson = "";
+    btnGen.disabled = true;
+    const t0 = performance.now();
+    elapsed.textContent = "";
+
+    const prompt = document.getElementById("prompt").value.trim();
+    if (!prompt) {
+      showComposerError("Enter a prompt.");
+      placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
+      btnGen.disabled = false;
+      return;
+    }
+
+    generationInFlight = true;
+    const ac = new AbortController();
+    generateAbortController = ac;
+    splitEl.classList.add("is-busy");
+    var runsEl = document.getElementById("generations");
+
+    if (isVideoProfileMode()) {
+      runsEl.disabled = true;
+      if (selectedInputFiles.length > 1) {
+        showComposerError("Video pipeline accepts one start frame only.");
+        placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
+        generationInFlight = false;
+        btnGen.disabled = false;
+        splitEl.classList.remove("is-busy");
+        generateAbortController = null;
+        return;
+      }
+      const body = await attachInputImagesToBody(buildVideoGenerateBody());
+      setGeneratingUi(true, t0, timerRef, JSON.stringify(body, null, 2));
+      try {
+        await runPromptToVideoStream(ac, t0, timerRef, body);
+      } catch (e) {
+        if (e.name === "AbortError") {
+          elapsed.textContent = "Stopped";
+        } else {
+          showComposerError(String(e));
+        }
+        placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
+      } finally {
+        splitEl.classList.remove("is-busy");
+        generateAbortController = null;
+        generationInFlight = false;
+        setGeneratingUi(false, t0, timerRef);
+        btnGen.disabled = false;
+      }
+      return;
+    }
+
+    runsEl.disabled = false;
+    var generations = parseInt(runsEl.value, 10);
+    if (!Number.isFinite(generations) || generations < 1) generations = 1;
+    if (generations > 25) generations = 25;
+
+    setGeneratingUi(true, t0, timerRef, "");
+    var groupApi = null;
+
+    try {
+      const expandRes = await fetch("/api/prompt/expand", {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          prompt,
+          negative_prompt: document.getElementById("neg").value,
+          count: generations,
+        }),
+        signal: ac.signal,
+      });
+
+      if (expandRes.status === 401) {
+        showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
+        placeholder.hidden = false;
+        return;
+      }
+
+      if (!expandRes.ok) {
+        let msg = expandRes.statusText;
+        try {
+          const ej = await expandRes.json();
+          msg = ej.detail || msg;
+        } catch (_) {}
+        showComposerError(msg);
+        placeholder.hidden = false;
+        return;
+      }
+
+      const expanded = await expandRes.json();
+      let body = buildResolvedGenerateBody(expanded, generations);
+      body = await attachInputImagesToBody(body);
+      const payloadPreview = formatGenerateBodyForDisplay(body);
+      setGeneratingUi(true, t0, timerRef, payloadPreview);
+
+      var slotCount = parseInt(body.generations, 10);
+      if (!Number.isFinite(slotCount) || slotCount < 1) slotCount = generations;
+      if (slotCount > 25) slotCount = 25;
+      var negValue = document.getElementById("neg").value;
+      var generatedAt = new Date().toLocaleString();
+      groupApi = ensureResultSlots(
+        results,
+        slotCount,
+        {
+          prompt: prompt,
+          negative_prompt: negValue,
+          configuration: body.configuration,
+          generated: generatedAt,
+          expanded_prompts: body.prompts || [],
+          expanded_negative_prompts: body.negative_prompts || [],
+        },
+        payloadPreview,
+      );
+      var thumbs = groupApi ? groupApi.thumbs : results;
+
+      const r = await fetch("/api/generate/stream", {
+        method: "POST",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        }),
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      });
+
+      if (r.status === 401) {
+        showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
+        return;
+      }
+
+      if (!r.ok) {
+        let msg = r.statusText;
+        try {
+          const j = await r.json();
+          msg = j.detail || msg;
+        } catch (_) {}
+        showComposerError(msg);
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
+        return;
+      }
+
+      const ct = r.headers.get("content-type") || "";
+      if (!ct.includes("text/event-stream")) {
+        showComposerError("Expected text/event-stream from server, got: " + ct);
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
+        return;
+      }
+
+      let receivedImages = 0;
+      let donePayload = null;
+      await readSSEStream(r, function (msg) {
+        if (msg.type === "meta") {
+          var prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Starting · " + msg.total_runs + " run(s)";
+        }
+        if (msg.type === "progress") {
+          var prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
+        }
+        if (msg.type === "preview") {
+          applySlotPreview(thumbs, msg.run, msg.png_b64, msg.seq);
+        }
+        if (msg.type === "image") {
+          receivedImages += 1;
+          var expandedPrompt = body.prompts && body.prompts[msg.run - 1] ? body.prompts[msg.run - 1] : prompt;
+          var expandedNegative = body.negative_prompts && body.negative_prompts[msg.run - 1]
+            ? body.negative_prompts[msg.run - 1]
+            : negValue;
+          applySlotFinal(thumbs, msg.run, msg.png_b64, msg.index, msg.total_runs, {
+            prompt: prompt,
+            negative_prompt: negValue,
+            configuration: body.configuration,
+            run: msg.run + " / " + msg.total_runs,
+            generated: generatedAt,
+            expanded_prompt: expandedPrompt,
+            expanded_negative_prompt: expandedNegative,
+          });
+        }
+        if (msg.type === "done") {
+          donePayload = msg;
+        }
+      });
+
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      elapsed.textContent = "Done in " + dt + "s";
+      var finishedAt = new Date().toLocaleString();
+
+      if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
+        thumbs.querySelectorAll(".result-slot").forEach(function (tile, idx) {
+          if (!tile._generationDetails) return;
+          if (donePayload.expanded_prompts[idx] != null) {
+            tile._generationDetails.expanded_prompt = String(donePayload.expanded_prompts[idx]);
+          }
+          if (
+            Array.isArray(donePayload.expanded_negative_prompts) &&
+            donePayload.expanded_negative_prompts[idx] != null
+          ) {
+            tile._generationDetails.expanded_negative_prompt = String(
+              donePayload.expanded_negative_prompts[idx],
+            );
+          }
+        });
+      }
+
+      thumbs.querySelectorAll(".result-slot").forEach(function (tile) {
+        if (tile._generationDetails) tile._generationDetails.elapsed = dt + "s";
+      });
+
+      finalizePreviewOnlySlots(thumbs);
+
+      var responseLines = [
+        "Images: " + receivedImages,
+        "Elapsed: " + dt + "s",
+        "Configuration: " + (body.configuration || ""),
+      ];
+      if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
+        responseLines.push("Expanded prompts: " + donePayload.expanded_prompts.length);
+      }
+      if (groupApi) {
+        stampResultGroupDone(groupApi, {
+          timestamp: finishedAt,
+          elapsed: dt + "s",
+          request_json: payloadPreview,
+          configuration: body.configuration,
+          response_summary: responseLines.join("\n"),
+        });
+      }
+
+      if (receivedImages) {
+        trackRecentProfile(body.configuration);
+      }
+
+      placeholder.hidden = results.querySelector(".result-group") != null;
+    } catch (e) {
+      if (e.name === "AbortError") {
+        requestGenerationCancel();
+        showComposerError("");
+        elapsed.textContent = "Stopped";
+        if (groupApi) {
+          stampResultGroupDone(groupApi, {
+            timestamp: "Stopped · " + new Date().toLocaleString(),
+            response_summary: "Cancelled before completion.",
+          });
+        }
+      } else {
+        showComposerError(String(e));
+        if (groupApi) {
+          stampResultGroupDone(groupApi, {
+            timestamp: "Failed · " + new Date().toLocaleString(),
+            response_summary: String(e),
+          });
+        }
+      }
+      placeholder.hidden = results.querySelector(".result-group") != null;
+    } finally {
+      splitEl.classList.remove("is-busy");
+      generateAbortController = null;
+      generationInFlight = false;
+      setGeneratingUi(false, t0, timerRef);
+      btnGen.disabled = false;
+      updateComposerMode();
+    }
+  }
+
+  var __dtsLightboxState = { urls: [], index: 0, onKey: null, touchX: null, fitFill: false };
+
+  function syncLightboxFitFillUi() {
+    var stage = document.getElementById("dtsLightboxStage");
+    if (stage) {
+      if (__dtsLightboxState.fitFill) stage.classList.add("dts-lightbox-stage--fill");
+      else stage.classList.remove("dts-lightbox-stage--fill");
+    }
+    var c = document.getElementById("dtsLightboxCounter");
+    var n = __dtsLightboxState.urls.length;
+    var i = __dtsLightboxState.index;
+    var multi = n > 1;
+    var mode = __dtsLightboxState.fitFill ? "Fill" : "Fit";
+    if (!c) return;
+    c.textContent = multi ? i + 1 + " / " + n + " · " + mode : mode;
+  }
+
+  function toggleLightboxFitFill() {
+    __dtsLightboxState.fitFill = !__dtsLightboxState.fitFill;
+    syncLightboxFitFillUi();
+  }
+
+  function updateLightboxView() {
+    var img = document.getElementById("dtsLightboxImg");
+    var prev = document.getElementById("dtsLightboxPrev");
+    var next = document.getElementById("dtsLightboxNext");
+    var n = __dtsLightboxState.urls.length;
+    var i = __dtsLightboxState.index;
+    img.src = __dtsLightboxState.urls[i];
+    img.alt = "Image " + (i + 1) + " of " + n;
+    var multi = n > 1;
+    prev.hidden = !multi;
+    next.hidden = !multi;
+    prev.setAttribute("aria-hidden", multi ? "false" : "true");
+    next.setAttribute("aria-hidden", multi ? "false" : "true");
+    syncLightboxFitFillUi();
+  }
+
+  function stepLightbox(delta) {
+    var n = __dtsLightboxState.urls.length;
+    if (n <= 1) return;
+    __dtsLightboxState.index = (__dtsLightboxState.index + delta + n) % n;
+    updateLightboxView();
+  }
+
+  function closeImageLightbox() {
+    var box = document.getElementById("dtsLightbox");
+    if (!box || !box.open) return;
+    if (typeof box.close === "function") box.close();
+  }
+
+  function collectHistoryLightboxUrls(historyRoot) {
+    var urls = [];
+    if (!historyRoot) return urls;
+    var imgs = historyRoot.querySelectorAll(".history-thumbs img");
+    for (var i = 0; i < imgs.length; i++) {
+      if (imgs[i] && imgs[i].src) urls.push(imgs[i].src);
+    }
+    return urls;
+  }
+
+  function openImageLightbox(urls, startIndex) {
+    if (!urls || !urls.length) return;
+    var clean = [];
+    for (var k = 0; k < urls.length; k++) {
+      if (urls[k]) clean.push(urls[k]);
+    }
+    if (!clean.length) return;
+    var box = document.getElementById("dtsLightbox");
+    __dtsLightboxState.fitFill = false;
+    __dtsLightboxState.urls = clean;
+    var si = typeof startIndex === "number" && !isNaN(startIndex) ? startIndex | 0 : 0;
+    __dtsLightboxState.index = Math.max(0, Math.min(si, clean.length - 1));
+    updateLightboxView();
+    if (typeof box.showModal === "function") box.showModal();
+    if (__dtsLightboxState.onKey) {
+      document.removeEventListener("keydown", __dtsLightboxState.onKey, true);
+    }
+    __dtsLightboxState.onKey = function (ev) {
+      if (ev.key === "ArrowLeft") {
+        ev.preventDefault();
+        stepLightbox(-1);
+      } else if (ev.key === "ArrowRight") {
+        ev.preventDefault();
+        stepLightbox(1);
+      } else if (ev.key === "f" || ev.key === "F") {
+        ev.preventDefault();
+        toggleLightboxFitFill();
+      }
+    };
+    document.addEventListener("keydown", __dtsLightboxState.onKey, true);
+    document.getElementById("dtsLightboxClose").focus();
+  }
+
+  (function setupImageLightbox() {
+    var box = document.getElementById("dtsLightbox");
+    if (!box) return;
+    box.addEventListener("close", function () {
+      var img = document.getElementById("dtsLightboxImg");
+      if (img) img.removeAttribute("src");
+      if (__dtsLightboxState.onKey) {
+        document.removeEventListener("keydown", __dtsLightboxState.onKey, true);
+        __dtsLightboxState.onKey = null;
+      }
+      __dtsLightboxState.urls = [];
+      __dtsLightboxState.touchX = null;
+      __dtsLightboxState.fitFill = false;
+      var st = document.getElementById("dtsLightboxStage");
+      if (st) st.classList.remove("dts-lightbox-stage--fill");
+    });
+    document.getElementById("dtsLightboxClose").addEventListener("click", function (e) {
+      e.stopPropagation();
+      closeImageLightbox();
+    });
+    document.getElementById("dtsLightboxPrev").addEventListener("click", function (e) {
+      e.stopPropagation();
+      stepLightbox(-1);
+    });
+    document.getElementById("dtsLightboxNext").addEventListener("click", function (e) {
+      e.stopPropagation();
+      stepLightbox(1);
+    });
+    box.addEventListener(
+      "touchstart",
+      function (e) {
+        if (e.touches && e.touches[0]) __dtsLightboxState.touchX = e.touches[0].clientX;
+      },
+      { passive: true },
+    );
+    box.addEventListener(
+      "touchend",
+      function (e) {
+        var start = __dtsLightboxState.touchX;
+        __dtsLightboxState.touchX = null;
+        if (start === null || !e.changedTouches || !e.changedTouches[0]) return;
+        var dx = e.changedTouches[0].clientX - start;
+        if (Math.abs(dx) < 44) return;
+        if (dx > 0) stepLightbox(-1);
+        else stepLightbox(1);
+      },
+      { passive: true },
+    );
+
+    document.getElementById("results").addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (!t || t.tagName !== "IMG") return;
+      var list = document.querySelectorAll("#results .result-slot img");
+      if (!list.length) return;
+      var urls = [];
+      var idx = 0;
+      for (var i = 0; i < list.length; i++) {
+        urls.push(list[i].src);
+        if (list[i] === t) idx = i;
+      }
+      ev.preventDefault();
+      openImageLightbox(urls, idx);
+    });
+
+    var historyRoot = document.getElementById("historyList");
+    if (historyRoot) {
+      historyRoot.addEventListener("click", function (ev) {
+        var t = ev.target;
+        if (!t || t.tagName !== "IMG") return;
+        if (!t.closest(".history-thumbs")) return;
+        var urls = collectHistoryLightboxUrls(historyRoot);
+        if (!urls.length) return;
+        var idx = urls.indexOf(t.src);
+        if (idx < 0) idx = 0;
+        ev.preventDefault();
+        openImageLightbox(urls, idx);
+      });
+    }
+  })();
+
+  (function setupHistoryDialog() {
+    var dlg = document.getElementById("historyDialog");
+    var openBtn = document.getElementById("btnOpenHistory");
+    var closeBtn = document.getElementById("btnCloseHistory");
+    var clearBtn = document.getElementById("btnClearHistory");
+    openBtn.addEventListener("click", async function () {
+      await migrateLegacyHistoryToServer();
+      await renderHistoryList();
+      var scroller = dlg.querySelector(".history-dialog-inner");
+      if (scroller) scroller.scrollTop = 0;
+      dlg.removeAttribute("inert");
+      if (typeof dlg.showModal === "function") dlg.showModal();
+      openBtn.setAttribute("aria-expanded", "true");
+    });
+    closeBtn.addEventListener("click", function () { dlg.close(); });
+    clearBtn.addEventListener("click", async function () {
+      if (!window.confirm("Remove all saved generations from this browser?")) return;
+      await fetch("/api/history", { method: "DELETE", headers: authHeaders() });
+      try {
+        localStorage.removeItem(HISTORY_KEY);
+      } catch (e) {}
+      await renderHistoryList();
+    });
+    dlg.addEventListener("close", function () {
+      dlg.setAttribute("inert", "");
+      openBtn.setAttribute("aria-expanded", "false");
+      openBtn.focus();
+    });
+  })();
+
+  document.getElementById("prompt").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter") return;
+    if (!(e.metaKey || e.ctrlKey)) return;
+    e.preventDefault();
+    runComposerAction();
+  });
+
+  (function setupDialog() {
+    const dlg = document.getElementById("toolsDialog");
+    const openBtn = document.getElementById("btnOpenSetup");
+    const closeBtn = document.getElementById("btnCloseSetup");
+    openBtn.addEventListener("click", function () {
+      dlg.removeAttribute("inert");
+      if (typeof dlg.showModal === "function")
+        dlg.showModal();
+      openBtn.setAttribute("aria-expanded", "true");
+    });
+    closeBtn.addEventListener("click", function () {
+      dlg.close();
+    });
+    dlg.addEventListener("close", function () {
+      dlg.setAttribute("inert", "");
+      openBtn.setAttribute("aria-expanded", "false");
+      openBtn.focus();
+    });
+  })();
+
+  window.addEventListener("pagehide", function (e) {
+    if (!e.persisted) {
+      revokeResultBlobUrls();
+      revokeInputImageObjectUrls();
+    }
+  });
+
+  document.getElementById("btnCheck").addEventListener("click", refreshStatus);
+  document.getElementById("outputModeImage").addEventListener("change", onOutputModeChange);
+  document.getElementById("outputModeVideo").addEventListener("change", onOutputModeChange);
+  document.getElementById("profile").addEventListener("change", function () {
+    document.getElementById("profileCustom").value = "";
+    trackRecentProfile(document.getElementById("profile").value);
+    updateComposerMode();
+  });
+  document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
+  (function initInputImagesUi() {
+    var inputEl = document.getElementById("inputImages");
+    var dropzone = document.getElementById("inputImagesDropzone");
+    var clearBtn = document.getElementById("btnClearInputImages");
+    if (!inputEl || !dropzone) return;
+
+    function ingestFileList(fileList) {
+      if (!fileList || !fileList.length) return;
+      mergeInputImageFiles(Array.from(fileList));
+      renderInputImagesThumbs();
+      syncInputImagesUi();
+      resetInputImagesFileInput();
+    }
+
+    dropzone.addEventListener("click", function () {
+      inputEl.click();
+    });
+    dropzone.addEventListener("keydown", function (ev) {
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        inputEl.click();
+      }
+    });
+    inputEl.addEventListener("change", function (ev) {
+      ingestFileList(ev.target.files);
+    });
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        clearInputImages();
+      });
+    }
+
+    ["dragenter", "dragover"].forEach(function (type) {
+      dropzone.addEventListener(type, function (ev) {
+        ev.preventDefault();
+        dropzone.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (type) {
+      dropzone.addEventListener(type, function (ev) {
+        ev.preventDefault();
+        if (type === "drop") ingestFileList(ev.dataTransfer && ev.dataTransfer.files);
+        dropzone.classList.remove("is-dragover");
+      });
+    });
+  })();
+  document.getElementById("btnGen").addEventListener("click", runComposerAction);
+  document.getElementById("btnStop").addEventListener("click", function () {
+    requestGenerationCancel();
+    if (generateAbortController) generateAbortController.abort();
+  });
+  async function loadWebLogPath() {
+    var pathEl = document.getElementById("webLogFilePath");
+    var cmdEl = document.getElementById("webLogTailCmd");
+    if (!pathEl || !cmdEl) return;
+    try {
+      var r = await fetch("/api/health");
+      if (!r.ok) return;
+      var j = await r.json();
+      if (j.log_file) pathEl.textContent = j.log_file;
+      if (j.tail_cli) cmdEl.textContent = j.tail_cli;
+    } catch (e) {
+      console.warn("loadWebLogPath:", e);
+    }
+  }
+
+  loadWebLogPath();
+  loadConfigs().then(function () { refreshStatus(); });

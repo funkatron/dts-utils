@@ -1,6 +1,6 @@
 # dts-utils web UI layout
 
-Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Template: [`src/dts_utils/web/templates/index.html.j2`](../src/dts_utils/web/templates/index.html.j2). CLI flags, HTTP routes, and env vars: [CLI.md § web](../CLI.md#web-dts-utils-web).
+Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Page shell: [`src/dts_utils/web/templates/index.html.j2`](../src/dts_utils/web/templates/index.html.j2); markup/CSS/JS live in [`templates/partials/`](../src/dts_utils/web/templates/partials/) (`_styles.html.j2`, `_fabs.html.j2`, `_stage.html.j2`, `_composer.html.j2`, `_dialogs.html.j2`, `_script.html.j2`). CLI flags, HTTP routes, and env vars: [CLI.md § web](../CLI.md#web-dts-utils-web).
 
 ## Contents
 

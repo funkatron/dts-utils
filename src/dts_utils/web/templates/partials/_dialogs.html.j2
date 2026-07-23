@@ -1,0 +1,105 @@
+  <dialog id="dtsLightbox" class="dts-lightbox" aria-label="Image viewer">
+    <button type="button" id="dtsLightboxClose" class="dts-lightbox-close" aria-label="Close">&times;</button>
+    <button type="button" id="dtsLightboxPrev" class="dts-lightbox-nav dts-lightbox-prev" aria-label="Previous image">
+      <span aria-hidden="true">&#8249;</span>
+    </button>
+    <button type="button" id="dtsLightboxNext" class="dts-lightbox-nav dts-lightbox-next" aria-label="Next image">
+      <span aria-hidden="true">&#8250;</span>
+    </button>
+    <div id="dtsLightboxStage" class="dts-lightbox-stage">
+      <img id="dtsLightboxImg" alt="" decoding="async" />
+    </div>
+    <p id="dtsLightboxCounter" class="dts-lightbox-counter"></p>
+  </dialog>
+
+  <dialog id="generationInfoDialog" class="tools-dialog" aria-labelledby="generation-info-title">
+    <div class="tools-dialog-inner">
+      <h2 id="generation-info-title">Generation details</h2>
+      <dl id="generationInfoGrid" class="generation-info-grid"></dl>
+    </div>
+    <div class="dialog-close-row"><button type="button" id="btnCloseGenerationInfo">Close</button></div>
+  </dialog>
+
+  <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title" inert>
+    <div class="tools-dialog-inner">
+      <h2 id="tools-dialog-title">Connection &amp; advanced</h2>
+
+      <section aria-label="gRPC connection">
+        <p class="setup-section-title">Connection</p>
+        <div class="tools-row">
+          <div>
+            <label for="host">Host</label><br/>
+            <input id="host" type="text" value="localhost" size="14" autocomplete="off" />
+          </div>
+          <div>
+            <label for="port">gRPC port</label><br/>
+            <input id="port" type="number" value="7859" style="width:4.5rem" />
+          </div>
+          <div>
+            <label><input type="checkbox" id="noTls" /> no-TLS</label>
+          </div>
+          <div>
+            <label><input type="checkbox" id="trustCert" checked /> trust loopback</label>
+          </div>
+          <button type="button" class="btn-secondary" id="btnCheck">Check listener</button>
+        </div>
+        <div id="statusLine" class="status" role="status" aria-live="polite">Not checked yet.</div>
+        <p class="hint">Probe only (listener). Generation can still fail (config, flatc, model, TLS).</p>
+      </section>
+
+      <section aria-label="Advanced options">
+        <p class="setup-section-title">Advanced</p>
+        <p class="hint" style="margin-top:0">Profile and negative prompt live in the composer. Override paths here when needed.</p>
+        <label for="profileCustom">Custom profile name or path</label><br/>
+        <input id="profileCustom" type="text" placeholder="Overrides the profile menu when set…" style="margin-top:0.25rem;width:100%;margin-bottom:0.65rem" autocomplete="off" class="field" />
+        <div class="tools-row" style="margin-top:0.25rem">
+          <div style="flex:1;min-width:12rem">
+            <label for="sharedSecret">Shared secret</label><br/>
+            <input id="sharedSecret" type="text" style="width:100%" autocomplete="off" class="field" />
+          </div>
+          <div style="flex:1;min-width:12rem">
+            <label for="rootCert">Root cert path</label><br/>
+            <input id="rootCert" type="text" style="width:100%" autocomplete="off" class="field" />
+          </div>
+        </div>
+        <div style="margin-top:0.5rem">
+          <label><input type="checkbox" id="forceTrust" /> force-trust server cert (MITM risk)</label>
+        </div>
+        <div style="margin-top:0.5rem">
+          <label for="configDir">Config directory override</label><br/>
+          <input id="configDir" type="text" style="width:100%" placeholder="Default: dts-utils configs path" autocomplete="off" class="field" />
+        </div>
+      </section>
+
+      <div class="tools-footer">
+        <p><a href="https://github.com/funkatron/dts-utils/blob/main/CLI.md" target="_blank" rel="noopener">CLI reference</a></p>
+        <details>
+          <summary>Web logs (second terminal)</summary>
+          <p class="hint" style="margin:0.35rem 0 0.2rem" id="webLogFileLabel">Log file: <code id="webLogFilePath">…</code></p>
+          <pre id="webLogTailCmd" style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.2rem">uv run dts-utils web tail</pre>
+        </details>
+        <details>
+          <summary>Server not installed?</summary>
+          <pre style="white-space:pre-wrap;background:#25262b;padding:0.5rem;border-radius:4px;border:1px solid var(--border);font-size:0.72rem;margin-top:0.35rem">uv run dts-utils server install
+uv run dts-utils server check
+uv run dts-utils server tail</pre>
+        </details>
+      </div>
+    </div>
+    <div class="dialog-close-row">
+      <button type="button" id="btnCloseSetup">Done</button>
+    </div>
+  </dialog>
+
+  <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title" inert>
+    <div class="history-dialog-inner">
+      <h2 id="history-dialog-title">Generation history</h2>
+      <p class="hint" style="margin-top:0">Saved by this web server. Not synced.</p>
+      <div id="historyList" class="history-list"></div>
+      <p id="historyStatus" class="hint" aria-live="polite"></p>
+    </div>
+    <div class="dialog-actions-split">
+      <button type="button" class="btn-danger-ghost" id="btnClearHistory">Clear all</button>
+      <button type="button" id="btnCloseHistory">Close</button>
+    </div>
+  </dialog>

@@ -29,6 +29,24 @@ def test_health_never_requires_token(monkeypatch: pytest.MonkeyPatch, client: Te
     assert body["tail_cli"].endswith("web tail")
 
 
+def test_index_template_shell_includes_partials() -> None:
+    from importlib import resources
+
+    web_templates = resources.files("dts_utils.web").joinpath("templates")
+    shell = web_templates.joinpath("index.html.j2").read_text(encoding="utf-8")
+    assert '{% include "partials/_styles.html.j2" %}' in shell
+    assert '{% include "partials/_script.html.j2" %}' in shell
+    for name in (
+        "_styles.html.j2",
+        "_fabs.html.j2",
+        "_stage.html.j2",
+        "_composer.html.j2",
+        "_dialogs.html.j2",
+        "_script.html.j2",
+    ):
+        assert web_templates.joinpath("partials", name).is_file(), name
+
+
 def test_index_loads(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200

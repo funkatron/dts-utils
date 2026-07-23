@@ -39,9 +39,13 @@ def test_index_loads(client: TestClient) -> None:
     assert "Ctrl+Enter" in r.text
     assert 'id="btnStop"' in r.text
     assert 'id="busyProgress"' in r.text
-    assert 'id="busyRequestJson"' in r.text
-    assert 'id="expandedPromptsNote"' in r.text
-    assert "Technical details (request JSON)" in r.text
+    assert 'id="btnRequestDetails"' in r.text
+    assert "Request details" in r.text
+    assert "ensureResultSlots" in r.text
+    assert "applySlotPreview" in r.text
+    assert "collectHistoryLightboxUrls" in r.text
+    assert 'id="expandedPromptsNote"' not in r.text
+    assert 'id="generationPreview"' not in r.text
     assert 'id="composerStatus"' in r.text
     assert 'id="outputModeImage"' in r.text
     assert 'id="videoDonePanel"' in r.text
@@ -90,6 +94,19 @@ def test_history_tiles_share_result_layout_and_use_a_responsive_grid(client: Tes
     assert 'dialog#historyDialog[open] { display: flex; }' in text
     assert 'scroller.scrollTop = 0' in text
     assert 'dl.className = "history-dl"' not in text
+
+
+def test_index_progressive_result_slots_and_cross_group_lightbox(client: TestClient) -> None:
+    text = client.get("/").text
+    assert "createPendingGenerationTile" in text
+    assert "result-slot--pending" in text
+    assert "result-slot-placeholder" in text
+    assert "showRequestDetails" in text
+    assert '["Prompt", details.prompt]' in text
+    assert '["Expanded prompt", details.expanded_prompt]' in text
+    assert "function collectHistoryLightboxUrls" in text
+    assert "promoteGenerationPreviewToResults" not in text
+    assert "function renderExpandedPromptsPanel" not in text
 
 
 def test_generation_history_keeps_images_out_of_index(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

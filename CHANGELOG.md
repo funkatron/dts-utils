@@ -45,6 +45,10 @@ Example snippet for the next release:
 - **`dts-utils web`:** History now uses the complete shared tile styling in a wide responsive grid, keeps its footer fixed, resets scroll when opened, and removes duplicate download links.
 - **Doc drift tests:** `tests/test_docs_drift.py` keeps web routes, MCP tool names, and CLI sections aligned with user docs; **`scripts/generate_docs.py`** emits **`docs/generated/mcp-tools.md`**.
 
+### Changed
+
+- **`dts-utils web`:** image Generate pre-creates one result card per run; SSE **preview** / **image** events update that card (loading → preview → final). Request JSON and expanded prompts move into **Request details** / per-tile **i** dialogs; History lightbox **← / →** walks images across generation groups.
+
 ---
 
 ## [0.6.0] - 2026-07-09

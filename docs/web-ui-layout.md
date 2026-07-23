@@ -30,7 +30,7 @@ Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Temp
 │  clock                         fab-history · fab-setup │
 │                                                         │
 │              IMAGE STAGE (#stage / #resultPane)          │
-│     placeholder | busy + preview | results grid        │
+│     placeholder | busy bar | progressive result tiles │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
 │  #err (errors)                                           │
@@ -58,9 +58,9 @@ Connection + advanced    Server-side PNG list, Reuse, Clear all
 | **Negative prompt** | Optional **`#neg`** above the main prompt |
 | **Setup** | Host, port, no-TLS, trust loopback, Check listener, shared secret, cert paths, config dir, web log tail hint |
 | **History** | Wide viewport-height dialog; each job has a responsive thumbnail-card grid with overlaid **i**, one Download action, and Reuse. Prompt + configuration metadata stays above its grid; **Clear all** deletes server history files |
-| **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. **Escape** or backdrop closes. **← / →**, side zones, swipe within batch. **F** = Fit vs Fill |
-| **Generation info** | Select a tile’s **i** button → **`#generationInfoDialog`** with prompt, profile, run, timing, dimensions, and expanded wildcard values |
-| **Busy state** | Live preview (**`#generationPreview`**), progress text, request JSON (**`shared_secret`** redacted in **`#busyRequestJson`**) |
+| **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. **Escape** or backdrop closes. **← / →**, side zones, swipe. In History, arrows walk **across** generation groups. **F** = Fit vs Fill |
+| **Generation info** | Select a tile’s **i** button → **`#generationInfoDialog`** with original + expanded prompts, profile, run, timing, dimensions |
+| **Busy state** | Compact progress bar; **Request details** opens redacted request JSON in the details dialog. Preview frames update the active result tile (loading → preview → final) |
 | **Video done** | **`#videoDonePanel`** shows run folder with **Copy path** |
 | **Persistence** | Last mode/profile in **`localStorage`** key **`dts_web_ui_v1`** |
 
@@ -74,7 +74,7 @@ Listener dot on the Setup FAB reflects the last probe (**`#statusComposerListene
 | --- | --- |
 | **Setup FAB** | **`#btnOpenSetup`** → **`#toolsDialog`** |
 | **History FAB** | **`#btnOpenHistory`** → **`#historyDialog`** |
-| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`**, **`#generationPreview`**, **`#generationPreviewImage`**, **`#videoDonePanel`**, **`#results`**, **`#expandedPromptsNote`** |
+| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`** (**`#btnRequestDetails`**), **`#videoDonePanel`**, **`#results`** (pending slots at request start) |
 | **Composer** | **`#composerStatus`** (mode, **`#profile`**, **`#statusComposerListener`**), **`#neg`**, **`#prompt`**, **`#generations`**, **`#btnGen`**, **`#btnStop`** (replaces Generate while busy), **`#elapsed`**, **`#composerShortcutHint`** |
 | **Errors** | **`#err`** (`role="alert"`) |
 | **Setup dialog** | **`#host`**, **`#port`**, **`#noTls`**, **`#trustCert`**, **`#btnCheck`**, **`#statusLine`**, **`#profileCustom`**, **`#sharedSecret`**, **`#rootCert`**, **`#forceTrust`**, **`#configDir`**, **`#webLogFilePath`**, **`#btnCloseSetup`** |

@@ -660,7 +660,12 @@
   /** Full JSON body for POST /api/generate after wildcards are resolved server-side. */
   function buildResolvedGenerateBody(expanded, generations) {
     const shared = document.getElementById("sharedSecret").value.trim();
+    const sourcePrompt = document.getElementById("prompt").value.trim();
+    const sourceNegative = document.getElementById("neg").value;
     const body = Object.assign(connectionPayload(), {
+      // Source templates for history (unexpanded); prompts[] drive the RPCs.
+      prompt: sourcePrompt,
+      negative_prompt: sourceNegative,
       prompts: expanded.prompts,
       negative_prompts: expanded.negative_prompts,
       configuration: effectiveProfile(),
@@ -714,7 +719,212 @@
     return url;
   }
 
-  function showGenerationInfo(details) {
+  /** Prompt = expanded (primary). Unexpanded = source template when different. */
+  function normalizePromptDetails(raw) {
+    raw = raw || {};
+    var promptText = typeof raw.prompt === "string" ? raw.prompt.trim() : "";
+    var unexpandedPrompt =
+      typeof raw.unexpanded_prompt === "string" ? raw.unexpanded_prompt.trim() : "";
+    var negativeText = typeof raw.negative_prompt === "string" ? raw.negative_prompt.trim() : "";
+    var unexpandedNegative =
+      typeof raw.unexpanded_negative_prompt === "string"
+        ? raw.unexpanded_negative_prompt.trim()
+        : "";
+
+    if (raw.expanded_prompt && !raw.unexpanded_prompt) {
+      unexpandedPrompt = promptText;
+      promptText = String(raw.expanded_prompt).trim();
+    }
+    if (raw.expanded_negative_prompt && !raw.unexpanded_negative_prompt) {
+      unexpandedNegative = negativeText;
+      negativeText = String(raw.expanded_negative_prompt).trim();
+    }
+    if (!promptText && Array.isArray(raw.expanded_prompts)) {
+      var i;
+      for (i = 0; i < raw.expanded_prompts.length; i++) {
+        var expanded = String(raw.expanded_prompts[i] || "").trim();
+        if (expanded) {
+          promptText = expanded;
+          break;
+        }
+      }
+    }
+    if (!negativeText && Array.isArray(raw.expanded_negative_prompts)) {
+      var j;
+      for (j = 0; j < raw.expanded_negative_prompts.length; j++) {
+        var neg = String(raw.expanded_negative_prompts[j] || "").trim();
+        if (neg) {
+          negativeText = neg;
+          break;
+        }
+      }
+    }
+    if (unexpandedPrompt && unexpandedPrompt === promptText) unexpandedPrompt = "";
+    if (unexpandedNegative && unexpandedNegative === negativeText) unexpandedNegative = "";
+    return {
+      prompt: promptText,
+      unexpanded_prompt: unexpandedPrompt,
+      negative_prompt: negativeText,
+      unexpanded_negative_prompt: unexpandedNegative,
+    };
+  }
+
+  function batchMetaLine(parts) {
+    var out = [];
+    var i;
+    for (i = 0; i < parts.length; i++) {
+      if (parts[i]) out.push(String(parts[i]));
+    }
+    return out.join(" · ");
+  }
+
+  /**
+   * Shared summary chrome for stage batches and History rows.
+   * opts: metaText, prompt fields, detailsHidden, onDetails, detailsLabel
+   */
+  function createBatchSummary(opts) {
+    opts = opts || {};
+    var root = document.createElement("header");
+    root.className = "batch-summary";
+
+    var top = document.createElement("div");
+    top.className = "batch-summary-top";
+    var metaEl = document.createElement("div");
+    metaEl.className = "batch-summary-meta";
+    var detailsBtn = document.createElement("button");
+    detailsBtn.type = "button";
+    detailsBtn.className = "batch-summary-details";
+    detailsBtn.textContent = opts.detailsLabel || "Details";
+    detailsBtn.hidden = !!opts.detailsHidden;
+    if (typeof opts.onDetails === "function") {
+      detailsBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        opts.onDetails();
+      });
+    }
+    top.appendChild(metaEl);
+    top.appendChild(detailsBtn);
+
+    var promptRow = document.createElement("div");
+    promptRow.className = "batch-summary-prompt-row";
+    var promptEl = document.createElement("p");
+    promptEl.className = "batch-summary-prompt";
+    var reuseBtn = document.createElement("button");
+    reuseBtn.type = "button";
+    reuseBtn.className = "batch-summary-reuse";
+    reuseBtn.textContent = opts.reuseLabel || "Reuse";
+    reuseBtn.setAttribute("aria-label", "Reuse prompt and profile from history");
+    reuseBtn.hidden = typeof opts.onReuse !== "function";
+    if (typeof opts.onReuse === "function") {
+      reuseBtn.addEventListener("click", function (event) {
+        event.preventDefault();
+        opts.onReuse();
+      });
+    }
+    promptRow.appendChild(promptEl);
+    promptRow.appendChild(reuseBtn);
+
+    var unexpandedEl = document.createElement("p");
+    unexpandedEl.className = "batch-summary-unexpanded hint";
+
+    function setSummary(next) {
+      next = next || {};
+      if (next.metaText != null) metaEl.textContent = next.metaText;
+      var norm = normalizePromptDetails(next);
+      // Batch headline prefers source template; Details/(i) still use Prompt=expanded.
+      var headline = "";
+      if (norm.unexpanded_prompt) {
+        headline = norm.unexpanded_prompt;
+      } else if (norm.prompt) {
+        headline = norm.prompt;
+      } else {
+        headline = "(no prompt)";
+      }
+      promptEl.textContent = headline;
+      // Avoid duplicating the template under the headline when it already shows unexpanded.
+      unexpandedEl.hidden = true;
+      unexpandedEl.textContent = "";
+      if (next.detailsHidden != null) detailsBtn.hidden = !!next.detailsHidden;
+    }
+
+    setSummary(opts);
+    root.appendChild(top);
+    root.appendChild(promptRow);
+    root.appendChild(unexpandedEl);
+    return {
+      root: root,
+      metaEl: metaEl,
+      promptEl: promptEl,
+      promptRow: promptRow,
+      unexpandedEl: unexpandedEl,
+      detailsBtn: detailsBtn,
+      reuseBtn: reuseBtn,
+      setSummary: setSummary,
+    };
+  }
+
+  function formatConfigurationJson(raw) {
+    if (raw == null || raw === "") return "";
+    if (typeof raw === "string") {
+      var trimmed = raw.trim();
+      if (!trimmed) return "";
+      try {
+        return JSON.stringify(JSON.parse(trimmed), null, 2);
+      } catch (e) {
+        return trimmed;
+      }
+    }
+    if (typeof raw === "object") {
+      try {
+        return JSON.stringify(raw, null, 2);
+      } catch (e2) {
+        return "";
+      }
+    }
+    return "";
+  }
+
+  async function fetchConfigurationJson(name) {
+    if (!name || typeof name !== "string") return null;
+    var stem = name.trim();
+    if (!stem) return null;
+    try {
+      var r = await fetch("/api/configs/" + encodeURIComponent(stem), { headers: authHeaders() });
+      if (!r.ok) return null;
+      var j = await r.json();
+      if (j && typeof j === "object" && j.configuration && typeof j.configuration === "object") {
+        return j.configuration;
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  async function resolveConfigurationJsonText(details) {
+    details = details || {};
+    var fromSnapshot = formatConfigurationJson(details.configuration_json);
+    if (fromSnapshot) return fromSnapshot;
+    var fetched = await fetchConfigurationJson(details.configuration);
+    if (fetched) {
+      details.configuration_json = fetched;
+      return formatConfigurationJson(fetched);
+    }
+    if (details.configuration) {
+      return "(configuration JSON unavailable for " + String(details.configuration) + ")";
+    }
+    return "";
+  }
+
+  function attachConfigurationSnapshot(groupApi, configurationName) {
+    if (!groupApi || !groupApi.group || !configurationName) return;
+    fetchConfigurationJson(configurationName).then(function (snap) {
+      if (!snap || !groupApi.group || !groupApi.group._groupDetails) return;
+      groupApi.group._groupDetails.configuration_json = snap;
+    });
+  }
+
+  async function showGenerationInfo(details) {
     var dialog = document.getElementById("generationInfoDialog");
     var grid = document.getElementById("generationInfoGrid");
     var title = document.getElementById("generation-info-title");
@@ -723,12 +933,18 @@
     if (title) {
       title.textContent = details._dialogTitle ? String(details._dialogTitle) : "Generation details";
     }
+    var norm = normalizePromptDetails(details);
+    var configJsonText = await resolveConfigurationJsonText(details);
     var fields = [
-      ["Prompt", details.prompt], ["Negative prompt", details.negative_prompt],
-      ["Configuration", details.configuration], ["Run", details.run],
+      ["Prompt", norm.prompt],
+      ["Unexpanded prompt", norm.unexpanded_prompt],
+      ["Negative prompt", norm.negative_prompt],
+      ["Unexpanded negative", norm.unexpanded_negative_prompt],
+      ["Configuration", details.configuration],
+      ["Configuration JSON", configJsonText],
+      ["Run", details.run],
       ["Generated", details.generated], ["Elapsed", details.elapsed],
-      ["Dimensions", details.dimensions], ["Expanded prompt", details.expanded_prompt],
-      ["Expanded negative", details.expanded_negative_prompt],
+      ["Dimensions", details.dimensions],
       ["Response", details.response_summary],
       ["Request JSON", details.request_json],
     ];
@@ -751,7 +967,54 @@
     });
   }
 
-  function appendInfoButton(wrap, details) {
+  function closeGenerationInfo() {
+    var dialog = document.getElementById("generationInfoDialog");
+    if (dialog && dialog.open && typeof dialog.close === "function") dialog.close();
+  }
+
+  function isGenerationInfoOpen() {
+    var dialog = document.getElementById("generationInfoDialog");
+    return !!(dialog && dialog.open);
+  }
+
+  function downloadIconSvgHtml(size) {
+    var s = size || 16;
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" width="' +
+      s +
+      '" height="' +
+      s +
+      '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>' +
+      '<polyline points="7 10 12 15 17 10"/>' +
+      '<line x1="12" x2="12" y1="15" y2="3"/>' +
+      "</svg>"
+    );
+  }
+
+  function setDownloadIconLink(a, opts) {
+    opts = opts || {};
+    a.className = opts.className || "result-download";
+    a.setAttribute("aria-label", "Download");
+    a.title = "Download";
+    a.innerHTML = downloadIconSvgHtml(opts.iconSize || 16);
+  }
+
+  function appendSlotActions(wrap, details, opts) {
+    opts = opts || {};
+    var actions = document.createElement("div");
+    actions.className = "result-slot-actions";
+    var a = document.createElement("a");
+    a.href = opts.href || "#";
+    a.download = opts.downloadName || "generated.png";
+    setDownloadIconLink(a, { className: "result-download", iconSize: 16 });
+    if (opts.hidden) a.hidden = true;
+    a.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (a.hidden || a.getAttribute("href") === "#") {
+        event.preventDefault();
+      }
+    });
     var info = document.createElement("button");
     info.type = "button";
     info.className = "result-info-button";
@@ -760,9 +1023,12 @@
     info.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
-      showGenerationInfo(wrap._generationDetails || details);
+      showGenerationInfo(wrap._generationDetails || details || {});
     });
-    wrap.appendChild(info);
+    actions.appendChild(a);
+    actions.appendChild(info);
+    wrap.appendChild(actions);
+    return { actions: actions, download: a, info: info };
   }
 
   function createPendingGenerationTile(details) {
@@ -775,19 +1041,7 @@
     spin.className = "spinner";
     ph.appendChild(spin);
     wrap.appendChild(ph);
-    appendInfoButton(wrap, details);
-    var a = document.createElement("a");
-    a.href = "#";
-    a.download = "generated.png";
-    a.textContent = "Download";
-    a.className = "result-download";
-    a.hidden = true;
-    a.addEventListener("click", function (event) {
-      if (a.hidden || a.getAttribute("href") === "#") {
-        event.preventDefault();
-      }
-    });
-    wrap.appendChild(a);
+    appendSlotActions(wrap, details, { href: "#", downloadName: "generated.png", hidden: true });
     wrap._generationDetails = details;
     wrap._slotBlobUrl = null;
     return wrap;
@@ -803,13 +1057,7 @@
       details.dimensions = img.naturalWidth + " × " + img.naturalHeight;
     });
     wrap.appendChild(img);
-    appendInfoButton(wrap, details);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = downloadName || "generated.png";
-    a.textContent = "Download";
-    a.className = "result-download";
-    wrap.appendChild(a);
+    appendSlotActions(wrap, details, { href: url, downloadName: downloadName || "generated.png" });
     wrap._generationDetails = details;
     wrap._slotBlobUrl = null;
     return wrap;
@@ -823,57 +1071,72 @@
     group.className = "result-group";
     group.setAttribute("aria-label", "Generation batch");
 
-    var header = document.createElement("header");
-    header.className = "result-group-header";
-    var timeEl = document.createElement("span");
-    timeEl.className = "result-group-time";
-    timeEl.textContent = "Generating…";
-    var metaBtn = document.createElement("button");
-    metaBtn.type = "button";
-    metaBtn.className = "result-group-meta-link";
-    metaBtn.textContent = "Request / response";
-    metaBtn.hidden = true;
-    metaBtn.addEventListener("click", function () {
-      showGenerationInfo(group._groupDetails || {});
-    });
-    header.appendChild(timeEl);
-    header.appendChild(metaBtn);
-
     var thumbs = document.createElement("div");
     thumbs.className = "result-group-thumbs";
 
     var i;
     for (i = 0; i < totalRuns; i++) {
       var details = {
-        prompt: baseDetails.prompt || "",
-        negative_prompt: baseDetails.negative_prompt || "",
+        prompt: "",
+        unexpanded_prompt: baseDetails.prompt || "",
+        negative_prompt: "",
+        unexpanded_negative_prompt: baseDetails.negative_prompt || "",
         configuration: baseDetails.configuration || "",
         run: (i + 1) + " / " + totalRuns,
         generated: baseDetails.generated || "",
-        expanded_prompt: "",
-        expanded_negative_prompt: "",
       };
       if (Array.isArray(baseDetails.expanded_prompts) && baseDetails.expanded_prompts[i] != null) {
-        details.expanded_prompt = String(baseDetails.expanded_prompts[i]);
+        details.prompt = String(baseDetails.expanded_prompts[i]);
       }
       if (
         Array.isArray(baseDetails.expanded_negative_prompts) &&
         baseDetails.expanded_negative_prompts[i] != null
       ) {
-        details.expanded_negative_prompt = String(baseDetails.expanded_negative_prompts[i]);
+        details.negative_prompt = String(baseDetails.expanded_negative_prompts[i]);
       }
+      if (!details.prompt) details.prompt = details.unexpanded_prompt;
+      if (!details.negative_prompt) details.negative_prompt = details.unexpanded_negative_prompt;
       thumbs.appendChild(createPendingGenerationTile(details));
     }
 
+    var groupPrompt = baseDetails.prompt || "";
+    if (Array.isArray(baseDetails.expanded_prompts) && baseDetails.expanded_prompts[0] != null) {
+      groupPrompt = String(baseDetails.expanded_prompts[0]);
+    }
+    var groupNegative = baseDetails.negative_prompt || "";
+    if (
+      Array.isArray(baseDetails.expanded_negative_prompts) &&
+      baseDetails.expanded_negative_prompts[0] != null
+    ) {
+      groupNegative = String(baseDetails.expanded_negative_prompts[0]);
+    }
     group._groupDetails = {
-      _dialogTitle: "Generation request / response",
-      prompt: baseDetails.prompt || "",
-      negative_prompt: baseDetails.negative_prompt || "",
+      _dialogTitle: "Generation details",
+      prompt: groupPrompt,
+      unexpanded_prompt: baseDetails.prompt || "",
+      negative_prompt: groupNegative,
+      unexpanded_negative_prompt: baseDetails.negative_prompt || "",
       configuration: baseDetails.configuration || "",
       request_json: typeof requestJson === "string" ? requestJson : "",
       response_summary: "",
     };
-    group.appendChild(header);
+    var summary = createBatchSummary({
+      metaText: batchMetaLine([
+        "Generating…",
+        totalRuns ? totalRuns + " image(s)" : "",
+        baseDetails.configuration || "",
+      ]),
+      prompt: groupPrompt,
+      unexpanded_prompt: baseDetails.prompt || "",
+      negative_prompt: groupNegative,
+      unexpanded_negative_prompt: baseDetails.negative_prompt || "",
+      detailsHidden: true,
+      detailsLabel: "Details",
+      onDetails: function () {
+        showGenerationInfo(group._groupDetails || {});
+      },
+    });
+    group.appendChild(summary.root);
     group.appendChild(thumbs);
     if (resultsEl.firstChild) {
       resultsEl.insertBefore(group, resultsEl.firstChild);
@@ -881,22 +1144,36 @@
       resultsEl.appendChild(group);
     }
     if (placeholder) placeholder.hidden = true;
-    return { group: group, thumbs: thumbs, timeEl: timeEl, metaBtn: metaBtn };
+    return { group: group, thumbs: thumbs, summary: summary, imageCount: totalRuns };
   }
 
   function stampResultGroupDone(groupApi, opts) {
     if (!groupApi || !groupApi.group) return;
     opts = opts || {};
     var stamp = opts.timestamp || new Date().toLocaleString();
-    if (groupApi.timeEl) groupApi.timeEl.textContent = stamp;
-    if (groupApi.group._groupDetails) {
-      groupApi.group._groupDetails.generated = stamp;
-      if (opts.elapsed) groupApi.group._groupDetails.elapsed = opts.elapsed;
-      if (opts.request_json) groupApi.group._groupDetails.request_json = opts.request_json;
-      if (opts.response_summary) groupApi.group._groupDetails.response_summary = opts.response_summary;
-      if (opts.configuration) groupApi.group._groupDetails.configuration = opts.configuration;
+    var details = groupApi.group._groupDetails || {};
+    details.generated = stamp;
+    if (opts.elapsed) details.elapsed = opts.elapsed;
+    if (opts.request_json) details.request_json = opts.request_json;
+    if (opts.response_summary) details.response_summary = opts.response_summary;
+    if (opts.configuration) details.configuration = opts.configuration;
+    groupApi.group._groupDetails = details;
+    var count = opts.image_count;
+    if (count == null && groupApi.imageCount) count = groupApi.imageCount;
+    if (groupApi.summary && typeof groupApi.summary.setSummary === "function") {
+      groupApi.summary.setSummary({
+        metaText: batchMetaLine([
+          stamp,
+          count ? count + " image(s)" : "",
+          details.configuration || "",
+        ]),
+        prompt: details.prompt,
+        unexpanded_prompt: details.unexpanded_prompt,
+        negative_prompt: details.negative_prompt,
+        unexpanded_negative_prompt: details.unexpanded_negative_prompt,
+        detailsHidden: false,
+      });
     }
-    if (groupApi.metaBtn) groupApi.metaBtn.hidden = false;
   }
 
   function getResultSlotByRun(thumbsEl, run) {
@@ -1075,11 +1352,18 @@
     var statusEl = document.getElementById("historyStatus");
     var restoredOptional = [];
 
-    promptEl.value = String(entry.prompt || "");
+    var restorePrompt = entry.unexpanded_prompt || entry.prompt || "";
+    promptEl.value = String(restorePrompt);
 
-    if (negEl && typeof entry.negative_prompt === "string") {
-      negEl.value = entry.negative_prompt;
-      if (entry.negative_prompt.trim()) restoredOptional.push("negative prompt");
+    var restoreNegative = "";
+    if (typeof entry.unexpanded_negative_prompt === "string") {
+      restoreNegative = entry.unexpanded_negative_prompt;
+    } else if (typeof entry.negative_prompt === "string") {
+      restoreNegative = entry.negative_prompt;
+    }
+    if (negEl && typeof restoreNegative === "string") {
+      negEl.value = restoreNegative;
+      if (restoreNegative.trim()) restoredOptional.push("negative prompt");
     }
 
     var entryGenerations = coerceHistoryGenerations(entry.generations);
@@ -1109,6 +1393,17 @@
     }, 0);
   }
 
+  function historyEntryDisplayPrompt(entry) {
+    var norm = normalizePromptDetails(entry);
+    if (norm.unexpanded_prompt) return norm.unexpanded_prompt;
+    if (norm.prompt) return norm.prompt;
+    return "(no prompt)";
+  }
+
+  function historyEntryUnexpandedPrompt(entry) {
+    return normalizePromptDetails(entry).unexpanded_prompt;
+  }
+
   async function renderHistoryList() {
     var root = document.getElementById("historyList");
     if (!root) return;
@@ -1136,8 +1431,6 @@
       var entry = state.items[entryIndex];
       var row = document.createElement("article");
       row.className = "history-row";
-      var meta = document.createElement("div");
-      meta.className = "history-row-meta";
       var images = await fetchHistoryArtifacts(entry.id);
       var d = new Date(entry.ts);
       var imageCount = coerceHistoryGenerations(entry.image_count) || images.length;
@@ -1145,43 +1438,65 @@
         typeof entry.configuration === "string" && entry.configuration.trim()
           ? entry.configuration.trim()
           : "";
-      meta.textContent =
-        d.toLocaleString() + " · " + imageCount + " image(s)" + (cfg ? " · " + cfg : "");
-      row.appendChild(meta);
-      var pr = document.createElement("p");
-      pr.className = "history-row-prompt";
-      pr.textContent = entry.prompt || "(no prompt)";
-      row.appendChild(pr);
+      var stamp = d.toLocaleString();
+      var entryNorm = normalizePromptDetails(entry);
+      var entryDetails = {
+        _dialogTitle: "Generation details",
+        prompt: entryNorm.prompt,
+        unexpanded_prompt: entryNorm.unexpanded_prompt,
+        negative_prompt: entryNorm.negative_prompt,
+        unexpanded_negative_prompt: entryNorm.unexpanded_negative_prompt,
+        configuration: cfg,
+        configuration_json: entry.configuration_json || null,
+        generated: stamp,
+        elapsed: entry.elapsed_seconds ? entry.elapsed_seconds + "s" : "",
+        run: imageCount ? "1–" + imageCount + " / " + imageCount : "",
+      };
+      var summary = createBatchSummary({
+        metaText: batchMetaLine([stamp, imageCount + " image(s)", cfg]),
+        prompt: entryNorm.prompt,
+        unexpanded_prompt: entryNorm.unexpanded_prompt,
+        negative_prompt: entryNorm.negative_prompt,
+        unexpanded_negative_prompt: entryNorm.unexpanded_negative_prompt,
+        detailsHidden: false,
+        detailsLabel: "Details",
+        onDetails: function () {
+          showGenerationInfo(entryDetails);
+        },
+        onReuse: function () {
+          restoreHistoryEntryToComposer(entry);
+        },
+      });
+      row.appendChild(summary.root);
       var thumbs = document.createElement("div");
       thumbs.className = "history-thumbs";
       images.forEach(function (imageRef, i) {
-        var expanded = Array.isArray(entry.expanded_prompts) ? entry.expanded_prompts[i] : "";
-        var expandedNegative = Array.isArray(entry.expanded_negative_prompts)
-          ? entry.expanded_negative_prompts[i]
-          : "";
+        var tilePrompt = "";
+        if (Array.isArray(entry.expanded_prompts) && entry.expanded_prompts[i] != null) {
+          tilePrompt = String(entry.expanded_prompts[i]);
+        }
+        if (!tilePrompt) tilePrompt = entryNorm.prompt;
+        var tileNegative = "";
+        if (
+          Array.isArray(entry.expanded_negative_prompts) &&
+          entry.expanded_negative_prompts[i] != null
+        ) {
+          tileNegative = String(entry.expanded_negative_prompts[i]);
+        }
+        if (!tileNegative) tileNegative = entryNorm.negative_prompt;
         thumbs.appendChild(createGenerationTile(imageRef.url, imageRef.download, {
-          prompt: entry.prompt || "",
-          negative_prompt: entry.negative_prompt || "",
-          configuration: entry.configuration || "",
+          prompt: tilePrompt,
+          unexpanded_prompt: entryNorm.unexpanded_prompt,
+          negative_prompt: tileNegative,
+          unexpanded_negative_prompt: entryNorm.unexpanded_negative_prompt,
+          configuration: cfg,
+          configuration_json: entry.configuration_json || null,
           run: (i + 1) + " / " + imageCount,
-          generated: d.toLocaleString(),
+          generated: stamp,
           elapsed: entry.elapsed_seconds ? entry.elapsed_seconds + "s" : "",
-          expanded_prompt: expanded,
-          expanded_negative_prompt: expandedNegative,
         }));
       });
       row.appendChild(thumbs);
-      var actions = document.createElement("div");
-      actions.className = "history-actions";
-      var reuse = document.createElement("button");
-      reuse.type = "button";
-      reuse.textContent = "Reuse";
-      reuse.setAttribute("aria-label", "Reuse prompt and profile from history");
-      reuse.addEventListener("click", function () {
-        restoreHistoryEntryToComposer(entry);
-      });
-      actions.appendChild(reuse);
-      row.appendChild(actions);
       root.appendChild(row);
     }
   }
@@ -1295,6 +1610,7 @@
       },
       requestJson,
     );
+    attachConfigurationSnapshot(groupApi, body.profile || body.configuration || "");
     var thumbs = groupApi ? groupApi.thumbs : results;
 
     const r = await fetch("/api/generate/stream", {
@@ -1357,12 +1673,11 @@
           img.className = "result-inflight";
           wrap.appendChild(img);
         }
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = msg.filename || "artifact";
-        a.textContent = "Download";
-        a.className = "result-download";
-        wrap.appendChild(a);
+        appendSlotActions(wrap, {
+          configuration: body.profile || body.configuration || "",
+          run: msg.step_id || "",
+          generated: new Date().toLocaleString(),
+        }, { href: url, downloadName: msg.filename || "artifact" });
         thumbs.appendChild(wrap);
         artifactCount += 1;
       }
@@ -1517,6 +1832,7 @@
         },
         payloadPreview,
       );
+      attachConfigurationSnapshot(groupApi, body.configuration);
       var thumbs = groupApi ? groupApi.thumbs : results;
 
       const r = await fetch("/api/generate/stream", {
@@ -1594,13 +1910,13 @@
             : negValue;
           var imageTotal = resolveTotalRuns(msg);
           applySlotFinal(thumbs, msg.run, msg.png_b64, msg.index, imageTotal, {
-            prompt: prompt,
-            negative_prompt: negValue,
+            prompt: expandedPrompt,
+            unexpanded_prompt: prompt,
+            negative_prompt: expandedNegative,
+            unexpanded_negative_prompt: negValue,
             configuration: body.configuration,
             run: formatRunLabel(msg.run, imageTotal),
             generated: generatedAt,
-            expanded_prompt: expandedPrompt,
-            expanded_negative_prompt: expandedNegative,
           });
         }
         if (msg.type === "done") {
@@ -1615,14 +1931,16 @@
       if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
         thumbs.querySelectorAll(".result-slot").forEach(function (tile, idx) {
           if (!tile._generationDetails) return;
+          tile._generationDetails.unexpanded_prompt = prompt;
+          tile._generationDetails.unexpanded_negative_prompt = negValue;
           if (donePayload.expanded_prompts[idx] != null) {
-            tile._generationDetails.expanded_prompt = String(donePayload.expanded_prompts[idx]);
+            tile._generationDetails.prompt = String(donePayload.expanded_prompts[idx]);
           }
           if (
             Array.isArray(donePayload.expanded_negative_prompts) &&
             donePayload.expanded_negative_prompts[idx] != null
           ) {
-            tile._generationDetails.expanded_negative_prompt = String(
+            tile._generationDetails.negative_prompt = String(
               donePayload.expanded_negative_prompts[idx],
             );
           }
@@ -1689,7 +2007,106 @@
     }
   }
 
-  var __dtsLightboxState = { urls: [], index: 0, onKey: null, touchX: null, fitFill: false };
+  var __dtsLightboxState = { items: [], index: 0, onKey: null, touchX: null, fitFill: false };
+
+  function lightboxTypingTarget(el) {
+    if (!el || el === document.body) return false;
+    var tag = el.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
+    if (el.isContentEditable) return true;
+    return false;
+  }
+
+  function currentLightboxItem() {
+    var items = __dtsLightboxState.items;
+    var i = __dtsLightboxState.index;
+    if (!items || !items.length) return null;
+    if (i < 0 || i >= items.length) return null;
+    return items[i];
+  }
+
+  function resetLightboxStageScroll() {
+    var stage = document.getElementById("dtsLightboxStage");
+    if (!stage) return;
+    stage.scrollLeft = 0;
+    stage.scrollTop = 0;
+  }
+
+  function centerLightboxFillScroll() {
+    var stage = document.getElementById("dtsLightboxStage");
+    if (!stage || !__dtsLightboxState.fitFill) return;
+    var maxX = stage.scrollWidth - stage.clientWidth;
+    var maxY = stage.scrollHeight - stage.clientHeight;
+    if (maxX > 0) stage.scrollLeft = maxX / 2;
+    else stage.scrollLeft = 0;
+    if (maxY > 0) stage.scrollTop = maxY / 2;
+    else stage.scrollTop = 0;
+  }
+
+  function syncLightboxStageScroll() {
+    if (!__dtsLightboxState.fitFill) {
+      resetLightboxStageScroll();
+      return;
+    }
+    var img = document.getElementById("dtsLightboxImg");
+    function afterLayout() {
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(centerLightboxFillScroll);
+      } else {
+        centerLightboxFillScroll();
+      }
+    }
+    if (!img) {
+      afterLayout();
+      return;
+    }
+    if (img.complete) {
+      afterLayout();
+      return;
+    }
+    img.addEventListener(
+      "load",
+      function onLbImgLoad() {
+        img.removeEventListener("load", onLbImgLoad);
+        afterLayout();
+      },
+    );
+  }
+
+  function syncLightboxChrome() {
+    var item = currentLightboxItem();
+    var dl = document.getElementById("dtsLightboxDownload");
+    if (dl) {
+      if (item && item.url) {
+        dl.href = item.url;
+        dl.download = item.downloadName || "generated.png";
+        dl.hidden = false;
+      } else {
+        dl.href = "#";
+        dl.download = "generated.png";
+        dl.hidden = true;
+      }
+    }
+  }
+
+  function showLightboxGenerationInfo() {
+    var item = currentLightboxItem();
+    if (!item) return;
+    showGenerationInfo(item.details || {});
+  }
+
+  function toggleLightboxGenerationInfo() {
+    if (isGenerationInfoOpen()) {
+      closeGenerationInfo();
+      return;
+    }
+    showLightboxGenerationInfo();
+  }
+
+  function refreshOpenLightboxGenerationInfo() {
+    if (!isGenerationInfoOpen()) return;
+    showLightboxGenerationInfo();
+  }
 
   function syncLightboxFitFillUi() {
     var stage = document.getElementById("dtsLightboxStage");
@@ -1698,12 +2115,16 @@
       else stage.classList.remove("dts-lightbox-stage--fill");
     }
     var c = document.getElementById("dtsLightboxCounter");
-    var n = __dtsLightboxState.urls.length;
+    var n = __dtsLightboxState.items.length;
     var i = __dtsLightboxState.index;
     var multi = n > 1;
     var mode = __dtsLightboxState.fitFill ? "Fill" : "Fit";
-    if (!c) return;
-    c.textContent = multi ? i + 1 + " / " + n + " · " + mode : mode;
+    if (c) {
+      var hint = mode + " · F Fit/Fill · i Info";
+      if (multi) c.textContent = i + 1 + " / " + n + " · " + hint;
+      else c.textContent = hint;
+    }
+    syncLightboxStageScroll();
   }
 
   function toggleLightboxFitFill() {
@@ -1715,20 +2136,24 @@
     var img = document.getElementById("dtsLightboxImg");
     var prev = document.getElementById("dtsLightboxPrev");
     var next = document.getElementById("dtsLightboxNext");
-    var n = __dtsLightboxState.urls.length;
+    var item = currentLightboxItem();
+    var n = __dtsLightboxState.items.length;
     var i = __dtsLightboxState.index;
-    img.src = __dtsLightboxState.urls[i];
+    if (!img || !item) return;
+    img.src = item.url;
     img.alt = "Image " + (i + 1) + " of " + n;
     var multi = n > 1;
     prev.hidden = !multi;
     next.hidden = !multi;
     prev.setAttribute("aria-hidden", multi ? "false" : "true");
     next.setAttribute("aria-hidden", multi ? "false" : "true");
+    syncLightboxChrome();
     syncLightboxFitFillUi();
+    refreshOpenLightboxGenerationInfo();
   }
 
   function stepLightbox(delta) {
-    var n = __dtsLightboxState.urls.length;
+    var n = __dtsLightboxState.items.length;
     if (n <= 1) return;
     __dtsLightboxState.index = (__dtsLightboxState.index + delta + n) % n;
     updateLightboxView();
@@ -1740,26 +2165,67 @@
     if (typeof box.close === "function") box.close();
   }
 
-  function collectHistoryLightboxUrls(historyRoot) {
-    var urls = [];
-    if (!historyRoot) return urls;
-    var imgs = historyRoot.querySelectorAll(".history-thumbs img");
-    for (var i = 0; i < imgs.length; i++) {
-      if (imgs[i] && imgs[i].src) urls.push(imgs[i].src);
-    }
-    return urls;
+  function lightboxItemFromSlot(wrap) {
+    if (!wrap) return null;
+    var img = wrap.querySelector("img");
+    if (!img || !img.src) return null;
+    var a = wrap.querySelector(".result-download");
+    var downloadName = "generated.png";
+    if (a && a.getAttribute("download")) downloadName = a.getAttribute("download");
+    return {
+      url: img.src,
+      downloadName: downloadName,
+      details: wrap._generationDetails || {},
+    };
   }
 
-  function openImageLightbox(urls, startIndex) {
-    if (!urls || !urls.length) return;
+  function collectLightboxItemsFromSlots(root) {
+    var items = [];
+    if (!root) return items;
+    var slots = root.querySelectorAll(".result-slot");
+    var i;
+    for (i = 0; i < slots.length; i++) {
+      var item = lightboxItemFromSlot(slots[i]);
+      if (item) items.push(item);
+    }
+    return items;
+  }
+
+  function collectHistoryLightboxItems(historyRoot) {
+    var items = [];
+    if (!historyRoot) return items;
+    var slots = historyRoot.querySelectorAll(".history-thumbs .result-slot");
+    var i;
+    for (i = 0; i < slots.length; i++) {
+      var item = lightboxItemFromSlot(slots[i]);
+      if (item) items.push(item);
+    }
+    return items;
+  }
+
+  function openImageLightbox(items, startIndex) {
+    if (!items || !items.length) return;
     var clean = [];
-    for (var k = 0; k < urls.length; k++) {
-      if (urls[k]) clean.push(urls[k]);
+    var k;
+    for (k = 0; k < items.length; k++) {
+      var raw = items[k];
+      if (!raw) continue;
+      if (typeof raw === "string") {
+        if (raw) clean.push({ url: raw, downloadName: "generated.png", details: {} });
+        continue;
+      }
+      if (raw.url) {
+        clean.push({
+          url: raw.url,
+          downloadName: raw.downloadName || "generated.png",
+          details: raw.details || {},
+        });
+      }
     }
     if (!clean.length) return;
     var box = document.getElementById("dtsLightbox");
     __dtsLightboxState.fitFill = false;
-    __dtsLightboxState.urls = clean;
+    __dtsLightboxState.items = clean;
     var si = typeof startIndex === "number" && !isNaN(startIndex) ? startIndex | 0 : 0;
     __dtsLightboxState.index = Math.max(0, Math.min(si, clean.length - 1));
     updateLightboxView();
@@ -1768,6 +2234,7 @@
       document.removeEventListener("keydown", __dtsLightboxState.onKey, true);
     }
     __dtsLightboxState.onKey = function (ev) {
+      if (lightboxTypingTarget(ev.target)) return;
       if (ev.key === "ArrowLeft") {
         ev.preventDefault();
         stepLightbox(-1);
@@ -1777,6 +2244,9 @@
       } else if (ev.key === "f" || ev.key === "F") {
         ev.preventDefault();
         toggleLightboxFitFill();
+      } else if (ev.key === "i" || ev.key === "I") {
+        ev.preventDefault();
+        toggleLightboxGenerationInfo();
       }
     };
     document.addEventListener("keydown", __dtsLightboxState.onKey, true);
@@ -1793,16 +2263,42 @@
         document.removeEventListener("keydown", __dtsLightboxState.onKey, true);
         __dtsLightboxState.onKey = null;
       }
-      __dtsLightboxState.urls = [];
+      __dtsLightboxState.items = [];
       __dtsLightboxState.touchX = null;
       __dtsLightboxState.fitFill = false;
       var st = document.getElementById("dtsLightboxStage");
-      if (st) st.classList.remove("dts-lightbox-stage--fill");
+      if (st) {
+        st.classList.remove("dts-lightbox-stage--fill");
+        st.scrollLeft = 0;
+        st.scrollTop = 0;
+      }
+      var dl = document.getElementById("dtsLightboxDownload");
+      if (dl) {
+        dl.href = "#";
+        dl.download = "generated.png";
+      }
     });
     document.getElementById("dtsLightboxClose").addEventListener("click", function (e) {
       e.stopPropagation();
       closeImageLightbox();
     });
+    var dlBtn = document.getElementById("dtsLightboxDownload");
+    if (dlBtn) {
+      dlBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (dlBtn.hidden || dlBtn.getAttribute("href") === "#") {
+          e.preventDefault();
+        }
+      });
+    }
+    var infoBtn = document.getElementById("dtsLightboxInfo");
+    if (infoBtn) {
+      infoBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        showLightboxGenerationInfo();
+      });
+    }
     document.getElementById("dtsLightboxPrev").addEventListener("click", function (e) {
       e.stopPropagation();
       stepLightbox(-1);
@@ -1814,6 +2310,7 @@
     box.addEventListener(
       "touchstart",
       function (e) {
+        if (__dtsLightboxState.fitFill) return;
         if (e.touches && e.touches[0]) __dtsLightboxState.touchX = e.touches[0].clientX;
       },
       { passive: true },
@@ -1821,6 +2318,10 @@
     box.addEventListener(
       "touchend",
       function (e) {
+        if (__dtsLightboxState.fitFill) {
+          __dtsLightboxState.touchX = null;
+          return;
+        }
         var start = __dtsLightboxState.touchX;
         __dtsLightboxState.touchX = null;
         if (start === null || !e.changedTouches || !e.changedTouches[0]) return;
@@ -1835,16 +2336,20 @@
     document.getElementById("results").addEventListener("click", function (ev) {
       var t = ev.target;
       if (!t || t.tagName !== "IMG") return;
-      var list = document.querySelectorAll("#results .result-slot img");
-      if (!list.length) return;
-      var urls = [];
+      var slot = t.closest(".result-slot");
+      if (!slot) return;
+      var items = collectLightboxItemsFromSlots(document.getElementById("results"));
+      if (!items.length) return;
       var idx = 0;
-      for (var i = 0; i < list.length; i++) {
-        urls.push(list[i].src);
-        if (list[i] === t) idx = i;
+      var i;
+      for (i = 0; i < items.length; i++) {
+        if (items[i].url === t.src) {
+          idx = i;
+          break;
+        }
       }
       ev.preventDefault();
-      openImageLightbox(urls, idx);
+      openImageLightbox(items, idx);
     });
 
     var historyRoot = document.getElementById("historyList");
@@ -1853,12 +2358,18 @@
         var t = ev.target;
         if (!t || t.tagName !== "IMG") return;
         if (!t.closest(".history-thumbs")) return;
-        var urls = collectHistoryLightboxUrls(historyRoot);
-        if (!urls.length) return;
-        var idx = urls.indexOf(t.src);
-        if (idx < 0) idx = 0;
+        var items = collectHistoryLightboxItems(historyRoot);
+        if (!items.length) return;
+        var idx = 0;
+        var i;
+        for (i = 0; i < items.length; i++) {
+          if (items[i].url === t.src) {
+            idx = i;
+            break;
+          }
+        }
         ev.preventDefault();
-        openImageLightbox(urls, idx);
+        openImageLightbox(items, idx);
       });
     }
   })();

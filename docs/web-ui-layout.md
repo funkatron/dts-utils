@@ -55,11 +55,11 @@ Connection + advanced    Server-side PNG list, Reuse, Clear all
 | **Output mode** | Image vs Video toggle (**`#outputModeImage`** / **`#outputModeVideo`**) — video uses pipeline profiles |
 | **Profile** | Grouped **`#profile`** menu; default **`default`** (image). **`#profileCustom`** overrides when set |
 | **Runs** | **`#generations`** 1–25 (image mode); hidden for single-run video pipelines |
-| **Negative prompt** | Optional **`#neg`** above the main prompt |
+| **Negative prompt** | Optional **`#neg`** above the main prompt (monospace, same as **`#prompt`**) |
 | **Setup** | Host, port, no-TLS, trust loopback, Check listener, shared secret, cert paths, config dir, web log tail hint |
-| **History** | Wide viewport-height dialog; each job has a responsive thumbnail-card grid with overlaid **i**, one Download action, and Reuse. Prompt + configuration metadata stays above its grid; **Clear all** deletes server history files |
-| **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. **Escape** or backdrop closes. **← / →**, side zones, swipe. In History, arrows walk **across** generation groups. **F** = Fit vs Fill |
-| **Generation info** | Select a tile’s **i** button → **`#generationInfoDialog`** with original + expanded prompts, profile, run, timing, dimensions |
+| **History** | Wide viewport-height dialog; each job uses the same **batch summary** chrome as the stage (timestamp · image count · profile, **source/unexpanded prompt** as the headline with **Reuse** beside it and expanded fallback, **Details**), plus a thumbnail grid with overlay download icon (left of **i**). **Clear all** deletes server history files |
+| **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. Toolbar: download icon, **i** (generation details), **Close**. **Escape** or backdrop closes. **← / →**, side zones, swipe (Fit mode). In History, arrows walk **across** generation groups. **F** = Fit vs Fill; in **Fill**, two-finger trackpad / touch scroll pans overflow. **i** / **I** toggles generation details for the current image (ignored while typing in inputs) |
+| **Generation info** | Select a tile’s **i**, lightbox **i**, or batch **Details** → **`#generationInfoDialog`** with **Prompt** (expanded), **Unexpanded prompt** (when different), negatives, profile name, **Configuration JSON** (history snapshot or live **`GET /api/configs/{name}`**), run, timing, dimensions. Prompt-related values (and other `dd`s) use the shared monospace stack |
 | **Busy state** | Compact progress bar; **Request details** opens redacted request JSON in the details dialog. Preview frames update the active result tile (loading → preview → final) |
 | **Video done** | **`#videoDonePanel`** shows run folder with **Copy path** |
 | **Persistence** | Last mode/profile in **`localStorage`** key **`dts_web_ui_v1`** |
@@ -74,12 +74,12 @@ Listener dot on the Setup FAB reflects the last probe (**`#statusComposerListene
 | --- | --- |
 | **Setup FAB** | **`#btnOpenSetup`** → **`#toolsDialog`** |
 | **History FAB** | **`#btnOpenHistory`** → **`#historyDialog`** |
-| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`** (**`#btnRequestDetails`**), **`#videoDonePanel`**, **`#results`** (stacked **`.result-group`** batches; newest prepended; pending slots at request start; header timestamp + Request / response link when done) |
+| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`** (**`#btnRequestDetails`**), **`#videoDonePanel`**, **`#results`** (stacked **`.result-group`** batches; newest prepended; pending slots at request start; shared **`.batch-summary`** header with timestamp · count · profile, monospace **unexpanded/source prompt** headline, and **Details** when done; tile overlay **`.result-slot-actions`** = Download then **i**) |
 | **Composer** | **`#composerStatus`** (mode, **`#profile`**, **`#statusComposerListener`**), **`#neg`**, **`#prompt`**, **`#generations`**, **`#btnGen`**, **`#btnStop`** (replaces Generate while busy), **`#elapsed`**, **`#composerShortcutHint`** |
 | **Errors** | **`#err`** (`role="alert"`) |
 | **Setup dialog** | **`#host`**, **`#port`**, **`#noTls`**, **`#trustCert`**, **`#btnCheck`**, **`#statusLine`**, **`#profileCustom`**, **`#sharedSecret`**, **`#rootCert`**, **`#forceTrust`**, **`#configDir`**, **`#webLogFilePath`**, **`#btnCloseSetup`** |
-| **History dialog** | **`#historyList`**, per-row Reuse, **`#historyStatus`**, **`#btnClearHistory`**, **`#btnCloseHistory`** |
-| **Lightbox** | **`#dtsLightbox`**, **`#dtsLightboxImg`**, **`#dtsLightboxPrev`**, **`#dtsLightboxNext`**, **`#dtsLightboxClose`**, **`#dtsLightboxCounter`** |
+| **History dialog** | **`#historyList`**, per-row **Reuse** in the batch summary prompt row, **`#historyStatus`**, **`#btnClearHistory`**, **`#btnCloseHistory`** |
+| **Lightbox** | **`#dtsLightbox`**, **`#dtsLightboxImg`**, **`#dtsLightboxDownload`**, **`#dtsLightboxInfo`**, **`#dtsLightboxPrev`**, **`#dtsLightboxNext`**, **`#dtsLightboxClose`**, **`#dtsLightboxCounter`**, stage **`.dts-lightbox-stage--fill`** (overflow scroll when Fill) |
 | **Generation details** | **`#generationInfoDialog`**, **`#generationInfoGrid`**, **`#btnCloseGenerationInfo`** |
 
 ---

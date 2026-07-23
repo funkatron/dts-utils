@@ -43,13 +43,19 @@ Example snippet for the next release:
 
 - **`dts-utils web`:** responsive generation-job tiles open images fullscreen and expose an **i** details dialog; uncapped prompt/config history is now written directly by the server with a metadata-only index and separate PNG artifacts, avoiding browser-side base64 history uploads.
 - **`dts-utils web`:** History now uses the complete shared tile styling in a wide responsive grid, keeps its footer fixed, resets scroll when opened, and removes duplicate download links.
+- **`dts-utils web`:** **`GET /api/configs/{name}`** returns a saved profile’s JSON; generation **Details** shows **Configuration JSON** (live fetch or history snapshot).
 - **Doc drift tests:** `tests/test_docs_drift.py` keeps web routes, MCP tool names, and CLI sections aligned with user docs; **`scripts/generate_docs.py`** emits **`docs/generated/mcp-tools.md`**.
 
 ### Changed
 
+- **`dts-utils web`:** stage batches and History rows share the same **batch summary** chrome (timestamp · image count · profile, **unexpanded/source prompt** headline with expanded fallback, **Details** dialog). History **Reuse** sits beside the prompt. Details / **i** still show **Prompt** = expanded and **Unexpanded prompt** when different.
+- **`dts-utils web`:** result and History tiles use an overlay download-icon button (left of **i**); lightbox toolbar adds the same download icon + **i** (left of Close). Lightbox tracks per-image download/details; **i** / **I** toggles generation info; **Fill** mode pans overflow via two-finger trackpad / touch scroll.
+- **`dts-utils web`:** prompts use a shared monospace stack (`--dts-mono`) in the composer (`#prompt` / `#neg`), batch summary headline, and generation-details values.
+- **`dts-utils web`:** history items snapshot **`configuration_json`** at generate time so Details stays accurate if the profile file changes later.
 - **`dts-utils web`:** image Generate pre-creates one result card per run; SSE **preview** / **image** events update that card (loading → preview → final). Request JSON and expanded prompts move into **Request details** / per-tile **i** dialogs; History lightbox **← / →** walks images across generation groups.
-- **`dts-utils web`:** finished batches stay on the stage — newest group is prepended with a small timestamp header and a **Request / response** metadata link; prior thumbs remain below as separators.
+- **`dts-utils web`:** finished batches stay on the stage — newest group is prepended with a shared batch summary (timestamp, prompt, **Details**); prior thumbs remain below as separators.
 - **`dts-utils web`:** `index.html.j2` is a thin Jinja shell; styles, FABs, stage, composer, dialogs, and script live under `templates/partials/*.html.j2` (packaged via `templates/**/*.j2`).
+- **`dts-utils web`:** History stores/displays the expanded prompt as **`prompt`** and keeps the source template as **`unexpanded_prompt`** (fixes empty “(no prompt)” rows when Generate sends `prompts[]`).
 
 ---
 

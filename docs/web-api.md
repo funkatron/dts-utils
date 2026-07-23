@@ -150,6 +150,22 @@ List saved generation profile stems.
 
 ---
 
+### `GET /api/configs/{name}`
+
+Return one saved profile’s JSON body by stem (for example **`default`** or **`pikon-tall`**). Rejects path-like names (**`/`**, **`..`**).
+
+```json
+{
+  "name": "default",
+  "path": "/Users/…/.config/dts-utils/configurations/default.json",
+  "configuration": { "model": "…", "width": 512 }
+}
+```
+
+**404** when the stem cannot be resolved; **400** for an invalid name.
+
+---
+
 ### `GET /api/prompt/expand`
 
 Returns a self-describing schema for the POST body (no generation).
@@ -292,7 +308,7 @@ Download a pipeline artifact (PNG or MP4). Path traversal (**`..`**, **`/`** in 
 | **GET** | **`/api/history/{item_id}/artifacts`** | List image URLs for one history job |
 | **GET** | **`/history/{item_id}/{filename}`** | Serve a stored PNG (no bearer check on this route) |
 
-Completed streaming generations are recorded automatically. The uncapped **`index.json`** contains job metadata only—never image arrays or base64 data. PNGs live as separate files and are discovered through the artifacts route. Override storage with **`DTS_WEB_HISTORY_DIR`**; use **`DELETE /api/history`** when you want to reclaim all history storage.
+Completed streaming generations are recorded automatically. The uncapped **`index.json`** contains job metadata only—never image arrays or base64 data. PNGs live as separate files and are discovered through the artifacts route. Each item’s **`prompt`** / **`negative_prompt`** are the expanded strings used for display; **`unexpanded_prompt`** / **`unexpanded_negative_prompt`** keep the source templates when they differ; **`expanded_prompts`** lists every run; **`configuration_json`** snapshots the profile object used at generate time (when loadable and under the size cap). Override storage with **`DTS_WEB_HISTORY_DIR`**; use **`DELETE /api/history`** when you want to reclaim all history storage.
 
 ---
 

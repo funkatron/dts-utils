@@ -61,7 +61,12 @@ def test_index_loads(client: TestClient) -> None:
     assert "Request details" in r.text
     assert "ensureResultSlots" in r.text
     assert "applySlotPreview" in r.text
-    assert "collectHistoryLightboxUrls" in r.text
+    assert "collectHistoryLightboxItems" in r.text
+    assert 'id="dtsLightboxDownload"' in r.text
+    assert 'aria-label="Download"' in r.text
+    assert "function downloadIconSvgHtml" in r.text
+    assert 'id="dtsLightboxInfo"' in r.text
+    assert "result-slot-actions" in r.text
     assert 'id="expandedPromptsNote"' not in r.text
     assert 'id="generationPreview"' not in r.text
     assert 'id="composerStatus"' in r.text
@@ -85,8 +90,10 @@ def test_index_history_rows_can_reuse_prompt_and_profile(client: TestClient) -> 
     assert r.status_code == 200
     assert "Reuse" in r.text
     assert "restoreHistoryEntryToComposer(entry)" in r.text
-    assert 'reuse.setAttribute("aria-label", "Reuse prompt and profile from history")' in r.text
-    assert 'promptEl.value = String(entry.prompt || "")' in r.text
+    assert "batch-summary-reuse" in r.text
+    assert "batch-summary-prompt-row" in r.text
+    assert 'reuseBtn.setAttribute("aria-label", "Reuse prompt and profile from history")' in r.text
+    assert "entry.unexpanded_prompt || entry.prompt" in r.text
 
 
 def test_index_history_contract_stores_optional_reuse_metadata(client: TestClient) -> None:
@@ -120,15 +127,30 @@ def test_index_progressive_result_slots_and_cross_group_lightbox(client: TestCli
     assert "result-slot--pending" in text
     assert "result-slot-placeholder" in text
     assert "showRequestDetails" in text
-    assert '["Prompt", details.prompt]' in text
-    assert '["Expanded prompt", details.expanded_prompt]' in text
-    assert "function collectHistoryLightboxUrls" in text
+    assert "function normalizePromptDetails" in text
+    assert "function createBatchSummary" in text
+    assert "function fetchConfigurationJson" in text
+    assert '["Prompt", norm.prompt]' in text
+    assert '["Unexpanded prompt", norm.unexpanded_prompt]' in text
+    assert '["Configuration JSON", configJsonText]' in text
+    assert "historyEntryDisplayPrompt" in text
+    assert "function collectHistoryLightboxItems" in text
+    assert "function appendSlotActions" in text
+    assert "result-slot-actions" in text
+    assert "toggleLightboxGenerationInfo" in text
+    assert 'ev.key === "i" || ev.key === "I"' in text
+    assert "dts-lightbox-stage--fill" in text
+    assert "overflow: auto" in text
+    assert "min-width: 100%" in text
+    assert "Batch headline prefers source template" in text
+    assert "--dts-mono:" in text
+    assert "font-family: var(--dts-mono)" in text
     assert "promoteGenerationPreviewToResults" not in text
     assert "function renderExpandedPromptsPanel" not in text
     assert "stampResultGroupDone" in text
-    assert "result-group-header" in text
+    assert "batch-summary" in text
     assert "result-group-thumbs" in text
-    assert "Request / response" in text
+    assert "Request / response" not in text
     assert "results.innerHTML = \"\"" not in text
     assert "insertBefore(group, resultsEl.firstChild)" in text
 
@@ -150,6 +172,7 @@ def test_generation_history_keeps_images_out_of_index(monkeypatch: pytest.Monkey
     item = listed.json()["items"][0]
     assert item["prompt"] == "a saved prompt"
     assert item["negative_prompt"] == "blur"
+    assert "unexpanded_prompt" not in item
     assert item["generations"] == 1
     assert item["configuration"] == "default"
     assert item["image_count"] == 1
@@ -170,6 +193,48 @@ def test_generation_history_keeps_images_out_of_index(monkeypatch: pytest.Monkey
     cleared = client.delete("/api/history")
     assert cleared.status_code == 200
     assert client.get("/api/history").json()["items"] == []
+
+
+def test_generation_history_prefers_expanded_prompt_and_keeps_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
+    # Web UI send: prompts[] for RPCs plus source prompt template (no reliance on prompt alone).
+    entry = _record_generation_history(
+        data={
+            "prompt": "{cat|dog} in mist",
+            "negative_prompt": "{blur|noise}",
+            "prompts": ["cat in mist", "dog in mist"],
+            "negative_prompts": ["blur", "noise"],
+            "configuration": "default",
+        },
+        images=[b"\x89PNG\r\n\x1a\nfake", b"\x89PNG\r\n\x1a\nfake2"],
+        elapsed_seconds=2.5,
+        expanded_prompts=["cat in mist", "dog in mist"],
+        expanded_negative_prompts=["blur", "noise"],
+    )
+    assert entry is not None
+    assert entry["prompt"] == "cat in mist"
+    assert entry["unexpanded_prompt"] == "{cat|dog} in mist"
+    assert entry["negative_prompt"] == "blur"
+    assert entry["unexpanded_negative_prompt"] == "{blur|noise}"
+    assert entry["expanded_prompts"] == ["cat in mist", "dog in mist"]
+
+
+def test_generation_history_prompts_only_body_still_stores_display_prompt(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
+    entry = _record_generation_history(
+        data={"prompts": ["resolved prompt"], "configuration": "default"},
+        images=[b"\x89PNG\r\n\x1a\nfake"],
+        elapsed_seconds=1.0,
+        expanded_prompts=["resolved prompt"],
+        expanded_negative_prompts=[""],
+    )
+    assert entry is not None
+    assert entry["prompt"] == "resolved prompt"
+    assert "unexpanded_prompt" not in entry
 
 
 def test_history_post_is_disabled_to_avoid_base64_image_uploads(
@@ -245,6 +310,49 @@ def test_configs_with_bearer(monkeypatch: pytest.MonkeyPatch) -> None:
             "ltx-2.3-22b-distilled-exact",
         ]
     )
+
+
+def test_config_detail_and_history_configuration_json_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    cfg_dir = tmp_path / "configurations"
+    cfg_dir.mkdir()
+    profile_body = {"model": "demo.ckpt", "steps": 8, "width": 512, "height": 768}
+    (cfg_dir / "demo-tall.json").write_text(json.dumps(profile_body), encoding="utf-8")
+    monkeypatch.setattr(
+        "dts_utils.configs.configuration_search_directories",
+        lambda config_dir=None: (cfg_dir,),
+    )
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
+    monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
+    client = TestClient(create_app())
+    headers = {"Authorization": "Bearer sekrit"}
+
+    assert client.get("/api/configs/demo-tall").status_code == 401
+    detail = client.get("/api/configs/demo-tall", headers=headers)
+    assert detail.status_code == 200
+    payload = detail.json()
+    assert payload["name"] == "demo-tall"
+    assert payload["configuration"] == profile_body
+    assert payload["path"].endswith("demo-tall.json")
+
+    assert client.get("/api/configs/not-a-real-profile", headers=headers).status_code == 404
+    assert client.get("/api/configs/bad name", headers=headers).status_code == 400
+
+    entry = _record_generation_history(
+        data={"prompt": "snapshot me", "configuration": "demo-tall"},
+        images=[b"\x89PNG\r\n\x1a\nfake"],
+        elapsed_seconds=1.0,
+        expanded_prompts=["snapshot me"],
+        expanded_negative_prompts=[""],
+    )
+    assert entry is not None
+    assert entry["configuration"] == "demo-tall"
+    assert entry["configuration_json"] == profile_body
+
+    listed = client.get("/api/history", headers=headers)
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["configuration_json"]["steps"] == 8
 
 
 def test_generate_missing_prompt(client: TestClient) -> None:

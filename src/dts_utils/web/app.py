@@ -21,11 +21,13 @@ from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Respon
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
+from dts_utils.configuration_build import read_configuration_json_dict
 from dts_utils.configs import (
     DEFAULT_PROFILE_NAME,
     configurations_dir,
     ensure_default_generation_json_config,
     list_configuration_names,
+    resolve_configuration_value,
     user_config_dir,
 )
 from dts_utils.web.log_io import web_log_info
@@ -78,6 +80,8 @@ _ENV_GENERATE_TIMEOUT = "DTS_WEB_GENERATE_TIMEOUT"
 _ENV_WEB_TOKEN = "DTS_WEB_TOKEN"
 _ENV_HISTORY_DIR = "DTS_WEB_HISTORY_DIR"
 _ENV_PIPELINE_RUN_ROOT = "DTS_WEB_PIPELINE_RUN_ROOT"
+# Cap snapshot size so history index.json cannot grow without bound from huge profiles.
+_MAX_CONFIGURATION_JSON_CHARS = 512_000
 
 # Bound SSE chunks waiting on a slow client (producer blocks on put when full).
 _GENERATE_STREAM_QUEUE_MAXSIZE = 64
@@ -176,6 +180,49 @@ def _safe_history_id(raw: str) -> bool:
     return bool(raw) and all(ch.isalnum() or ch in {"-", "_"} for ch in raw)
 
 
+def _safe_config_profile_name(raw: str) -> bool:
+    """Accept saved profile stems only (no paths or absolute locations)."""
+    if not raw or len(raw) > 256:
+        return False
+    if raw in {".", ".."} or "/" in raw or "\\" in raw:
+        return False
+    return all(ch.isalnum() or ch in {"-", "_", "."} for ch in raw)
+
+
+def _load_saved_configuration_json(name: str) -> tuple[dict[str, object], Path] | JSONResponse:
+    """Load a saved JSON profile by stem. Returns (object, path) or an error response."""
+    if not _safe_config_profile_name(name):
+        return JSONResponse({"detail": "Invalid configuration name."}, status_code=400)
+    try:
+        path = resolve_configuration_value(name)
+        loaded = read_configuration_json_dict(configuration=name)
+    except (ConfigurationError, ValueError) as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=404)
+    if not isinstance(loaded, dict):
+        return JSONResponse({"detail": "JSON configuration must be an object."}, status_code=500)
+    return loaded, path
+
+
+def _snapshot_configuration_json(configuration: object) -> dict[str, object] | None:
+    """Best-effort copy of a named profile for history / Details (None if unavailable)."""
+    if not isinstance(configuration, str):
+        return None
+    name = configuration.strip()
+    if not name or not _safe_config_profile_name(name):
+        return None
+    loaded = _load_saved_configuration_json(name)
+    if isinstance(loaded, JSONResponse):
+        return None
+    body, _path = loaded
+    try:
+        serialized = json.dumps(body, ensure_ascii=False)
+    except (TypeError, ValueError):
+        return None
+    if len(serialized) > _MAX_CONFIGURATION_JSON_CHARS:
+        return None
+    return body
+
+
 def _coerce_history_generations(value: object) -> int | None:
     try:
         n = int(value)  # type: ignore[arg-type]
@@ -203,6 +250,16 @@ def _history_artifacts(item_id: str) -> list[dict[str, str]]:
     ]
 
 
+def _first_nonempty_text(values: object) -> str:
+    if not isinstance(values, list):
+        return ""
+    for value in values:
+        text = str(value).strip() if value is not None else ""
+        if text:
+            return text
+    return ""
+
+
 def _record_generation_history(
     *,
     data: dict[str, object],
@@ -211,7 +268,11 @@ def _record_generation_history(
     expanded_prompts: list[str],
     expanded_negative_prompts: list[str],
 ) -> dict[str, object] | None:
-    """Persist a completed job without putting image payloads in the history index."""
+    """Persist a completed job without putting image payloads in the history index.
+
+    ``prompt`` / ``negative_prompt`` store expanded text for History display.
+    ``unexpanded_prompt`` / ``unexpanded_negative_prompt`` keep source templates when present.
+    """
     if not images:
         return None
     item_id = secrets.token_urlsafe(12).replace("-", "_")
@@ -220,21 +281,43 @@ def _record_generation_history(
     for index, png in enumerate(images, start=1):
         (item_dir / f"generated-{index}.png").write_bytes(png)
 
-    prompt = str(data.get("prompt") or "").strip()
+    unexpanded_prompt = str(data.get("prompt") or "").strip()
+    display_prompt = (
+        _first_nonempty_text(expanded_prompts)
+        or _first_nonempty_text(data.get("prompts"))
+        or unexpanded_prompt
+    )
     entry: dict[str, object] = {
         "id": item_id,
         "ts": int(time.time() * 1000),
-        "prompt": prompt[:4000],
+        "prompt": display_prompt[:4000],
         "generations": len(images),
         "image_count": len(images),
         "elapsed_seconds": round(elapsed_seconds, 3),
     }
-    negative_prompt = data.get("negative_prompt")
-    if isinstance(negative_prompt, str) and negative_prompt.strip():
-        entry["negative_prompt"] = negative_prompt.strip()[:4000]
+    if unexpanded_prompt and unexpanded_prompt != display_prompt:
+        entry["unexpanded_prompt"] = unexpanded_prompt[:4000]
+
+    unexpanded_negative_raw = data.get("negative_prompt")
+    unexpanded_negative = ""
+    if isinstance(unexpanded_negative_raw, str) and unexpanded_negative_raw.strip():
+        unexpanded_negative = unexpanded_negative_raw.strip()
+    display_negative = (
+        _first_nonempty_text(expanded_negative_prompts)
+        or _first_nonempty_text(data.get("negative_prompts"))
+        or unexpanded_negative
+    )
+    if display_negative:
+        entry["negative_prompt"] = display_negative[:4000]
+    if unexpanded_negative and unexpanded_negative != display_negative:
+        entry["unexpanded_negative_prompt"] = unexpanded_negative[:4000]
+
     configuration = data.get("configuration")
     if isinstance(configuration, str) and configuration.strip():
         entry["configuration"] = configuration.strip()[:4096]
+        snapshot = _snapshot_configuration_json(configuration)
+        if snapshot is not None:
+            entry["configuration_json"] = snapshot
     if expanded_prompts:
         entry["expanded_prompts"] = expanded_prompts
     if expanded_negative_prompts:
@@ -521,6 +604,23 @@ async def api_configs(request: Request) -> JSONResponse:
             "config_dir": str(directory),
             "pipeline_profiles": _pipeline_profile_names_for_ui(),
             "video_profiles": _pipeline_profile_names_for_ui(),
+        }
+    )
+
+
+async def api_config_detail(request: Request) -> JSONResponse:
+    if err := _require_bearer(request):
+        return err
+    name = str(request.path_params.get("name") or "").strip()
+    loaded = _load_saved_configuration_json(name)
+    if isinstance(loaded, JSONResponse):
+        return loaded
+    body, path = loaded
+    return JSONResponse(
+        {
+            "name": name[:-5] if name.lower().endswith(".json") else name,
+            "path": str(path),
+            "configuration": body,
         }
     )
 
@@ -1260,6 +1360,7 @@ def create_app() -> Starlette:
         Route("/api/health", health, methods=["GET"]),
         Route("/api/server-status", server_status, methods=["GET"]),
         Route("/api/configs", api_configs, methods=["GET"]),
+        Route("/api/configs/{name:str}", api_config_detail, methods=["GET"]),
         Route("/api/history", api_history, methods=["GET", "DELETE"]),
         Route("/api/history/{item_id:str}/artifacts", api_history_artifacts, methods=["GET"]),
         Route("/api/prompt/expand", api_prompt_expand, methods=["GET", "POST"]),

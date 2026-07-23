@@ -9,6 +9,7 @@
       --panel: #222328;
       /* Classic CRT / compact Mac–style gentle rounding (viewport + viewer) */
       --dts-display-radius: clamp(12px, 2.2vmin, 20px);
+      --dts-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     * { box-sizing: border-box; }
     html, body { height: 100%; margin: 0; }
@@ -177,6 +178,15 @@
       box-sizing: border-box;
     }
     .result-slot--pending .result-download[hidden] { display: none !important; }
+    .result-slot-actions {
+      position: absolute;
+      top: 0.55rem;
+      right: 0.55rem;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
     .spinner {
       width: 1.25rem;
       height: 1.25rem;
@@ -201,30 +211,30 @@
       flex: 0 1 auto;
       min-height: 0;
     }
-    .result-group {
+    /* Shared by stage result groups and History rows */
+    .batch-summary {
       display: flex;
       flex-direction: column;
-      gap: 0.55rem;
-      width: 100%;
+      gap: 0.3rem;
       min-width: 0;
+      padding: 0 0.1rem 0.4rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0.15rem;
     }
-    .result-group-header {
+    .batch-summary-top {
       display: flex;
       align-items: baseline;
       justify-content: space-between;
       gap: 0.75rem;
       flex-wrap: wrap;
-      padding: 0 0.15rem;
-      border-bottom: 1px solid var(--border);
-      padding-bottom: 0.35rem;
     }
-    .result-group-time {
+    .batch-summary-meta {
       font-size: 0.72rem;
       font-weight: 600;
       letter-spacing: 0.02em;
       color: var(--muted);
     }
-    .result-group-meta-link {
+    .batch-summary-details {
       padding: 0;
       border: none;
       background: transparent;
@@ -235,12 +245,67 @@
       text-decoration: underline;
       text-underline-offset: 2px;
     }
-    .result-group-meta-link:hover { color: var(--fg); }
-    .result-group-meta-link:focus-visible {
+    .batch-summary-details:hover { color: var(--fg); }
+    .batch-summary-details:focus-visible {
       outline: 2px solid var(--accent);
       outline-offset: 2px;
     }
-    .result-group-meta-link[hidden] { display: none !important; }
+    .batch-summary-details[hidden] { display: none !important; }
+    .batch-summary-prompt-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .batch-summary-prompt {
+      font-family: var(--dts-mono);
+      font-size: 0.85rem;
+      margin: 0;
+      word-break: break-word;
+      color: var(--fg);
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .batch-summary-reuse {
+      flex: 0 0 auto;
+      align-self: flex-start;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      white-space: nowrap;
+    }
+    .batch-summary-reuse:hover { color: var(--fg); }
+    .batch-summary-reuse:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .batch-summary-reuse[hidden] { display: none !important; }
+    .batch-summary-unexpanded {
+      font-family: var(--dts-mono);
+      font-size: 0.72rem;
+      margin: 0;
+      word-break: break-word;
+    }
+    .batch-summary-unexpanded[hidden] { display: none !important; }
+    .result-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.65rem;
+      background: rgba(34, 35, 40, 0.28);
+      box-sizing: border-box;
+    }
     .result-group-thumbs {
       display: flex;
       flex-wrap: wrap;
@@ -287,19 +352,33 @@
       opacity: 0.94;
     }
     .result-download {
-      font-size: 0.78rem;
-      color: var(--accent);
+      box-sizing: border-box;
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 50%;
+      background: rgba(20,21,24,0.82);
+      color: #fff;
       text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
     }
-    .result-download:hover {
-      text-decoration: underline;
-      color: var(--fg);
+    .result-download svg {
+      display: block;
+      width: 1rem;
+      height: 1rem;
+    }
+    .result-download:hover,
+    .result-download:focus-visible {
+      background: var(--accent);
+      color: #fff;
+      text-decoration: none;
+      outline: none;
     }
     .result-info-button {
-      position: absolute;
-      top: 0.75rem;
-      right: 0.75rem;
-      z-index: 2;
       width: 2rem;
       height: 2rem;
       padding: 0;
@@ -309,6 +388,7 @@
       color: #fff;
       font: 700 0.9rem/1 sans-serif;
       cursor: pointer;
+      flex-shrink: 0;
     }
     .result-info-button:hover, .result-info-button:focus-visible { background: var(--accent); }
     .generation-info-grid {
@@ -319,7 +399,12 @@
       font-size: 0.82rem;
     }
     .generation-info-grid dt { color: var(--muted); }
-    .generation-info-grid dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .generation-info-grid dd {
+      margin: 0;
+      font-family: var(--dts-mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
     /* Error strip — thin, above composer */
     #err {
       flex: 0 0 auto;
@@ -368,6 +453,7 @@
       min-height: 2.85rem;
       max-height: min(30vh, 12rem);
       resize: vertical;
+      font-family: var(--dts-mono);
       font-size: 0.88rem;
       line-height: 1.35;
       background: #25262b;
@@ -375,7 +461,6 @@
       color: var(--fg);
       border-radius: 6px;
       padding: 0.5rem 0.6rem;
-      font: inherit;
       box-sizing: border-box;
     }
     /* Runs | Generate — stretched to match #prompt height; #elapsed is below */
@@ -529,6 +614,7 @@
       margin-top: 0.35rem;
       min-height: 2.5rem;
       width: 100%;
+      font-family: var(--dts-mono);
       font-size: 0.82rem;
     }
     .composer-input-images {
@@ -831,15 +917,9 @@
       padding: 0.65rem;
       background: var(--bg);
     }
-    .history-row-meta {
-      font-size: 0.72rem;
-      color: var(--muted);
-      margin-bottom: 0.35rem;
-    }
-    .history-row-prompt {
-      font-size: 0.85rem;
-      margin: 0 0 0.5rem;
-      word-break: break-word;
+    .history-row .batch-summary {
+      border-bottom-color: var(--border);
+      margin-bottom: 0.45rem;
     }
     .history-thumbs {
       display: grid;
@@ -863,26 +943,11 @@
       border-radius: 4px;
       border: 1px solid var(--border);
     }
-    .history-thumbs .result-info-button { top: 0.3rem; right: 0.3rem; width: 1.7rem; height: 1.7rem; }
-    .history-thumbs .result-download { padding: 0.15rem 0.3rem; }
-    .history-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.45rem 0.65rem;
-      margin-top: 0.5rem;
-    }
-    .history-actions button {
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      background: var(--panel);
-      color: var(--fg);
-      padding: 0.3rem 0.55rem;
-      font: inherit;
-      font-size: 0.78rem;
-      cursor: pointer;
-    }
-    .history-actions button:hover { border-color: var(--muted); }
+    .history-thumbs .result-slot-actions { top: 0.3rem; right: 0.3rem; gap: 0.25rem; }
+    .history-thumbs .result-info-button,
+    .history-thumbs .result-download { width: 1.7rem; height: 1.7rem; }
+    .history-thumbs .result-info-button { font-size: 0.8rem; }
+    .history-thumbs .result-download svg { width: 0.85rem; height: 0.85rem; }
     .dialog-actions-split {
       padding: 0.65rem 1rem;
       border-top: 1px solid var(--border);
@@ -944,11 +1009,62 @@
     dialog.dts-lightbox::backdrop {
       background: rgba(8, 8, 10, 0.97);
     }
-    .dts-lightbox-close {
+    .dts-lightbox-toolbar {
       position: absolute;
       z-index: 2;
       top: max(0.35rem, env(safe-area-inset-top));
       right: max(0.35rem, env(safe-area-inset-right));
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .dts-lightbox-download {
+      box-sizing: border-box;
+      width: 2.75rem;
+      height: 2.75rem;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.9);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dts-lightbox-download svg {
+      display: block;
+      width: 1.125rem;
+      height: 1.125rem;
+    }
+    .dts-lightbox-download:hover,
+    .dts-lightbox-download:focus-visible {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      outline: none;
+    }
+    .dts-lightbox-info {
+      width: 2.75rem;
+      height: 2.75rem;
+      margin: 0;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.06);
+      color: rgba(255, 255, 255, 0.9);
+      font: 700 1rem/1 sans-serif;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .dts-lightbox-info:hover,
+    .dts-lightbox-info:focus-visible {
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      outline: none;
+    }
+    .dts-lightbox-close {
       width: 2.75rem;
       height: 2.75rem;
       margin: 0;
@@ -1023,6 +1139,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
       border-radius: var(--dts-display-radius);
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
     }
@@ -1035,16 +1152,22 @@
       border-radius: var(--dts-display-radius);
       box-shadow: 0 6px 48px rgba(0, 0, 0, 0.5);
     }
-    /* F toggles fill: crop to viewport box so more source pixels fill the frame */
+    /* F toggles fill: image covers the stage with real overflow so trackpad/touch can pan */
     .dts-lightbox-stage.dts-lightbox-stage--fill {
-      overflow: hidden;
+      display: block;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
     }
     .dts-lightbox-stage.dts-lightbox-stage--fill img {
-      width: 100%;
-      height: 100%;
+      display: block;
+      width: auto;
+      height: auto;
+      min-width: 100%;
+      min-height: 100%;
       max-width: none;
       max-height: none;
-      object-fit: cover;
+      object-fit: unset;
       border-radius: 0;
       box-shadow: none;
     }

@@ -345,6 +345,7 @@ def iter_generate_stream_dicts(
                 yield {
                     "type": "preview",
                     "run": i + 1,
+                    "total_runs": n,
                     "seq": preview_seq,
                     "png_b64": base64.standard_b64encode(png).decode("ascii"),
                 }
@@ -354,6 +355,7 @@ def iter_generate_stream_dicts(
                 yield {
                     "type": "image",
                     "run": i + 1,
+                    "total_runs": n,
                     "index": global_idx,
                     "png_b64": base64.standard_b64encode(png).decode("ascii"),
                 }

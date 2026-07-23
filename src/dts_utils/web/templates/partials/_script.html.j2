@@ -1558,14 +1558,30 @@
 
       let receivedImages = 0;
       let donePayload = null;
+      function resolveTotalRuns(msg) {
+        var fromMsg = msg && msg.total_runs != null ? parseInt(msg.total_runs, 10) : NaN;
+        if (Number.isFinite(fromMsg) && fromMsg >= 1) return fromMsg;
+        return slotCount;
+      }
+      function formatRunLabel(run, total) {
+        if (run == null || run === "") return "";
+        if (total == null || total === "") return String(run);
+        return run + " / " + total;
+      }
       await readSSEStream(r, function (msg) {
         if (msg.type === "meta") {
           var prog = document.getElementById("busyProgress");
-          if (prog) prog.textContent = "Starting · " + msg.total_runs + " run(s)";
+          var metaTotal = resolveTotalRuns(msg);
+          if (prog) prog.textContent = "Starting · " + metaTotal + " run(s)";
         }
         if (msg.type === "progress") {
           var prog = document.getElementById("busyProgress");
-          if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
+          if (prog && msg.message) {
+            prog.textContent = String(msg.message);
+          } else if (prog && msg.run != null) {
+            prog.textContent =
+              "Run " + formatRunLabel(msg.run, resolveTotalRuns(msg)) + " — contacting Draw Things…";
+          }
         }
         if (msg.type === "preview") {
           applySlotPreview(thumbs, msg.run, msg.png_b64, msg.seq);
@@ -1576,11 +1592,12 @@
           var expandedNegative = body.negative_prompts && body.negative_prompts[msg.run - 1]
             ? body.negative_prompts[msg.run - 1]
             : negValue;
-          applySlotFinal(thumbs, msg.run, msg.png_b64, msg.index, msg.total_runs, {
+          var imageTotal = resolveTotalRuns(msg);
+          applySlotFinal(thumbs, msg.run, msg.png_b64, msg.index, imageTotal, {
             prompt: prompt,
             negative_prompt: negValue,
             configuration: body.configuration,
-            run: msg.run + " / " + msg.total_runs,
+            run: formatRunLabel(msg.run, imageTotal),
             generated: generatedAt,
             expanded_prompt: expandedPrompt,
             expanded_negative_prompt: expandedNegative,

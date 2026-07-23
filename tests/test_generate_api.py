@@ -573,6 +573,10 @@ def test_iter_generate_stream_dicts_sequence(monkeypatch: pytest.MonkeyPatch, tm
     assert types.count("preview") == 2
     assert types.count("image") == 2
     assert types[-1] == "done"
+    for event in events:
+        if event["type"] in {"progress", "preview", "image"}:
+            assert event.get("total_runs") == 2
+            assert event.get("run") in {1, 2}
     done = events[-1]
     assert done["type"] == "done"
     assert done["total_images"] == 2

@@ -30,7 +30,7 @@ Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Temp
 │  clock                         fab-history · fab-setup │
 │                                                         │
 │              IMAGE STAGE (#stage / #resultPane)          │
-│     placeholder | busy bar | progressive result tiles │
+│     placeholder | busy bar | stacked generation groups │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
 │  #err (errors)                                           │
@@ -74,7 +74,7 @@ Listener dot on the Setup FAB reflects the last probe (**`#statusComposerListene
 | --- | --- |
 | **Setup FAB** | **`#btnOpenSetup`** → **`#toolsDialog`** |
 | **History FAB** | **`#btnOpenHistory`** → **`#historyDialog`** |
-| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`** (**`#btnRequestDetails`**), **`#videoDonePanel`**, **`#results`** (pending slots at request start) |
+| **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`** (**`#btnRequestDetails`**), **`#videoDonePanel`**, **`#results`** (stacked **`.result-group`** batches; newest prepended; pending slots at request start; header timestamp + Request / response link when done) |
 | **Composer** | **`#composerStatus`** (mode, **`#profile`**, **`#statusComposerListener`**), **`#neg`**, **`#prompt`**, **`#generations`**, **`#btnGen`**, **`#btnStop`** (replaces Generate while busy), **`#elapsed`**, **`#composerShortcutHint`** |
 | **Errors** | **`#err`** (`role="alert"`) |
 | **Setup dialog** | **`#host`**, **`#port`**, **`#noTls`**, **`#trustCert`**, **`#btnCheck`**, **`#statusLine`**, **`#profileCustom`**, **`#sharedSecret`**, **`#rootCert`**, **`#forceTrust`**, **`#configDir`**, **`#webLogFilePath`**, **`#btnCloseSetup`** |

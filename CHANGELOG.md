@@ -48,6 +48,7 @@ Example snippet for the next release:
 ### Changed
 
 - **`dts-utils web`:** image Generate pre-creates one result card per run; SSE **preview** / **image** events update that card (loading → preview → final). Request JSON and expanded prompts move into **Request details** / per-tile **i** dialogs; History lightbox **← / →** walks images across generation groups.
+- **`dts-utils web`:** finished batches stay on the stage — newest group is prepended with a small timestamp header and a **Request / response** metadata link; prior thumbs remain below as separators.
 
 ---
 

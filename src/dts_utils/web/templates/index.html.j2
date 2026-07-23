@@ -199,16 +199,64 @@
     }
     .results {
       display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1.15rem;
+      width: 100%;
+      max-width: min(100%, 76rem);
+      margin-inline: auto;
+      flex: 0 1 auto;
+      min-height: 0;
+    }
+    .result-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      width: 100%;
+      min-width: 0;
+    }
+    .result-group-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0 0.15rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+    .result-group-time {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+    }
+    .result-group-meta-link {
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .result-group-meta-link:hover { color: var(--fg); }
+    .result-group-meta-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .result-group-meta-link[hidden] { display: none !important; }
+    .result-group-thumbs {
+      display: flex;
       flex-wrap: wrap;
       justify-content: center;
       align-content: flex-start;
       align-items: flex-start;
       gap: 0.85rem;
       width: 100%;
-      max-width: min(100%, 76rem);
-      margin-inline: auto;
-      flex: 0 1 auto;
-      min-height: 0;
+      min-width: 0;
     }
     .result-slot {
       position: relative;
@@ -224,7 +272,7 @@
       border: 1px solid var(--border);
       border-radius: max(6px, calc(var(--dts-display-radius) * 0.55));
     }
-    .results .result-slot {
+    .result-group-thumbs .result-slot {
       flex: 1 1 16rem;
       max-width: min(22rem, 100%);
       min-width: min(14rem, 100%);
@@ -1983,6 +2031,7 @@ uv run dts-utils server tail</pre>
       ["Generated", details.generated], ["Elapsed", details.elapsed],
       ["Dimensions", details.dimensions], ["Expanded prompt", details.expanded_prompt],
       ["Expanded negative", details.expanded_negative_prompt],
+      ["Response", details.response_summary],
       ["Request JSON", details.request_json],
     ];
     fields.forEach(function (field) {
@@ -2068,10 +2117,33 @@ uv run dts-utils server tail</pre>
     return wrap;
   }
 
-  function ensureResultSlots(resultsEl, totalRuns, baseDetails) {
-    if (!resultsEl || totalRuns < 1) return;
+  function ensureResultSlots(resultsEl, totalRuns, baseDetails, requestJson) {
+    if (!resultsEl) return null;
+    if (!Number.isFinite(totalRuns) || totalRuns < 0) totalRuns = 0;
     var placeholder = document.getElementById("resultPlaceholder");
-    resultsEl.replaceChildren();
+    var group = document.createElement("section");
+    group.className = "result-group";
+    group.setAttribute("aria-label", "Generation batch");
+
+    var header = document.createElement("header");
+    header.className = "result-group-header";
+    var timeEl = document.createElement("span");
+    timeEl.className = "result-group-time";
+    timeEl.textContent = "Generating…";
+    var metaBtn = document.createElement("button");
+    metaBtn.type = "button";
+    metaBtn.className = "result-group-meta-link";
+    metaBtn.textContent = "Request / response";
+    metaBtn.hidden = true;
+    metaBtn.addEventListener("click", function () {
+      showGenerationInfo(group._groupDetails || {});
+    });
+    header.appendChild(timeEl);
+    header.appendChild(metaBtn);
+
+    var thumbs = document.createElement("div");
+    thumbs.className = "result-group-thumbs";
+
     var i;
     for (i = 0; i < totalRuns; i++) {
       var details = {
@@ -2092,14 +2164,46 @@ uv run dts-utils server tail</pre>
       ) {
         details.expanded_negative_prompt = String(baseDetails.expanded_negative_prompts[i]);
       }
-      resultsEl.appendChild(createPendingGenerationTile(details));
+      thumbs.appendChild(createPendingGenerationTile(details));
+    }
+
+    group._groupDetails = {
+      _dialogTitle: "Generation request / response",
+      prompt: baseDetails.prompt || "",
+      negative_prompt: baseDetails.negative_prompt || "",
+      configuration: baseDetails.configuration || "",
+      request_json: typeof requestJson === "string" ? requestJson : "",
+      response_summary: "",
+    };
+    group.appendChild(header);
+    group.appendChild(thumbs);
+    if (resultsEl.firstChild) {
+      resultsEl.insertBefore(group, resultsEl.firstChild);
+    } else {
+      resultsEl.appendChild(group);
     }
     if (placeholder) placeholder.hidden = true;
+    return { group: group, thumbs: thumbs, timeEl: timeEl, metaBtn: metaBtn };
   }
 
-  function getResultSlotByRun(resultsEl, run) {
-    if (!resultsEl || !run || run < 1) return null;
-    var slots = resultsEl.querySelectorAll(".result-slot");
+  function stampResultGroupDone(groupApi, opts) {
+    if (!groupApi || !groupApi.group) return;
+    opts = opts || {};
+    var stamp = opts.timestamp || new Date().toLocaleString();
+    if (groupApi.timeEl) groupApi.timeEl.textContent = stamp;
+    if (groupApi.group._groupDetails) {
+      groupApi.group._groupDetails.generated = stamp;
+      if (opts.elapsed) groupApi.group._groupDetails.elapsed = opts.elapsed;
+      if (opts.request_json) groupApi.group._groupDetails.request_json = opts.request_json;
+      if (opts.response_summary) groupApi.group._groupDetails.response_summary = opts.response_summary;
+      if (opts.configuration) groupApi.group._groupDetails.configuration = opts.configuration;
+    }
+    if (groupApi.metaBtn) groupApi.metaBtn.hidden = false;
+  }
+
+  function getResultSlotByRun(thumbsEl, run) {
+    if (!thumbsEl || !run || run < 1) return null;
+    var slots = thumbsEl.querySelectorAll(".result-slot");
     return slots[run - 1] || null;
   }
 
@@ -2482,6 +2586,18 @@ uv run dts-utils server tail</pre>
     const placeholder = document.getElementById("resultPlaceholder");
     const elapsed = document.getElementById("elapsed");
     renderVideoDonePanel(null);
+    var requestJson = formatGenerateBodyForDisplay(body);
+    var groupApi = ensureResultSlots(
+      results,
+      0,
+      {
+        prompt: body.prompt || "",
+        configuration: body.profile || body.configuration || "",
+        generated: new Date().toLocaleString(),
+      },
+      requestJson,
+    );
+    var thumbs = groupApi ? groupApi.thumbs : results;
 
     const r = await fetch("/api/generate/stream", {
       method: "POST",
@@ -2495,7 +2611,8 @@ uv run dts-utils server tail</pre>
 
     if (r.status === 401) {
       showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
-      placeholder.hidden = false;
+      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+      placeholder.hidden = results.querySelector(".result-group") != null;
       return;
     }
     if (!r.ok) {
@@ -2505,7 +2622,8 @@ uv run dts-utils server tail</pre>
         msg = j.detail || msg;
       } catch (_) {}
       showComposerError(msg);
-      placeholder.hidden = false;
+      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+      placeholder.hidden = results.querySelector(".result-group") != null;
       return;
     }
 
@@ -2547,7 +2665,7 @@ uv run dts-utils server tail</pre>
         a.textContent = "Download";
         a.className = "result-download";
         wrap.appendChild(a);
-        results.appendChild(wrap);
+        thumbs.appendChild(wrap);
         artifactCount += 1;
       }
       if (msg.type === "done") {
@@ -2559,11 +2677,20 @@ uv run dts-utils server tail</pre>
       }
     });
 
-    elapsed.textContent = "Done in " + ((performance.now() - t0) / 1000).toFixed(1) + "s";
-    results.querySelectorAll(".result-inflight").forEach(function (el) {
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    elapsed.textContent = "Done in " + dt + "s";
+    thumbs.querySelectorAll(".result-inflight").forEach(function (el) {
       el.classList.remove("result-inflight");
     });
-    placeholder.hidden = artifactCount > 0;
+    if (groupApi) {
+      stampResultGroupDone(groupApi, {
+        timestamp: new Date().toLocaleString(),
+        elapsed: dt + "s",
+        request_json: requestJson,
+        response_summary: "Artifacts: " + artifactCount + "\nElapsed: " + dt + "s",
+      });
+    }
+    placeholder.hidden = results.querySelector(".result-group") != null;
   }
 
   async function runComposerAction() {
@@ -2579,8 +2706,6 @@ uv run dts-utils server tail</pre>
     const btnGen = document.getElementById("btnGen");
     const timerRef = { id: null };
     showComposerError("");
-    revokeResultBlobUrls();
-    results.innerHTML = "";
     renderVideoDonePanel(null);
     __dtsLastRequestJson = "";
     btnGen.disabled = true;
@@ -2590,7 +2715,7 @@ uv run dts-utils server tail</pre>
     const prompt = document.getElementById("prompt").value.trim();
     if (!prompt) {
       showComposerError("Enter a prompt.");
-      placeholder.hidden = false;
+      placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
       btnGen.disabled = false;
       return;
     }
@@ -2605,8 +2730,11 @@ uv run dts-utils server tail</pre>
       runsEl.disabled = true;
       if (selectedInputFiles.length > 1) {
         showComposerError("Video pipeline accepts one start frame only.");
-        placeholder.hidden = false;
+        placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
+        generationInFlight = false;
         btnGen.disabled = false;
+        splitEl.classList.remove("is-busy");
+        generateAbortController = null;
         return;
       }
       const body = await attachInputImagesToBody(buildVideoGenerateBody());
@@ -2616,11 +2744,10 @@ uv run dts-utils server tail</pre>
       } catch (e) {
         if (e.name === "AbortError") {
           elapsed.textContent = "Stopped";
-          placeholder.hidden = false;
         } else {
           showComposerError(String(e));
-          placeholder.hidden = false;
         }
+        placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
       } finally {
         splitEl.classList.remove("is-busy");
         generateAbortController = null;
@@ -2637,6 +2764,7 @@ uv run dts-utils server tail</pre>
     if (generations > 25) generations = 25;
 
     setGeneratingUi(true, t0, timerRef, "");
+    var groupApi = null;
 
     try {
       const expandRes = await fetch("/api/prompt/expand", {
@@ -2678,14 +2806,20 @@ uv run dts-utils server tail</pre>
       if (slotCount > 25) slotCount = 25;
       var negValue = document.getElementById("neg").value;
       var generatedAt = new Date().toLocaleString();
-      ensureResultSlots(results, slotCount, {
-        prompt: prompt,
-        negative_prompt: negValue,
-        configuration: body.configuration,
-        generated: generatedAt,
-        expanded_prompts: body.prompts || [],
-        expanded_negative_prompts: body.negative_prompts || [],
-      });
+      groupApi = ensureResultSlots(
+        results,
+        slotCount,
+        {
+          prompt: prompt,
+          negative_prompt: negValue,
+          configuration: body.configuration,
+          generated: generatedAt,
+          expanded_prompts: body.prompts || [],
+          expanded_negative_prompts: body.negative_prompts || [],
+        },
+        payloadPreview,
+      );
+      var thumbs = groupApi ? groupApi.thumbs : results;
 
       const r = await fetch("/api/generate/stream", {
         method: "POST",
@@ -2699,7 +2833,8 @@ uv run dts-utils server tail</pre>
 
       if (r.status === 401) {
         showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
-        placeholder.hidden = false;
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
         return;
       }
 
@@ -2710,14 +2845,16 @@ uv run dts-utils server tail</pre>
           msg = j.detail || msg;
         } catch (_) {}
         showComposerError(msg);
-        placeholder.hidden = false;
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
         return;
       }
 
       const ct = r.headers.get("content-type") || "";
       if (!ct.includes("text/event-stream")) {
         showComposerError("Expected text/event-stream from server, got: " + ct);
-        placeholder.hidden = false;
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
         return;
       }
 
@@ -2733,7 +2870,7 @@ uv run dts-utils server tail</pre>
           if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
         }
         if (msg.type === "preview") {
-          applySlotPreview(results, msg.run, msg.png_b64, msg.seq);
+          applySlotPreview(thumbs, msg.run, msg.png_b64, msg.seq);
         }
         if (msg.type === "image") {
           receivedImages += 1;
@@ -2741,7 +2878,7 @@ uv run dts-utils server tail</pre>
           var expandedNegative = body.negative_prompts && body.negative_prompts[msg.run - 1]
             ? body.negative_prompts[msg.run - 1]
             : negValue;
-          applySlotFinal(results, msg.run, msg.png_b64, msg.index, msg.total_runs, {
+          applySlotFinal(thumbs, msg.run, msg.png_b64, msg.index, msg.total_runs, {
             prompt: prompt,
             negative_prompt: negValue,
             configuration: body.configuration,
@@ -2758,9 +2895,10 @@ uv run dts-utils server tail</pre>
 
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       elapsed.textContent = "Done in " + dt + "s";
+      var finishedAt = new Date().toLocaleString();
 
       if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
-        results.querySelectorAll(".result-slot").forEach(function (tile, idx) {
+        thumbs.querySelectorAll(".result-slot").forEach(function (tile, idx) {
           if (!tile._generationDetails) return;
           if (donePayload.expanded_prompts[idx] != null) {
             tile._generationDetails.expanded_prompt = String(donePayload.expanded_prompts[idx]);
@@ -2776,27 +2914,56 @@ uv run dts-utils server tail</pre>
         });
       }
 
-      results.querySelectorAll(".result-slot").forEach(function (tile) {
+      thumbs.querySelectorAll(".result-slot").forEach(function (tile) {
         if (tile._generationDetails) tile._generationDetails.elapsed = dt + "s";
       });
 
-      finalizePreviewOnlySlots(results);
+      finalizePreviewOnlySlots(thumbs);
+
+      var responseLines = [
+        "Images: " + receivedImages,
+        "Elapsed: " + dt + "s",
+        "Configuration: " + (body.configuration || ""),
+      ];
+      if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
+        responseLines.push("Expanded prompts: " + donePayload.expanded_prompts.length);
+      }
+      if (groupApi) {
+        stampResultGroupDone(groupApi, {
+          timestamp: finishedAt,
+          elapsed: dt + "s",
+          request_json: payloadPreview,
+          configuration: body.configuration,
+          response_summary: responseLines.join("\n"),
+        });
+      }
 
       if (receivedImages) {
         trackRecentProfile(body.configuration);
       }
 
-      placeholder.hidden = results.querySelectorAll(".result-slot img").length > 0;
+      placeholder.hidden = results.querySelector(".result-group") != null;
     } catch (e) {
       if (e.name === "AbortError") {
         requestGenerationCancel();
         showComposerError("");
         elapsed.textContent = "Stopped";
-        placeholder.hidden = false;
+        if (groupApi) {
+          stampResultGroupDone(groupApi, {
+            timestamp: "Stopped · " + new Date().toLocaleString(),
+            response_summary: "Cancelled before completion.",
+          });
+        }
       } else {
         showComposerError(String(e));
-        placeholder.hidden = false;
+        if (groupApi) {
+          stampResultGroupDone(groupApi, {
+            timestamp: "Failed · " + new Date().toLocaleString(),
+            response_summary: String(e),
+          });
+        }
       }
+      placeholder.hidden = results.querySelector(".result-group") != null;
     } finally {
       splitEl.classList.remove("is-busy");
       generateAbortController = null;

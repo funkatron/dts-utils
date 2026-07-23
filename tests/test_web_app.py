@@ -107,6 +107,12 @@ def test_index_progressive_result_slots_and_cross_group_lightbox(client: TestCli
     assert "function collectHistoryLightboxUrls" in text
     assert "promoteGenerationPreviewToResults" not in text
     assert "function renderExpandedPromptsPanel" not in text
+    assert "stampResultGroupDone" in text
+    assert "result-group-header" in text
+    assert "result-group-thumbs" in text
+    assert "Request / response" in text
+    assert "results.innerHTML = \"\"" not in text
+    assert "insertBefore(group, resultsEl.firstChild)" in text
 
 
 def test_generation_history_keeps_images_out_of_index(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:

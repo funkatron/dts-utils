@@ -10,11 +10,12 @@ from starlette.testclient import TestClient
 
 from dts_utils.exceptions import ConfigurationError, GenerationCancelledError
 from dts_utils.generate_api import GeneratePngBatchResult
-from dts_utils.web.app import create_app
+from dts_utils.web.app import _record_generation_history, create_app
 
 
 @pytest.fixture
-def client() -> TestClient:
+def client(monkeypatch: pytest.MonkeyPatch, tmp_path) -> TestClient:
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "web-history"))
     return TestClient(create_app())
 
 
@@ -38,9 +39,13 @@ def test_index_loads(client: TestClient) -> None:
     assert "Ctrl+Enter" in r.text
     assert 'id="btnStop"' in r.text
     assert 'id="busyProgress"' in r.text
-    assert 'id="busyRequestJson"' in r.text
-    assert 'id="expandedPromptsNote"' in r.text
-    assert "Technical details (request JSON)" in r.text
+    assert 'id="btnRequestDetails"' in r.text
+    assert "Request details" in r.text
+    assert "ensureResultSlots" in r.text
+    assert "applySlotPreview" in r.text
+    assert "collectHistoryLightboxUrls" in r.text
+    assert 'id="expandedPromptsNote"' not in r.text
+    assert 'id="generationPreview"' not in r.text
     assert 'id="composerStatus"' in r.text
     assert 'id="outputModeImage"' in r.text
     assert 'id="videoDonePanel"' in r.text
@@ -73,43 +78,73 @@ def test_index_history_contract_stores_optional_reuse_metadata(client: TestClien
     assert 'fetch("/api/history"' in r.text
     assert "migrateLegacyHistoryToServer" in r.text
     assert "applyHistoryConfiguration" in r.text
-    assert "payload.configuration" in r.text
-    assert 'await historyAppend(' in r.text
-    assert "await promoteGenerationPreviewToResults(results, historyBuffers)" in r.text
+    assert "fetchHistoryArtifacts" in r.text
+    assert "createGenerationTile" in r.text
+    assert 'id="generationInfoDialog"' in r.text
+    assert "pngArrayBuffers.map" not in r.text
+    assert "historyAppend" not in r.text
     assert "body.configuration" in r.text
 
 
-def test_history_api_persists_png_files(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_history_tiles_share_result_layout_and_use_a_responsive_grid(client: TestClient) -> None:
+    text = client.get("/").text
+    assert ".result-slot {" in text
+    assert ".history-thumbs {" in text
+    assert "grid-template-columns: repeat(auto-fill" in text
+    assert 'dialog#historyDialog[open] { display: flex; }' in text
+    assert 'scroller.scrollTop = 0' in text
+    assert 'dl.className = "history-dl"' not in text
+
+
+def test_index_progressive_result_slots_and_cross_group_lightbox(client: TestClient) -> None:
+    text = client.get("/").text
+    assert "createPendingGenerationTile" in text
+    assert "result-slot--pending" in text
+    assert "result-slot-placeholder" in text
+    assert "showRequestDetails" in text
+    assert '["Prompt", details.prompt]' in text
+    assert '["Expanded prompt", details.expanded_prompt]' in text
+    assert "function collectHistoryLightboxUrls" in text
+    assert "promoteGenerationPreviewToResults" not in text
+    assert "function renderExpandedPromptsPanel" not in text
+    assert "stampResultGroupDone" in text
+    assert "result-group-header" in text
+    assert "result-group-thumbs" in text
+    assert "Request / response" in text
+    assert "results.innerHTML = \"\"" not in text
+    assert "insertBefore(group, resultsEl.firstChild)" in text
+
+
+def test_generation_history_keeps_images_out_of_index(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
     monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
     client = TestClient(create_app())
-    png_b64 = base64.b64encode(b"\x89PNG\r\n\x1a\nfake").decode("ascii")
-
-    r = client.post(
-        "/api/history",
-        json={
-            "ts": 1234567890,
-            "prompt": "a saved prompt",
-            "negative_prompt": "blur",
-            "generations": 2,
-            "configuration": "default",
-            "images": [png_b64],
-        },
+    entry = _record_generation_history(
+        data={"prompt": "a saved prompt", "negative_prompt": "blur", "configuration": "default"},
+        images=[b"\x89PNG\r\n\x1a\nfake"],
+        elapsed_seconds=1.25,
+        expanded_prompts=["a saved prompt"],
+        expanded_negative_prompts=["blur"],
     )
-    assert r.status_code == 201
-    item = r.json()
-    assert item["prompt"] == "a saved prompt"
-    assert item["negative_prompt"] == "blur"
-    assert item["generations"] == 2
-    assert item["configuration"] == "default"
-    assert item["image_count"] == 1
-    assert item["images"][0]["url"].startswith("/history/")
+    assert entry is not None
 
     listed = client.get("/api/history")
     assert listed.status_code == 200
-    assert listed.json()["items"][0]["prompt"] == "a saved prompt"
-    assert listed.json()["items"][0]["configuration"] == "default"
+    item = listed.json()["items"][0]
+    assert item["prompt"] == "a saved prompt"
+    assert item["negative_prompt"] == "blur"
+    assert item["generations"] == 1
+    assert item["configuration"] == "default"
+    assert item["image_count"] == 1
+    assert item["elapsed_seconds"] == 1.25
+    assert "images" not in item
 
-    image = client.get(item["images"][0]["url"])
+    raw_index = json.loads((tmp_path / "history" / "index.json").read_text())
+    assert "images" not in raw_index["items"][0]
+
+    artifacts = client.get(f"/api/history/{item['id']}/artifacts")
+    assert artifacts.status_code == 200
+    artifact = artifacts.json()["items"][0]
+    image = client.get(artifact["url"])
     assert image.status_code == 200
     assert image.headers["content-type"] == "image/png"
     assert image.content == b"\x89PNG\r\n\x1a\nfake"
@@ -119,15 +154,34 @@ def test_history_api_persists_png_files(monkeypatch: pytest.MonkeyPatch, tmp_pat
     assert client.get("/api/history").json()["items"] == []
 
 
-def test_history_api_rejects_non_png(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+def test_history_post_is_disabled_to_avoid_base64_image_uploads(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
     monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
     client = TestClient(create_app())
     r = client.post(
         "/api/history",
         json={"prompt": "x", "images": [base64.b64encode(b"not png").decode("ascii")]},
     )
-    assert r.status_code == 400
-    assert "not a PNG" in r.json()["detail"]
+    assert r.status_code == 405
+
+
+def test_generation_history_is_not_capped(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
+    for index in range(35):
+        _record_generation_history(
+            data={"prompt": f"prompt {index}", "configuration": "default"},
+            images=[b"\x89PNG\r\n\x1a\nfake"],
+            elapsed_seconds=0.1,
+            expanded_prompts=[],
+            expanded_negative_prompts=[],
+        )
+
+    client = TestClient(create_app())
+    items = client.get("/api/history").json()["items"]
+    assert len(items) == 35
+    assert items[0]["prompt"] == "prompt 34"
+    assert items[-1]["prompt"] == "prompt 0"
 
 
 def test_server_status_without_token(client: TestClient) -> None:

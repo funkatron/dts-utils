@@ -153,64 +153,37 @@
       flex: 1 1 auto;
       min-width: 8rem;
     }
-    .busy-payload summary {
-      cursor: pointer;
-      color: var(--fg);
-      font-weight: 600;
+    .busy-request-link {
+      margin-left: auto;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
       font-size: 0.78rem;
-      list-style-position: outside;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
-    .busy-request-json {
-      margin: 0.35rem 0 0;
-      padding: 0.45rem 0.5rem;
-      background: #25262b;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      overflow: auto;
-      max-height: min(38vh, 14rem);
-      white-space: pre-wrap;
-      word-break: break-word;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.65rem;
-      line-height: 1.35;
-      color: var(--fg);
+    .busy-request-link:hover { color: var(--fg); }
+    .busy-request-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
     }
     .result-busy[hidden] { display: none !important; }
-    .generation-preview {
-      flex: 1 1 auto;
+    .result-slot-placeholder {
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       width: 100%;
-      min-height: 0;
-      margin: 0;
-      padding: 0;
+      min-height: min(28vh, 200px);
+      max-height: min(58vh, 620px);
+      border-radius: max(5px, calc(var(--dts-display-radius) * 0.45));
+      border: 1px dashed var(--border);
+      background: rgba(34, 35, 40, 0.55);
       box-sizing: border-box;
     }
-    .generation-preview[hidden] { display: none !important; }
-    .generation-preview-label {
-      margin: 0 0 0.35rem;
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--muted);
-      letter-spacing: 0.02em;
-      text-transform: uppercase;
-      align-self: flex-start;
-    }
-    #generationPreviewImage {
-      display: block;
-      max-width: 100%;
-      width: auto;
-      height: auto;
-      max-height: min(58vh, 620px);
-      object-fit: contain;
-      border-radius: max(5px, calc(var(--dts-display-radius) * 0.45));
-      border: 1px solid var(--border);
-      outline: 2px dashed var(--accent);
-      outline-offset: 2px;
-      opacity: 0.94;
-    }
+    .result-slot--pending .result-download[hidden] { display: none !important; }
     .spinner {
       width: 1.25rem;
       height: 1.25rem;
@@ -226,34 +199,85 @@
     }
     .results {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-content: flex-start;
-      align-items: flex-start;
-      gap: 0.85rem;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1.15rem;
       width: 100%;
       max-width: min(100%, 76rem);
       margin-inline: auto;
       flex: 0 1 auto;
       min-height: 0;
     }
-    .results .result-slot {
+    .result-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.55rem;
+      width: 100%;
+      min-width: 0;
+    }
+    .result-group-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding: 0 0.15rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.35rem;
+    }
+    .result-group-time {
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+      color: var(--muted);
+    }
+    .result-group-meta-link {
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--accent);
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .result-group-meta-link:hover { color: var(--fg); }
+    .result-group-meta-link:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+    .result-group-meta-link[hidden] { display: none !important; }
+    .result-group-thumbs {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-content: flex-start;
+      align-items: flex-start;
+      gap: 0.85rem;
+      width: 100%;
+      min-width: 0;
+    }
+    .result-slot {
+      position: relative;
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       gap: 0.35rem;
       box-sizing: border-box;
-      flex: 1 1 16rem;
-      max-width: min(22rem, 100%);
-      min-width: min(14rem, 100%);
       min-height: 0;
       padding: 0.5rem;
       background: rgba(34, 35, 40, 0.36);
       border: 1px solid var(--border);
       border-radius: max(6px, calc(var(--dts-display-radius) * 0.55));
     }
-    .results img {
+    .result-group-thumbs .result-slot {
+      flex: 1 1 16rem;
+      max-width: min(22rem, 100%);
+      min-width: min(14rem, 100%);
+    }
+    .result-slot img {
       display: block;
       max-width: 100%;
       width: auto;
@@ -269,71 +293,40 @@
       outline-offset: 2px;
       opacity: 0.94;
     }
-    .results .result-download {
+    .result-download {
       font-size: 0.78rem;
       color: var(--accent);
       text-decoration: none;
     }
-    .results .result-download:hover {
+    .result-download:hover {
       text-decoration: underline;
       color: var(--fg);
     }
-    .expanded-prompts-panel {
-      flex: 0 1 auto;
-      width: 100%;
-      max-width: min(76rem, 100%);
-      margin-left: auto;
-      margin-right: auto;
-      padding: 0.55rem 0.65rem;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      box-sizing: border-box;
-      max-height: min(26vh, 13rem);
-      overflow-y: auto;
-    }
-    .expanded-prompts-panel .expanded-prompts-title {
-      position: sticky;
-      top: -0.55rem;
-      z-index: 1;
-      padding: 0.45rem 0 0.35rem;
-      background: var(--panel);
-      font-size: 0.72rem;
-      font-weight: 600;
-      color: var(--fg);
-      margin: 0 0 0.35rem;
-      text-align: center;
-    }
-    .expanded-prompts-panel .expanded-run {
-      margin-bottom: 0.5rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .expanded-prompts-panel .expanded-run:last-child {
-      margin-bottom: 0;
-      padding-bottom: 0;
-      border-bottom: none;
-    }
-    .expanded-prompts-panel .expanded-run-label {
-      font-size: 0.62rem;
-      text-transform: uppercase;
-      letter-spacing: 0;
-      color: var(--muted);
-      margin-bottom: 0.2rem;
-    }
-    .expanded-prompts-panel .expanded-run-label.neg {
-      margin-top: 0.45rem;
-    }
-    .expanded-prompts-panel .expanded-run-text {
-      margin: 0;
+    .result-info-button {
+      position: absolute;
+      top: 0.75rem;
+      right: 0.75rem;
+      z-index: 2;
+      width: 2rem;
+      height: 2rem;
       padding: 0;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.64rem;
-      line-height: 1.45;
-      white-space: pre-wrap;
-      word-break: break-word;
-      color: var(--fg);
+      border: 1px solid rgba(255,255,255,0.7);
+      border-radius: 50%;
+      background: rgba(20,21,24,0.82);
+      color: #fff;
+      font: 700 0.9rem/1 sans-serif;
+      cursor: pointer;
     }
+    .result-info-button:hover, .result-info-button:focus-visible { background: var(--accent); }
+    .generation-info-grid {
+      display: grid;
+      grid-template-columns: max-content minmax(0, 1fr);
+      gap: 0.5rem 0.8rem;
+      margin: 0;
+      font-size: 0.82rem;
+    }
+    .generation-info-grid dt { color: var(--muted); }
+    .generation-info-grid dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
     /* Error strip — thin, above composer */
     #err {
       flex: 0 0 auto;
@@ -747,6 +740,14 @@
       width: calc(100vw - 2rem);
       max-height: min(85vh, 640px);
     }
+    dialog#historyDialog {
+      width: min(76rem, calc(100vw - 2rem));
+      max-width: 76rem;
+      height: min(84dvh, 56rem);
+      max-height: calc(100dvh - 2rem);
+      flex-direction: column;
+    }
+    dialog#historyDialog[open] { display: flex; }
     dialog.tools-dialog::backdrop {
       background: rgba(0, 0, 0, 0.55);
     }
@@ -821,7 +822,10 @@
     .history-dialog-inner {
       padding: 1rem;
       overflow-y: auto;
-      max-height: min(70vh, 520px);
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      overscroll-behavior: contain;
     }
     .history-list {
       display: flex;
@@ -845,27 +849,29 @@
       word-break: break-word;
     }
     .history-thumbs {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      align-items: flex-end;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(10rem, 100%), 1fr));
+      gap: 0.65rem;
+      align-items: stretch;
+    }
+    .history-thumbs .result-slot {
+      width: 100%;
+      min-width: 0;
+      padding: 0.4rem;
+      justify-content: space-between;
     }
     .history-thumbs img {
       cursor: zoom-in;
-      max-height: 72px;
-      max-width: 120px;
-      object-fit: contain;
+      width: 100%;
+      height: auto;
+      aspect-ratio: 1 / 1;
+      max-height: none;
+      object-fit: cover;
       border-radius: 4px;
       border: 1px solid var(--border);
     }
-    .history-dl {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.35rem 0.65rem;
-      margin-top: 0.45rem;
-      font-size: 0.8rem;
-    }
-    .history-dl a { color: var(--accent); }
+    .history-thumbs .result-info-button { top: 0.3rem; right: 0.3rem; width: 1.7rem; height: 1.7rem; }
+    .history-thumbs .result-download { padding: 0.15rem 0.3rem; }
     .history-actions {
       display: flex;
       flex-wrap: wrap;
@@ -894,6 +900,16 @@
       flex-wrap: wrap;
       background: var(--bg);
     }
+    .dialog-actions-split > button {
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--fg);
+      padding: 0.45rem 0.8rem;
+      font: inherit;
+      cursor: pointer;
+    }
+    .dialog-actions-split > button:hover { border-color: var(--muted); }
     button.btn-danger-ghost {
       background: transparent;
       color: var(--bad);
@@ -1099,19 +1115,11 @@
           <span class="sr-only">Generating</span>
           <span id="busyElapsed" class="hint"></span>
           <span id="busyProgress" class="hint" aria-live="polite">Starting…</span>
+          <button type="button" class="busy-request-link" id="btnRequestDetails">Request details</button>
         </div>
-        <div id="generationPreview" class="generation-preview" hidden aria-live="polite">
-          <p class="generation-preview-label">Preview</p>
-          <img id="generationPreviewImage" alt="Generation preview in progress" />
-        </div>
-        <details class="busy-payload">
-          <summary class="busy-summary">Technical details (request JSON)</summary>
-          <pre id="busyRequestJson" class="busy-request-json" aria-label="Generate request JSON body"></pre>
-        </details>
       </div>
       <div id="videoDonePanel" class="video-done-panel" hidden aria-live="polite"></div>
       <div id="results" class="results"></div>
-      <div id="expandedPromptsNote" class="expanded-prompts-panel" hidden aria-live="polite"></div>
     </div>
   </div>
 
@@ -1197,6 +1205,14 @@
       <img id="dtsLightboxImg" alt="" decoding="async" />
     </div>
     <p id="dtsLightboxCounter" class="dts-lightbox-counter"></p>
+  </dialog>
+
+  <dialog id="generationInfoDialog" class="tools-dialog" aria-labelledby="generation-info-title">
+    <div class="tools-dialog-inner">
+      <h2 id="generation-info-title">Generation details</h2>
+      <dl id="generationInfoGrid" class="generation-info-grid"></dl>
+    </div>
+    <div class="dialog-close-row"><button type="button" id="btnCloseGenerationInfo">Close</button></div>
   </dialog>
 
   <dialog id="toolsDialog" class="tools-dialog" aria-labelledby="tools-dialog-title" inert>
@@ -1354,39 +1370,6 @@ uv run dts-utils server tail</pre>
       return o;
     } catch (_) {
       return null;
-    }
-  }
-
-  function renderExpandedPromptsPanel(container, prompts, negative_prompts) {
-    container.replaceChildren();
-    var title = document.createElement("div");
-    title.className = "expanded-prompts-title";
-    title.textContent = "Expanded prompts (sent to Draw Things)";
-    container.appendChild(title);
-    var negs = negative_prompts && negative_prompts.length ? negative_prompts : [];
-    for (var i = 0; i < prompts.length; i++) {
-      var run = document.createElement("div");
-      run.className = "expanded-run";
-      var lab = document.createElement("div");
-      lab.className = "expanded-run-label";
-      lab.textContent = "Run " + (i + 1);
-      run.appendChild(lab);
-      var pre = document.createElement("pre");
-      pre.className = "expanded-run-text";
-      pre.textContent = String(prompts[i]);
-      run.appendChild(pre);
-      var neg = negs[i];
-      if (neg && String(neg).trim()) {
-        var negLab = document.createElement("div");
-        negLab.className = "expanded-run-label neg";
-        negLab.textContent = "Negative";
-        run.appendChild(negLab);
-        var negPre = document.createElement("pre");
-        negPre.className = "expanded-run-text";
-        negPre.textContent = String(neg);
-        run.appendChild(negPre);
-      }
-      container.appendChild(run);
     }
   }
 
@@ -2003,7 +1986,7 @@ uv run dts-utils server tail</pre>
 
   /** Blob URLs from the current result pane; must revoke before dropping DOM or each leaks until tab exit. */
   var __dtsResultBlobUrls = [];
-  var __dtsPreviewBlobUrl = null;
+  var __dtsLastRequestJson = "";
 
   function revokeResultBlobUrls() {
     __dtsResultBlobUrls.forEach(function (u) {
@@ -2014,77 +1997,314 @@ uv run dts-utils server tail</pre>
     __dtsResultBlobUrls.length = 0;
   }
 
-  function clearGenerationPreview() {
-    var pane = document.getElementById("generationPreview");
-    var img = document.getElementById("generationPreviewImage");
-    if (__dtsPreviewBlobUrl) {
-      try {
-        URL.revokeObjectURL(__dtsPreviewBlobUrl);
-      } catch (e) {}
-      __dtsPreviewBlobUrl = null;
-    }
-    if (img) img.removeAttribute("src");
-    if (pane) pane.hidden = true;
+  function revokeTrackedBlobUrl(url) {
+    if (!url) return;
+    try {
+      URL.revokeObjectURL(url);
+    } catch (e) {}
+    var idx = __dtsResultBlobUrls.indexOf(url);
+    if (idx >= 0) __dtsResultBlobUrls.splice(idx, 1);
   }
 
-  function showGenerationPreview(pngB64, run, seq) {
-    var pane = document.getElementById("generationPreview");
-    var img = document.getElementById("generationPreviewImage");
-    var placeholder = document.getElementById("resultPlaceholder");
-    if (!pane || !img || !pngB64) return;
+  function pngB64ToObjectUrl(pngB64) {
     var bin = atob(pngB64);
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     var blob = new Blob([bytes], { type: "image/png" });
-    if (__dtsPreviewBlobUrl) {
-      try {
-        URL.revokeObjectURL(__dtsPreviewBlobUrl);
-      } catch (e) {}
+    var url = URL.createObjectURL(blob);
+    __dtsResultBlobUrls.push(url);
+    return url;
+  }
+
+  function showGenerationInfo(details) {
+    var dialog = document.getElementById("generationInfoDialog");
+    var grid = document.getElementById("generationInfoGrid");
+    var title = document.getElementById("generation-info-title");
+    if (!dialog || !grid) return;
+    grid.replaceChildren();
+    if (title) {
+      title.textContent = details._dialogTitle ? String(details._dialogTitle) : "Generation details";
     }
-    __dtsPreviewBlobUrl = URL.createObjectURL(blob);
-    img.src = __dtsPreviewBlobUrl;
-    img.alt = "Preview run " + run + ", frame " + seq;
-    pane.hidden = false;
+    var fields = [
+      ["Prompt", details.prompt], ["Negative prompt", details.negative_prompt],
+      ["Configuration", details.configuration], ["Run", details.run],
+      ["Generated", details.generated], ["Elapsed", details.elapsed],
+      ["Dimensions", details.dimensions], ["Expanded prompt", details.expanded_prompt],
+      ["Expanded negative", details.expanded_negative_prompt],
+      ["Response", details.response_summary],
+      ["Request JSON", details.request_json],
+    ];
+    fields.forEach(function (field) {
+      if (field[1] === undefined || field[1] === null || field[1] === "") return;
+      var dt = document.createElement("dt");
+      var dd = document.createElement("dd");
+      dt.textContent = field[0];
+      dd.textContent = String(field[1]);
+      grid.appendChild(dt);
+      grid.appendChild(dd);
+    });
+    if (typeof dialog.showModal === "function") dialog.showModal();
+  }
+
+  function showRequestDetails() {
+    showGenerationInfo({
+      _dialogTitle: "Request details",
+      request_json: __dtsLastRequestJson || "(no request body yet)",
+    });
+  }
+
+  function appendInfoButton(wrap, details) {
+    var info = document.createElement("button");
+    info.type = "button";
+    info.className = "result-info-button";
+    info.textContent = "i";
+    info.setAttribute("aria-label", "Show generation details");
+    info.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      showGenerationInfo(wrap._generationDetails || details);
+    });
+    wrap.appendChild(info);
+  }
+
+  function createPendingGenerationTile(details) {
+    var wrap = document.createElement("article");
+    wrap.className = "result-slot result-slot--pending";
+    var ph = document.createElement("div");
+    ph.className = "result-slot-placeholder";
+    ph.setAttribute("aria-hidden", "true");
+    var spin = document.createElement("span");
+    spin.className = "spinner";
+    ph.appendChild(spin);
+    wrap.appendChild(ph);
+    appendInfoButton(wrap, details);
+    var a = document.createElement("a");
+    a.href = "#";
+    a.download = "generated.png";
+    a.textContent = "Download";
+    a.className = "result-download";
+    a.hidden = true;
+    a.addEventListener("click", function (event) {
+      if (a.hidden || a.getAttribute("href") === "#") {
+        event.preventDefault();
+      }
+    });
+    wrap.appendChild(a);
+    wrap._generationDetails = details;
+    wrap._slotBlobUrl = null;
+    return wrap;
+  }
+
+  function createGenerationTile(url, downloadName, details) {
+    var wrap = document.createElement("article");
+    wrap.className = "result-slot";
+    var img = document.createElement("img");
+    img.src = url;
+    img.alt = "Generated image" + (details.run ? " " + details.run : "");
+    img.addEventListener("load", function () {
+      details.dimensions = img.naturalWidth + " × " + img.naturalHeight;
+    });
+    wrap.appendChild(img);
+    appendInfoButton(wrap, details);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = downloadName || "generated.png";
+    a.textContent = "Download";
+    a.className = "result-download";
+    wrap.appendChild(a);
+    wrap._generationDetails = details;
+    wrap._slotBlobUrl = null;
+    return wrap;
+  }
+
+  function ensureResultSlots(resultsEl, totalRuns, baseDetails, requestJson) {
+    if (!resultsEl) return null;
+    if (!Number.isFinite(totalRuns) || totalRuns < 0) totalRuns = 0;
+    var placeholder = document.getElementById("resultPlaceholder");
+    var group = document.createElement("section");
+    group.className = "result-group";
+    group.setAttribute("aria-label", "Generation batch");
+
+    var header = document.createElement("header");
+    header.className = "result-group-header";
+    var timeEl = document.createElement("span");
+    timeEl.className = "result-group-time";
+    timeEl.textContent = "Generating…";
+    var metaBtn = document.createElement("button");
+    metaBtn.type = "button";
+    metaBtn.className = "result-group-meta-link";
+    metaBtn.textContent = "Request / response";
+    metaBtn.hidden = true;
+    metaBtn.addEventListener("click", function () {
+      showGenerationInfo(group._groupDetails || {});
+    });
+    header.appendChild(timeEl);
+    header.appendChild(metaBtn);
+
+    var thumbs = document.createElement("div");
+    thumbs.className = "result-group-thumbs";
+
+    var i;
+    for (i = 0; i < totalRuns; i++) {
+      var details = {
+        prompt: baseDetails.prompt || "",
+        negative_prompt: baseDetails.negative_prompt || "",
+        configuration: baseDetails.configuration || "",
+        run: (i + 1) + " / " + totalRuns,
+        generated: baseDetails.generated || "",
+        expanded_prompt: "",
+        expanded_negative_prompt: "",
+      };
+      if (Array.isArray(baseDetails.expanded_prompts) && baseDetails.expanded_prompts[i] != null) {
+        details.expanded_prompt = String(baseDetails.expanded_prompts[i]);
+      }
+      if (
+        Array.isArray(baseDetails.expanded_negative_prompts) &&
+        baseDetails.expanded_negative_prompts[i] != null
+      ) {
+        details.expanded_negative_prompt = String(baseDetails.expanded_negative_prompts[i]);
+      }
+      thumbs.appendChild(createPendingGenerationTile(details));
+    }
+
+    group._groupDetails = {
+      _dialogTitle: "Generation request / response",
+      prompt: baseDetails.prompt || "",
+      negative_prompt: baseDetails.negative_prompt || "",
+      configuration: baseDetails.configuration || "",
+      request_json: typeof requestJson === "string" ? requestJson : "",
+      response_summary: "",
+    };
+    group.appendChild(header);
+    group.appendChild(thumbs);
+    if (resultsEl.firstChild) {
+      resultsEl.insertBefore(group, resultsEl.firstChild);
+    } else {
+      resultsEl.appendChild(group);
+    }
     if (placeholder) placeholder.hidden = true;
+    return { group: group, thumbs: thumbs, timeEl: timeEl, metaBtn: metaBtn };
+  }
+
+  function stampResultGroupDone(groupApi, opts) {
+    if (!groupApi || !groupApi.group) return;
+    opts = opts || {};
+    var stamp = opts.timestamp || new Date().toLocaleString();
+    if (groupApi.timeEl) groupApi.timeEl.textContent = stamp;
+    if (groupApi.group._groupDetails) {
+      groupApi.group._groupDetails.generated = stamp;
+      if (opts.elapsed) groupApi.group._groupDetails.elapsed = opts.elapsed;
+      if (opts.request_json) groupApi.group._groupDetails.request_json = opts.request_json;
+      if (opts.response_summary) groupApi.group._groupDetails.response_summary = opts.response_summary;
+      if (opts.configuration) groupApi.group._groupDetails.configuration = opts.configuration;
+    }
+    if (groupApi.metaBtn) groupApi.metaBtn.hidden = false;
+  }
+
+  function getResultSlotByRun(thumbsEl, run) {
+    if (!thumbsEl || !run || run < 1) return null;
+    var slots = thumbsEl.querySelectorAll(".result-slot");
+    return slots[run - 1] || null;
+  }
+
+  function setSlotImage(wrap, url, opts) {
+    if (!wrap || !url) return;
+    opts = opts || {};
+    revokeTrackedBlobUrl(wrap._slotBlobUrl);
+    wrap._slotBlobUrl = url;
+    var ph = wrap.querySelector(".result-slot-placeholder");
+    if (ph) ph.remove();
+    var img = wrap.querySelector("img");
+    if (!img) {
+      img = document.createElement("img");
+      wrap.insertBefore(img, wrap.firstChild);
+      img.addEventListener("load", function () {
+        if (wrap._generationDetails) {
+          wrap._generationDetails.dimensions = img.naturalWidth + " × " + img.naturalHeight;
+        }
+      });
+    }
+    img.src = url;
+    img.alt = opts.alt || "Generated image";
+    if (opts.inflight) {
+      img.className = "result-inflight";
+    } else {
+      img.classList.remove("result-inflight");
+    }
+    var a = wrap.querySelector(".result-download");
+    if (a) {
+      a.href = url;
+      if (opts.downloadName) a.download = opts.downloadName;
+      a.hidden = !!opts.hideDownload;
+    }
+    if (opts.final) {
+      wrap.classList.remove("result-slot--pending");
+      if (a) a.hidden = false;
+    }
+  }
+
+  function applySlotPreview(resultsEl, run, pngB64, seq) {
+    var wrap = getResultSlotByRun(resultsEl, run);
+    if (!wrap || !pngB64) return;
+    var url = pngB64ToObjectUrl(pngB64);
+    setSlotImage(wrap, url, {
+      inflight: true,
+      hideDownload: true,
+      alt: "Preview run " + run + ", frame " + seq,
+    });
     var prog = document.getElementById("busyProgress");
     if (prog) prog.textContent = "Run " + run + " — preview " + seq;
   }
 
-  async function promoteGenerationPreviewToResults(results, historyBuffers) {
-    if (historyBuffers.length || !__dtsPreviewBlobUrl) return false;
-    var previewImg = document.getElementById("generationPreviewImage");
-    if (!previewImg || !previewImg.src) return false;
-    var url = __dtsPreviewBlobUrl;
-    __dtsPreviewBlobUrl = null;
-    __dtsResultBlobUrls.push(url);
-    var img = document.createElement("img");
-    img.src = url;
-    img.alt = "Generated preview";
-    var wrap = document.createElement("div");
-    wrap.className = "result-slot";
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "generated_preview.png";
-    a.textContent = "Download";
-    a.className = "result-download";
-    wrap.appendChild(img);
-    wrap.appendChild(a);
-    results.appendChild(wrap);
-    try {
-      var response = await fetch(url);
-      var buf = await response.arrayBuffer();
-      historyBuffers.push(buf);
-    } catch (e) {}
-    clearGenerationPreview();
-    return true;
+  function applySlotFinal(resultsEl, run, pngB64, index, totalRuns, detailPatch) {
+    var wrap = getResultSlotByRun(resultsEl, run);
+    if (!wrap || !pngB64) return;
+    var url = pngB64ToObjectUrl(pngB64);
+    if (wrap._generationDetails && detailPatch) {
+      Object.keys(detailPatch).forEach(function (k) {
+        wrap._generationDetails[k] = detailPatch[k];
+      });
+    }
+    setSlotImage(wrap, url, {
+      final: true,
+      downloadName: "generated_" + index + ".png",
+      alt: "Generated image " + run + (totalRuns ? " / " + totalRuns : ""),
+    });
+    var prog2 = document.getElementById("busyProgress");
+    if (prog2 && totalRuns) {
+      prog2.textContent = "Run " + run + " / " + totalRuns + " · received image " + index;
+    }
   }
 
-  function arrayBufferToBase64(buf) {
-    var bin = "";
-    var bytes = new Uint8Array(buf);
-    var len = bytes.byteLength;
-    for (var i = 0; i < len; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
+  function finalizePreviewOnlySlots(resultsEl) {
+    if (!resultsEl) return;
+    resultsEl.querySelectorAll(".result-slot").forEach(function (tile) {
+      var img = tile.querySelector("img");
+      if (!img || !img.src) return;
+      if (!img.classList.contains("result-inflight") && !tile.classList.contains("result-slot--pending")) {
+        return;
+      }
+      img.classList.remove("result-inflight");
+      tile.classList.remove("result-slot--pending");
+      var a = tile.querySelector(".result-download");
+      if (a) {
+        a.href = img.src;
+        if (!a.download) a.download = "generated_preview.png";
+        a.hidden = false;
+      }
+    });
+  }
+
+  document.getElementById("btnCloseGenerationInfo").addEventListener("click", function () {
+    var dialog = document.getElementById("generationInfoDialog");
+    if (dialog && typeof dialog.close === "function") dialog.close();
+  });
+
+  var btnRequestDetails = document.getElementById("btnRequestDetails");
+  if (btnRequestDetails) {
+    btnRequestDetails.addEventListener("click", function () {
+      showRequestDetails();
+    });
   }
 
   function loadLegacyHistoryState() {
@@ -2109,25 +2329,6 @@ uv run dts-utils server tail</pre>
   async function migrateLegacyHistoryToServer() {
     var legacy = loadLegacyHistoryState();
     if (!legacy.items.length) return;
-    for (var i = legacy.items.length - 1; i >= 0; i--) {
-      var entry = legacy.items[i];
-      if (!entry || !Array.isArray(entry.images) || !entry.images.length) continue;
-      var migBody = {
-        ts: entry.ts,
-        prompt: String(entry.prompt || ""),
-        negative_prompt: entry.negative_prompt || "",
-        generations: entry.generations || entry.image_count || entry.images.length,
-        images: entry.images,
-      };
-      if (typeof entry.configuration === "string" && entry.configuration.trim()) {
-        migBody.configuration = entry.configuration.trim().slice(0, 4096);
-      }
-      await fetch("/api/history", {
-        method: "POST",
-        headers: authHeaders({ "Content-Type": "application/json" }),
-        body: JSON.stringify(migBody),
-      });
-    }
     try {
       localStorage.removeItem(HISTORY_KEY);
     } catch (e) {}
@@ -2142,27 +2343,11 @@ uv run dts-utils server tail</pre>
     return state;
   }
 
-  async function historyAppend(promptText, negativePromptText, generations, pngArrayBuffers, configuration) {
-    if (!pngArrayBuffers || pngArrayBuffers.length === 0) return;
-    var images = pngArrayBuffers.map(function (b) { return arrayBufferToBase64(b); });
-    var payload = {
-      ts: Date.now(),
-      prompt: promptText.slice(0, 4000),
-      negative_prompt: String(negativePromptText || "").trim().slice(0, 4000),
-      generations: coerceHistoryGenerations(generations) || images.length,
-      images: images,
-    };
-    var cfg =
-      typeof configuration === "string" && configuration.trim()
-        ? configuration.trim().slice(0, 4096)
-        : "";
-    if (cfg) payload.configuration = cfg;
-    await fetch("/api/history", {
-      method: "POST",
-      headers: authHeaders({ "Content-Type": "application/json" }),
-      body: JSON.stringify(payload),
-    });
-    await renderHistoryList();
+  async function fetchHistoryArtifacts(entryId) {
+    var r = await fetch("/api/history/" + encodeURIComponent(entryId) + "/artifacts", { headers: authHeaders() });
+    if (!r.ok) return [];
+    var payload = await r.json();
+    return payload && Array.isArray(payload.items) ? payload.items : [];
   }
 
   /** Match saved profile name to #profile or set #profileCustom (same rules as effectiveProfile). */
@@ -2249,12 +2434,13 @@ uv run dts-utils server tail</pre>
       root.appendChild(empty);
       return;
     }
-    state.items.forEach(function (entry) {
+    for (var entryIndex = 0; entryIndex < state.items.length; entryIndex++) {
+      var entry = state.items[entryIndex];
       var row = document.createElement("article");
       row.className = "history-row";
       var meta = document.createElement("div");
       meta.className = "history-row-meta";
-      var images = Array.isArray(entry.images) ? entry.images : [];
+      var images = await fetchHistoryArtifacts(entry.id);
       var d = new Date(entry.ts);
       var imageCount = coerceHistoryGenerations(entry.image_count) || images.length;
       var cfg =
@@ -2271,22 +2457,22 @@ uv run dts-utils server tail</pre>
       var thumbs = document.createElement("div");
       thumbs.className = "history-thumbs";
       images.forEach(function (imageRef, i) {
-        var img = document.createElement("img");
-        img.src = imageRef.url;
-        img.alt = "Thumbnail " + (i + 1);
-        thumbs.appendChild(img);
+        var expanded = Array.isArray(entry.expanded_prompts) ? entry.expanded_prompts[i] : "";
+        var expandedNegative = Array.isArray(entry.expanded_negative_prompts)
+          ? entry.expanded_negative_prompts[i]
+          : "";
+        thumbs.appendChild(createGenerationTile(imageRef.url, imageRef.download, {
+          prompt: entry.prompt || "",
+          negative_prompt: entry.negative_prompt || "",
+          configuration: entry.configuration || "",
+          run: (i + 1) + " / " + imageCount,
+          generated: d.toLocaleString(),
+          elapsed: entry.elapsed_seconds ? entry.elapsed_seconds + "s" : "",
+          expanded_prompt: expanded,
+          expanded_negative_prompt: expandedNegative,
+        }));
       });
       row.appendChild(thumbs);
-      var dl = document.createElement("div");
-      dl.className = "history-dl";
-      images.forEach(function (imageRef, i) {
-        var a = document.createElement("a");
-        a.href = imageRef.url;
-        a.download = imageRef.download || "dts-gen-" + entry.id + "-" + i + ".png";
-        a.textContent = "Download " + (i + 1);
-        dl.appendChild(a);
-      });
-      row.appendChild(dl);
       var actions = document.createElement("div");
       actions.className = "history-actions";
       var reuse = document.createElement("button");
@@ -2299,7 +2485,7 @@ uv run dts-utils server tail</pre>
       actions.appendChild(reuse);
       row.appendChild(actions);
       root.appendChild(row);
-    });
+    }
   }
 
   function prefersReducedMotion() {
@@ -2366,7 +2552,6 @@ uv run dts-utils server tail</pre>
     const placeholder = document.getElementById("resultPlaceholder");
     const busy = document.getElementById("resultBusy");
     const busyElapsed = document.getElementById("busyElapsed");
-    const busyJson = document.getElementById("busyRequestJson");
     const pane = document.getElementById("resultPane");
     if (active) {
       placeholder.hidden = true;
@@ -2374,7 +2559,7 @@ uv run dts-utils server tail</pre>
       busyElapsed.textContent = prefersReducedMotion() ? "Generating…" : "0.0s";
       var bp = document.getElementById("busyProgress");
       if (bp) bp.textContent = "";
-      if (busyJson) busyJson.textContent = typeof requestJsonText === "string" ? requestJsonText : "";
+      if (typeof requestJsonText === "string") __dtsLastRequestJson = requestJsonText;
       pane.setAttribute("aria-busy", "true");
       if (timerRef.id) clearInterval(timerRef.id);
       timerRef.id = setInterval(function () {
@@ -2387,7 +2572,6 @@ uv run dts-utils server tail</pre>
         timerRef.id = null;
       }
       busy.hidden = true;
-      if (busyJson) busyJson.textContent = "";
       var bpOff = document.getElementById("busyProgress");
       if (bpOff) bpOff.textContent = "";
       pane.removeAttribute("aria-busy");
@@ -2402,6 +2586,18 @@ uv run dts-utils server tail</pre>
     const placeholder = document.getElementById("resultPlaceholder");
     const elapsed = document.getElementById("elapsed");
     renderVideoDonePanel(null);
+    var requestJson = formatGenerateBodyForDisplay(body);
+    var groupApi = ensureResultSlots(
+      results,
+      0,
+      {
+        prompt: body.prompt || "",
+        configuration: body.profile || body.configuration || "",
+        generated: new Date().toLocaleString(),
+      },
+      requestJson,
+    );
+    var thumbs = groupApi ? groupApi.thumbs : results;
 
     const r = await fetch("/api/generate/stream", {
       method: "POST",
@@ -2415,7 +2611,8 @@ uv run dts-utils server tail</pre>
 
     if (r.status === 401) {
       showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
-      placeholder.hidden = false;
+      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+      placeholder.hidden = results.querySelector(".result-group") != null;
       return;
     }
     if (!r.ok) {
@@ -2425,7 +2622,8 @@ uv run dts-utils server tail</pre>
         msg = j.detail || msg;
       } catch (_) {}
       showComposerError(msg);
-      placeholder.hidden = false;
+      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+      placeholder.hidden = results.querySelector(".result-group") != null;
       return;
     }
 
@@ -2467,7 +2665,7 @@ uv run dts-utils server tail</pre>
         a.textContent = "Download";
         a.className = "result-download";
         wrap.appendChild(a);
-        results.appendChild(wrap);
+        thumbs.appendChild(wrap);
         artifactCount += 1;
       }
       if (msg.type === "done") {
@@ -2479,11 +2677,20 @@ uv run dts-utils server tail</pre>
       }
     });
 
-    elapsed.textContent = "Done in " + ((performance.now() - t0) / 1000).toFixed(1) + "s";
-    results.querySelectorAll(".result-inflight").forEach(function (el) {
+    const dt = ((performance.now() - t0) / 1000).toFixed(1);
+    elapsed.textContent = "Done in " + dt + "s";
+    thumbs.querySelectorAll(".result-inflight").forEach(function (el) {
       el.classList.remove("result-inflight");
     });
-    placeholder.hidden = artifactCount > 0;
+    if (groupApi) {
+      stampResultGroupDone(groupApi, {
+        timestamp: new Date().toLocaleString(),
+        elapsed: dt + "s",
+        request_json: requestJson,
+        response_summary: "Artifacts: " + artifactCount + "\nElapsed: " + dt + "s",
+      });
+    }
+    placeholder.hidden = results.querySelector(".result-group") != null;
   }
 
   async function runComposerAction() {
@@ -2499,15 +2706,8 @@ uv run dts-utils server tail</pre>
     const btnGen = document.getElementById("btnGen");
     const timerRef = { id: null };
     showComposerError("");
-    revokeResultBlobUrls();
-    clearGenerationPreview();
-    results.innerHTML = "";
     renderVideoDonePanel(null);
-    var expNoteClear = document.getElementById("expandedPromptsNote");
-    if (expNoteClear) {
-      expNoteClear.hidden = true;
-      expNoteClear.replaceChildren();
-    }
+    __dtsLastRequestJson = "";
     btnGen.disabled = true;
     const t0 = performance.now();
     elapsed.textContent = "";
@@ -2515,7 +2715,7 @@ uv run dts-utils server tail</pre>
     const prompt = document.getElementById("prompt").value.trim();
     if (!prompt) {
       showComposerError("Enter a prompt.");
-      placeholder.hidden = false;
+      placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
       btnGen.disabled = false;
       return;
     }
@@ -2530,8 +2730,11 @@ uv run dts-utils server tail</pre>
       runsEl.disabled = true;
       if (selectedInputFiles.length > 1) {
         showComposerError("Video pipeline accepts one start frame only.");
-        placeholder.hidden = false;
+        placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
+        generationInFlight = false;
         btnGen.disabled = false;
+        splitEl.classList.remove("is-busy");
+        generateAbortController = null;
         return;
       }
       const body = await attachInputImagesToBody(buildVideoGenerateBody());
@@ -2541,11 +2744,10 @@ uv run dts-utils server tail</pre>
       } catch (e) {
         if (e.name === "AbortError") {
           elapsed.textContent = "Stopped";
-          placeholder.hidden = false;
         } else {
           showComposerError(String(e));
-          placeholder.hidden = false;
         }
+        placeholder.hidden = results.querySelector(".result-group, .result-slot") != null;
       } finally {
         splitEl.classList.remove("is-busy");
         generateAbortController = null;
@@ -2562,6 +2764,7 @@ uv run dts-utils server tail</pre>
     if (generations > 25) generations = 25;
 
     setGeneratingUi(true, t0, timerRef, "");
+    var groupApi = null;
 
     try {
       const expandRes = await fetch("/api/prompt/expand", {
@@ -2598,6 +2801,26 @@ uv run dts-utils server tail</pre>
       const payloadPreview = formatGenerateBodyForDisplay(body);
       setGeneratingUi(true, t0, timerRef, payloadPreview);
 
+      var slotCount = parseInt(body.generations, 10);
+      if (!Number.isFinite(slotCount) || slotCount < 1) slotCount = generations;
+      if (slotCount > 25) slotCount = 25;
+      var negValue = document.getElementById("neg").value;
+      var generatedAt = new Date().toLocaleString();
+      groupApi = ensureResultSlots(
+        results,
+        slotCount,
+        {
+          prompt: prompt,
+          negative_prompt: negValue,
+          configuration: body.configuration,
+          generated: generatedAt,
+          expanded_prompts: body.prompts || [],
+          expanded_negative_prompts: body.negative_prompts || [],
+        },
+        payloadPreview,
+      );
+      var thumbs = groupApi ? groupApi.thumbs : results;
+
       const r = await fetch("/api/generate/stream", {
         method: "POST",
         headers: authHeaders({
@@ -2610,7 +2833,8 @@ uv run dts-utils server tail</pre>
 
       if (r.status === 401) {
         showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
-        placeholder.hidden = false;
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
         return;
       }
 
@@ -2621,18 +2845,20 @@ uv run dts-utils server tail</pre>
           msg = j.detail || msg;
         } catch (_) {}
         showComposerError(msg);
-        placeholder.hidden = false;
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
         return;
       }
 
       const ct = r.headers.get("content-type") || "";
       if (!ct.includes("text/event-stream")) {
         showComposerError("Expected text/event-stream from server, got: " + ct);
-        placeholder.hidden = false;
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: payloadPreview });
+        placeholder.hidden = results.querySelector(".result-group") != null;
         return;
       }
 
-      const historyBuffers = [];
+      let receivedImages = 0;
       let donePayload = null;
       await readSSEStream(r, function (msg) {
         if (msg.type === "meta") {
@@ -2644,36 +2870,23 @@ uv run dts-utils server tail</pre>
           if (prog) prog.textContent = "Run " + msg.run + " / " + msg.total_runs + " — contacting Draw Things…";
         }
         if (msg.type === "preview") {
-          showGenerationPreview(msg.png_b64, msg.run, msg.seq);
+          applySlotPreview(thumbs, msg.run, msg.png_b64, msg.seq);
         }
         if (msg.type === "image") {
-          placeholder.hidden = true;
-          clearGenerationPreview();
-          var bin = atob(msg.png_b64);
-          var bytes = new Uint8Array(bin.length);
-          for (var j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
-          historyBuffers.push(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
-          var blob = new Blob([bytes], { type: "image/png" });
-          var url = URL.createObjectURL(blob);
-          __dtsResultBlobUrls.push(url);
-          var img = document.createElement("img");
-          img.src = url;
-          img.alt = "Generated " + msg.index + " (run " + msg.run + ")";
-          img.className = "result-inflight";
-          var wrap = document.createElement("div");
-          wrap.className = "result-slot";
-          var a = document.createElement("a");
-          a.href = url;
-          a.download = "generated_" + msg.index + ".png";
-          a.textContent = "Download";
-          a.className = "result-download";
-          wrap.appendChild(img);
-          wrap.appendChild(a);
-          results.appendChild(wrap);
-          var prog2 = document.getElementById("busyProgress");
-          if (prog2)
-            prog2.textContent =
-              "Run " + msg.run + " / " + msg.total_runs + " · received image " + msg.index;
+          receivedImages += 1;
+          var expandedPrompt = body.prompts && body.prompts[msg.run - 1] ? body.prompts[msg.run - 1] : prompt;
+          var expandedNegative = body.negative_prompts && body.negative_prompts[msg.run - 1]
+            ? body.negative_prompts[msg.run - 1]
+            : negValue;
+          applySlotFinal(thumbs, msg.run, msg.png_b64, msg.index, msg.total_runs, {
+            prompt: prompt,
+            negative_prompt: negValue,
+            configuration: body.configuration,
+            run: msg.run + " / " + msg.total_runs,
+            generated: generatedAt,
+            expanded_prompt: expandedPrompt,
+            expanded_negative_prompt: expandedNegative,
+          });
         }
         if (msg.type === "done") {
           donePayload = msg;
@@ -2682,48 +2895,75 @@ uv run dts-utils server tail</pre>
 
       const dt = ((performance.now() - t0) / 1000).toFixed(1);
       elapsed.textContent = "Done in " + dt + "s";
+      var finishedAt = new Date().toLocaleString();
 
-      results.querySelectorAll("img.result-inflight").forEach(function (im) {
-        im.classList.remove("result-inflight");
+      if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
+        thumbs.querySelectorAll(".result-slot").forEach(function (tile, idx) {
+          if (!tile._generationDetails) return;
+          if (donePayload.expanded_prompts[idx] != null) {
+            tile._generationDetails.expanded_prompt = String(donePayload.expanded_prompts[idx]);
+          }
+          if (
+            Array.isArray(donePayload.expanded_negative_prompts) &&
+            donePayload.expanded_negative_prompts[idx] != null
+          ) {
+            tile._generationDetails.expanded_negative_prompt = String(
+              donePayload.expanded_negative_prompts[idx],
+            );
+          }
+        });
+      }
+
+      thumbs.querySelectorAll(".result-slot").forEach(function (tile) {
+        if (tile._generationDetails) tile._generationDetails.elapsed = dt + "s";
       });
 
-      await promoteGenerationPreviewToResults(results, historyBuffers);
+      finalizePreviewOnlySlots(thumbs);
 
-      if (historyBuffers.length) {
-        await historyAppend(
-          prompt,
-          document.getElementById("neg").value,
-          generations,
-          historyBuffers,
-          body.configuration,
-        );
+      var responseLines = [
+        "Images: " + receivedImages,
+        "Elapsed: " + dt + "s",
+        "Configuration: " + (body.configuration || ""),
+      ];
+      if (donePayload && Array.isArray(donePayload.expanded_prompts)) {
+        responseLines.push("Expanded prompts: " + donePayload.expanded_prompts.length);
+      }
+      if (groupApi) {
+        stampResultGroupDone(groupApi, {
+          timestamp: finishedAt,
+          elapsed: dt + "s",
+          request_json: payloadPreview,
+          configuration: body.configuration,
+          response_summary: responseLines.join("\n"),
+        });
+      }
+
+      if (receivedImages) {
         trackRecentProfile(body.configuration);
       }
 
-      var expNote = document.getElementById("expandedPromptsNote");
-      if (expNote && donePayload && donePayload.expanded_prompts && donePayload.expanded_prompts.length) {
-        expNote.hidden = false;
-        renderExpandedPromptsPanel(
-          expNote,
-          donePayload.expanded_prompts,
-          donePayload.expanded_negative_prompts || [],
-        );
-      } else if (expNote) {
-        expNote.hidden = true;
-        expNote.replaceChildren();
-      }
-
-      placeholder.hidden = historyBuffers.length > 0;
+      placeholder.hidden = results.querySelector(".result-group") != null;
     } catch (e) {
       if (e.name === "AbortError") {
         requestGenerationCancel();
         showComposerError("");
         elapsed.textContent = "Stopped";
-        placeholder.hidden = false;
+        if (groupApi) {
+          stampResultGroupDone(groupApi, {
+            timestamp: "Stopped · " + new Date().toLocaleString(),
+            response_summary: "Cancelled before completion.",
+          });
+        }
       } else {
         showComposerError(String(e));
-        placeholder.hidden = false;
+        if (groupApi) {
+          stampResultGroupDone(groupApi, {
+            timestamp: "Failed · " + new Date().toLocaleString(),
+            response_summary: String(e),
+          });
+        }
       }
+      placeholder.hidden = results.querySelector(".result-group") != null;
     } finally {
       splitEl.classList.remove("is-busy");
       generateAbortController = null;
@@ -2783,6 +3023,16 @@ uv run dts-utils server tail</pre>
     var box = document.getElementById("dtsLightbox");
     if (!box || !box.open) return;
     if (typeof box.close === "function") box.close();
+  }
+
+  function collectHistoryLightboxUrls(historyRoot) {
+    var urls = [];
+    if (!historyRoot) return urls;
+    var imgs = historyRoot.querySelectorAll(".history-thumbs img");
+    for (var i = 0; i < imgs.length; i++) {
+      if (imgs[i] && imgs[i].src) urls.push(imgs[i].src);
+    }
+    return urls;
   }
 
   function openImageLightbox(urls, startIndex) {
@@ -2887,15 +3137,11 @@ uv run dts-utils server tail</pre>
       historyRoot.addEventListener("click", function (ev) {
         var t = ev.target;
         if (!t || t.tagName !== "IMG") return;
-        var thumbs = t.closest(".history-thumbs");
-        if (!thumbs) return;
-        var imgs = thumbs.querySelectorAll("img");
-        var urls = [];
-        var idx = 0;
-        for (var j = 0; j < imgs.length; j++) {
-          urls.push(imgs[j].src);
-          if (imgs[j] === t) idx = j;
-        }
+        if (!t.closest(".history-thumbs")) return;
+        var urls = collectHistoryLightboxUrls(historyRoot);
+        if (!urls.length) return;
+        var idx = urls.indexOf(t.src);
+        if (idx < 0) idx = 0;
         ev.preventDefault();
         openImageLightbox(urls, idx);
       });
@@ -2910,6 +3156,8 @@ uv run dts-utils server tail</pre>
     openBtn.addEventListener("click", async function () {
       await migrateLegacyHistoryToServer();
       await renderHistoryList();
+      var scroller = dlg.querySelector(".history-dialog-inner");
+      if (scroller) scroller.scrollTop = 0;
       dlg.removeAttribute("inert");
       if (typeof dlg.showModal === "function") dlg.showModal();
       openBtn.setAttribute("aria-expanded", "true");

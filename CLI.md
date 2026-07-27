@@ -234,6 +234,8 @@ On loopback, default probe tries TLS with server-presented cert first, then plai
 
 Lists model files the running Draw Things server advertises through the upstream **`Echo`** gRPC RPC (`ImageGenerationService.Echo`). When the LaunchAgent was installed with **`--model-browser`** (default since 0.5.2), the reply includes checkpoint / LoRA / VAE basenames plus FlatBuffer metadata override blobs.
 
+Text and **`--json`** output include local file sizes by matching each Echo basename under the Draw Things Models directory (`DRAW_THINGS_MODEL_PATH`, **`--model-dir`**, or the macOS default). The text table uses an adaptive **`SIZE`** column (KB/MB/GB); JSON includes **`size`**, **`size_bytes`**, and **`size_mb`**. Missing local files show **`-`** / **`null`** (common when querying a remote host whose weights are not on this machine).
+
 See [Listing local weights](#listing-local-weights-server-list-models-vs-models-installed) for how this differs from **`dts-utils models installed`**.
 
 ```bash
@@ -248,7 +250,8 @@ uv run dts-utils server list-models --host gpu.local --root-cert ./gpu.pem
 | `--host HOST` | gRPC server host (default: **`localhost`**) |
 | `--port PORT` | gRPC server port (default: **7859**) |
 | `--timeout SECONDS` | RPC timeout (default: **10**) |
-| `--json` | Machine-readable JSON (`files`, `files_by_category`, `override_bytes`) |
+| `--json` | Machine-readable JSON (`files` with **`size`** / **`size_bytes`** / **`size_mb`**, `files_by_category`, `override_bytes`, `models_dir`) |
+| `--model-dir PATH` | Local Models directory for size lookup (default: **`DRAW_THINGS_MODEL_PATH`** or macOS Draw Things Models path) |
 | `--category CATEGORY` | Filter: **`model`**, **`lora`**, **`vae`**, **`encoder`**, **`controlnet`**, **`textual-inversion`**, **`config`**, **`partial`**, **`other`** |
 | `--limit N` | Show at most **`N`** files (**`0`** = all, default) |
 | `--no-tls` | Plaintext gRPC when the server runs with **`--no-tls`** |

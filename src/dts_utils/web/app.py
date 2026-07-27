@@ -21,13 +21,12 @@ from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Respon
 from starlette.routing import Route
 from starlette.templating import Jinja2Templates
 
-from dts_utils.configuration_build import read_configuration_json_dict
 from dts_utils.configs import (
     DEFAULT_PROFILE_NAME,
+    configuration_search_directories,
     configurations_dir,
     ensure_default_generation_json_config,
     list_configuration_names,
-    resolve_configuration_value,
     user_config_dir,
 )
 from dts_utils.web.log_io import web_log_info
@@ -189,14 +188,34 @@ def _safe_config_profile_name(raw: str) -> bool:
     return all(ch.isalnum() or ch in {"-", "_", "."} for ch in raw)
 
 
+def _saved_profile_path_for_web(name: str) -> Path:
+    """Resolve a profile stem to JSON under saved-profile dirs only (never cwd)."""
+    stem_path = Path(name)
+    saved_name = stem_path.name if stem_path.suffix.lower() == ".json" else f"{stem_path.name}.json"
+    searched: list[Path] = []
+    for directory in configuration_search_directories():
+        candidate = directory / saved_name
+        searched.append(candidate)
+        if candidate.is_file():
+            return candidate
+    hint_dir = configurations_dir()
+    raise ValueError(
+        "Could not resolve generation configuration "
+        f"{name!r}. Tried {saved_name} at: "
+        + ", ".join(str(p) for p in searched)
+        + f". Save named JSON configs in {hint_dir}."
+    )
+
+
 def _load_saved_configuration_json(name: str) -> tuple[dict[str, object], Path] | JSONResponse:
     """Load a saved JSON profile by stem. Returns (object, path) or an error response."""
     if not _safe_config_profile_name(name):
         return JSONResponse({"detail": "Invalid configuration name."}, status_code=400)
     try:
-        path = resolve_configuration_value(name)
-        loaded = read_configuration_json_dict(configuration=name)
-    except (ConfigurationError, ValueError) as exc:
+        path = _saved_profile_path_for_web(name)
+        with path.open(encoding="utf-8") as handle:
+            loaded = json.load(handle)
+    except (OSError, ValueError, json.JSONDecodeError) as exc:
         return JSONResponse({"detail": str(exc)}, status_code=404)
     if not isinstance(loaded, dict):
         return JSONResponse({"detail": "JSON configuration must be an object."}, status_code=500)

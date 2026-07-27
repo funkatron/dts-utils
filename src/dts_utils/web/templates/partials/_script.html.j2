@@ -1427,8 +1427,8 @@
       root.appendChild(empty);
       return;
     }
-    for (var entryIndex = 0; entryIndex < state.items.length; entryIndex++) {
-      var entry = state.items[entryIndex];
+    for (let entryIndex = 0; entryIndex < state.items.length; entryIndex++) {
+      const entry = state.items[entryIndex];
       var row = document.createElement("article");
       row.className = "history-row";
       var images = await fetchHistoryArtifacts(entry.id);
@@ -1440,7 +1440,7 @@
           : "";
       var stamp = d.toLocaleString();
       var entryNorm = normalizePromptDetails(entry);
-      var entryDetails = {
+      const entryDetails = {
         _dialogTitle: "Generation details",
         prompt: entryNorm.prompt,
         unexpanded_prompt: entryNorm.unexpanded_prompt,
@@ -1673,11 +1673,16 @@
           img.className = "result-inflight";
           wrap.appendChild(img);
         }
-        appendSlotActions(wrap, {
+        const artifactDetails = {
           configuration: body.profile || body.configuration || "",
           run: msg.step_id || "",
           generated: new Date().toLocaleString(),
-        }, { href: url, downloadName: msg.filename || "artifact" });
+        };
+        appendSlotActions(wrap, artifactDetails, {
+          href: url,
+          downloadName: msg.filename || "artifact",
+        });
+        wrap._generationDetails = artifactDetails;
         thumbs.appendChild(wrap);
         artifactCount += 1;
       }

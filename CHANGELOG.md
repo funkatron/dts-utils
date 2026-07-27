@@ -46,6 +46,12 @@ Example snippet for the next release:
 - **`dts-utils web`:** **`GET /api/configs/{name}`** returns a saved profile’s JSON; generation **Details** shows **Configuration JSON** (live fetch or history snapshot).
 - **Doc drift tests:** `tests/test_docs_drift.py` keeps web routes, MCP tool names, and CLI sections aligned with user docs; **`scripts/generate_docs.py`** emits **`docs/generated/mcp-tools.md`**.
 
+### Fixed
+
+- **`dts-utils web`:** **`GET /api/configs/{name}`** only reads JSON under saved-profile directories (ignores same-named files in the process cwd).
+- **`dts-utils web`:** History **Details** / **Reuse** bind per-row entry data (no shared loop closure).
+- **`dts-utils web`:** prompt-to-video artifact tiles store generation details for lightbox **i**.
+
 ### Changed
 
 - **`dts-utils web`:** stage batches and History rows share the same **batch summary** chrome (timestamp · image count · profile, **unexpanded/source prompt** headline with expanded fallback, **Details** dialog). History **Reuse** sits beside the prompt; **Details** / **Reuse** are compact bordered buttons. Details / **i** still show **Prompt** = expanded and **Unexpanded prompt** when different.

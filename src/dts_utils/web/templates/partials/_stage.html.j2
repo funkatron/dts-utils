@@ -1,0 +1,18 @@
+  <div id="stage" role="region" aria-label="Generation output">
+    <div id="resultPane" aria-live="polite">
+      <p id="resultPlaceholder" class="result-placeholder">
+        Your image or video appears here. Pick a profile below, write a prompt, and press Generate.
+      </p>
+      <div id="resultBusy" class="result-busy" hidden>
+        <div class="result-busy-head">
+          <span class="spinner" aria-hidden="true"></span>
+          <span class="sr-only">Generating</span>
+          <span id="busyElapsed" class="hint"></span>
+          <span id="busyProgress" class="hint" aria-live="polite">Starting…</span>
+          <button type="button" class="busy-request-link" id="btnRequestDetails">Request details</button>
+        </div>
+      </div>
+      <div id="videoDonePanel" class="video-done-panel" hidden aria-live="polite"></div>
+      <div id="results" class="results"></div>
+    </div>
+  </div>

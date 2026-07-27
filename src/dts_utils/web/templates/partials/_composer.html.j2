@@ -1,0 +1,69 @@
+  <footer class="composer">
+    <div id="err" class="status bad" role="alert" hidden></div>
+    <div class="composer-status" id="composerStatus" aria-label="Generation settings">
+      <div class="output-toggle" role="radiogroup" aria-label="Output type">
+        <label><input type="radio" name="outputMode" id="outputModeImage" value="image" checked /><span>Image</span></label>
+        <label><input type="radio" name="outputMode" id="outputModeVideo" value="video" /><span>Video</span></label>
+      </div>
+      <label class="sr-only" for="profile">Saved JSON profile</label>
+      <select id="profile" aria-label="Saved JSON profile"></select>
+      <span id="statusComposerListener" aria-live="polite">Listener unchecked</span>
+    </div>
+    <details class="composer-neg">
+      <summary>Negative prompt (optional)</summary>
+      <textarea id="neg" class="field" placeholder="Things to avoid in the image…"></textarea>
+    </details>
+    <details class="composer-input-images" id="inputImagesDetails">
+      <summary>Input images (optional)<span id="inputImagesBadge" class="input-images-badge" hidden></span></summary>
+      <div class="input-images-panel">
+        <div
+          class="input-images-dropzone"
+          id="inputImagesDropzone"
+          tabindex="0"
+          role="button"
+          aria-label="Add input images for img2img or batch"
+        >
+          <p class="input-images-dropzone-text">Drop images here or click to browse</p>
+          <p class="input-images-dropzone-sub hint" id="inputImagesDropzoneHint">One image for img2img or video start frame</p>
+        </div>
+        <input type="file" id="inputImages" accept="image/*" multiple hidden aria-hidden="true" />
+        <div id="inputImagesThumbs" class="input-images-thumbs" hidden></div>
+        <div class="input-images-actions">
+          <p class="hint" id="inputImagesHint" hidden></p>
+          <button type="button" class="btn-input-images-clear" id="btnClearInputImages" hidden>Clear all</button>
+        </div>
+      </div>
+    </details>
+    <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
+      <div class="composer-prompt-head">
+        <label for="prompt">Prompt</label>
+        <span class="hint" style="font-size:0.65rem;margin:0" id="composerShortcutHint">⌘↵ · Ctrl+Enter generate</span>
+      </div>
+      <div class="composer-input-row">
+        <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
+        <div class="split-run-gen" role="group" aria-label="Runs, generate, or stop">
+          <select id="generations" autocomplete="off" aria-label="Runs" title="Runs — each run sends one entry from the expanded prompts array">
+            {% for n in range(1, 26) %}
+            <option value="{{ n }}"{% if n == 1 %} selected{% endif %}>{{ n }}</option>
+            {% endfor %}
+          </select>
+          <span id="runsHint" class="runs-hint" aria-hidden="true">1 run (video pipeline)</span>
+          <button type="button" class="split-action" id="btnGen" aria-label="Generate">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="m15 12-8.373 8.373a1 1 0 1 1-3-3L12 9"/>
+              <path d="m18 15 4-4"/>
+              <path d="m21.5 11.5-1.914-1.914A2 2 0 0 1 19 8.172V7l-2.26-2.26a6 6 0 0 0-4.202-1.756L9 2.96l.92.82A6.18 6.18 0 0 1 12 8.4V10l2 2h1.172a2 2 0 0 1 1.414.586L18.5 14.5"/>
+            </svg>
+            <span class="btn-gen-label">Generate</span>
+          </button>
+          <button type="button" class="split-action" id="btnStop" aria-label="Stop generation">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <rect x="7" y="7" width="10" height="10" rx="1.5"/>
+            </svg>
+            <span class="sr-only">Stop</span>
+          </button>
+        </div>
+      </div>
+      <div class="composer-elapsed-row"><span id="elapsed" class="hint"></span></div>
+    </div>
+  </footer>

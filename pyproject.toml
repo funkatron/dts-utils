@@ -76,6 +76,6 @@ package-dir = { "" = "src" }
 where = ["src"]
 
 [tool.setuptools.package-data]
-"dts_utils.web" = ["templates/*.j2"]
+"dts_utils.web" = ["templates/**/*.j2"]
 "dts_utils.model_fetch.recipe_files" = ["*.json"]
 "dts_utils.pipeline" = ["profile_templates/*.json"]

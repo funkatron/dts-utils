@@ -57,6 +57,20 @@ def test_format_server_catalog_filters_category() -> None:
     assert "tiny_lora_f16.ckpt" not in text
 
 
+def test_format_server_catalog_clips_long_filenames() -> None:
+    long_name = ("x" * 60) + ".ckpt"
+    assert len(long_name) > sc._FILE_COLUMN_WIDTH
+    catalog = sc.ServerCatalog(message="HELLO", files=[long_name, "short.ckpt"])
+    text = sc.format_server_catalog(catalog)
+    long_line = next(line for line in text.splitlines() if "…" in line)
+    short_line = next(line for line in text.splitlines() if line.startswith("short.ckpt"))
+    assert long_name not in text
+    assert long_line[sc._FILE_COLUMN_WIDTH] == " "
+    assert short_line[sc._FILE_COLUMN_WIDTH] == " "
+    assert long_line[sc._FILE_COLUMN_WIDTH + 1 :].lstrip().startswith("model")
+    assert short_line[sc._FILE_COLUMN_WIDTH + 1 :].lstrip().startswith("model")
+
+
 def test_format_server_catalog_includes_human_size(tmp_path: Path) -> None:
     models_dir = tmp_path / "Models"
     models_dir.mkdir()

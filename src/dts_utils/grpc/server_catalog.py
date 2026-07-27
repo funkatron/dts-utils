@@ -13,11 +13,14 @@ import grpc
 from dts_utils.grpc.connection import create_channel, is_loopback_host
 from dts_utils.grpc.proto.upstream import imageService_pb2 as pb
 from dts_utils.grpc.proto.upstream import imageService_pb2_grpc as grpc_stub
-from dts_utils.model_index.local import _categorize_file, _human_size
+from dts_utils.model_index.local import _categorize_file, _clip, _human_size
 from dts_utils.models_api import resolve_draw_things_models_dir
 
 _OVERRIDE_FIELDS = ("models", "loras", "controlNets", "textualInversions", "upscalers")
 _BYTES_PER_MB = 1024 * 1024
+_FILE_COLUMN_WIDTH = 48
+_CATEGORY_COLUMN_WIDTH = 12
+_SIZE_COLUMN_WIDTH = 10
 
 
 @dataclass(slots=True)
@@ -163,12 +166,23 @@ def format_server_catalog(
         lines.append("Files: (none)")
     else:
         lines.append("")
-        lines.append(f"{'FILE':<48} {'CATEGORY':<12} {'SIZE':>10}")
-        lines.append(f"{'-' * 48} {'-' * 12} {'-' * 10}")
+        lines.append(
+            f"{'FILE':<{_FILE_COLUMN_WIDTH}} "
+            f"{'CATEGORY':<{_CATEGORY_COLUMN_WIDTH}} "
+            f"{'SIZE':>{_SIZE_COLUMN_WIDTH}}"
+        )
+        lines.append(
+            f"{'-' * _FILE_COLUMN_WIDTH} "
+            f"{'-' * _CATEGORY_COLUMN_WIDTH} "
+            f"{'-' * _SIZE_COLUMN_WIDTH}"
+        )
         for name in files:
             size_bytes = sizes.get(name)
+            display_name = _clip(name, _FILE_COLUMN_WIDTH)
             lines.append(
-                f"{name:<48} {_categorize_file(name):<12} {_format_file_size(size_bytes):>10}"
+                f"{display_name:<{_FILE_COLUMN_WIDTH}} "
+                f"{_categorize_file(name):<{_CATEGORY_COLUMN_WIDTH}} "
+                f"{_format_file_size(size_bytes):>{_SIZE_COLUMN_WIDTH}}"
             )
         if len(matching) > len(files):
             lines.append(f"... {len(matching) - len(files)} more (use --limit 0 to show all)")

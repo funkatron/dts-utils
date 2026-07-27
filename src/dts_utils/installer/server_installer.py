@@ -70,7 +70,7 @@ Usage:
     dts-utils server stop
     dts-utils server restart [--no-model-browser]
     dts-utils server test|check [--port PORT]
-    dts-utils server list-models [--json] [--category CATEGORY]
+    dts-utils server list-models [--json] [--category CATEGORY] [--model-dir PATH]
     dts-utils server tail [--last DURATION]
     dts-utils generate --prompt PROMPT --configuration CONFIG [...]
     dts-utils \"PROMPT\" [PROFILE] [...]   Shorthand: same as generate with --trust-server-cert --open; PROFILE optional — missing default.json is auto-created (legacy zit.json renamed if present; model guessed from Draw Things Models dir) and $DTS_UTILS_DEFAULT_CONFIGURATION is set

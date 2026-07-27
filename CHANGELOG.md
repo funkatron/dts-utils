@@ -54,6 +54,8 @@ Example snippet for the next release:
 
 ### Changed
 
+- **`dts-utils server list-models`:** text and **`--json`** output include local file sizes (`SIZE` as adaptive KB/MB/GB; JSON `size`, `size_bytes`, `size_mb`) by matching Echo basenames under the Draw Things Models directory (`--model-dir` / `DRAW_THINGS_MODEL_PATH`).
+
 - **`dts-utils web`:** stage batches and History rows share the same **batch summary** chrome (timestamp · image count · profile, **unexpanded/source prompt** headline with expanded fallback, **Details** dialog). History **Reuse** sits beside the prompt; **Details** / **Reuse** are compact bordered buttons. Details / **i** still show **Prompt** = expanded and **Unexpanded prompt** when different.
 - **`dts-utils web`:** result and History tiles use an overlay download-icon button (left of **i**); lightbox toolbar adds the same download icon + **i** (left of Close). Lightbox tracks per-image download/details; **i** / **I** toggles generation info; **Fill** mode pans overflow via two-finger trackpad / touch scroll.
 - **`dts-utils web`:** prompts use a shared monospace stack (`--dts-mono`) in the composer (`#prompt` / `#neg`), batch summary headline, and generation-details values.

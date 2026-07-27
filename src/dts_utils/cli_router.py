@@ -80,7 +80,7 @@ Lifecycle commands require the ``server`` prefix so they stay distinct from clie
     {p} server restart [--no-model-browser]
     {p} server test|check [--port PORT]    Probe localhost listener (check = alias for test)
     {p} server status                      Show LaunchAgent flags and model-browser state
-    {p} server list-models [--json]        List server catalog via gRPC Echo RPC
+    {p} server list-models [--json]        List Echo catalog with local file sizes
     {p} server tail [--last DURATION]      Follow gRPCServerCLI logs (macOS Unified Logging)
 """.strip()
 

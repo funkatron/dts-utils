@@ -19,22 +19,45 @@ from dts_utils.models_api import resolve_draw_things_models_dir
 
 _OVERRIDE_FIELDS = ("models", "loras", "controlNets", "textualInversions", "upscalers")
 _BYTES_PER_MB = 1024 * 1024
-_CATEGORY_COLUMN_WIDTH = 12
-_SIZE_COLUMN_WIDTH = 10
 _TABLE_COLUMN_GAP = 1
 _DEFAULT_TERMINAL_COLUMNS = 120
 
 
-def _file_column_width(files: list[str], *, terminal_columns: int | None = None) -> int:
-    """Width for FILE: fit the longest basename, capped so CATEGORY+SIZE still fit."""
-    content_width = max((len(name) for name in files), default=0)
-    content_width = max(content_width, len("FILE"))
+def _column_width(header: str, values: list[str]) -> int:
+    return max(len(header), max((len(value) for value in values), default=0))
+
+
+def _table_column_widths(
+    files: list[str],
+    categories: list[str],
+    size_labels: list[str],
+    *,
+    terminal_columns: int | None = None,
+) -> tuple[int, int, int]:
+    """Return (file_width, category_width, size_width) for the current rows."""
+    category_width = _column_width("CATEGORY", categories)
+    size_width = _column_width("SIZE", size_labels)
+    content_file_width = _column_width("FILE", files)
     columns = terminal_columns
     if columns is None:
         columns = shutil.get_terminal_size(fallback=(_DEFAULT_TERMINAL_COLUMNS, 24)).columns
-    reserved = _CATEGORY_COLUMN_WIDTH + _SIZE_COLUMN_WIDTH + (2 * _TABLE_COLUMN_GAP)
-    max_width = max(len("FILE"), columns - reserved)
-    return min(content_width, max_width)
+    reserved = category_width + size_width + (2 * _TABLE_COLUMN_GAP)
+    max_file_width = max(len("FILE"), columns - reserved)
+    file_width = min(content_file_width, max_file_width)
+    return file_width, category_width, size_width
+
+
+def _file_column_width(files: list[str], *, terminal_columns: int | None = None) -> int:
+    """Backward-compatible helper used by tests; prefers full category/size headers."""
+    categories = [_categorize_file(name) for name in files]
+    size_labels = ["-"] * len(files)
+    file_width, _category_width, _size_width = _table_column_widths(
+        files,
+        categories,
+        size_labels,
+        terminal_columns=terminal_columns,
+    )
+    return file_width
 
 
 @dataclass(slots=True)
@@ -180,26 +203,32 @@ def format_server_catalog(
     if not files:
         lines.append("Files: (none)")
     else:
-        file_width = _file_column_width(files, terminal_columns=terminal_columns)
+        categories = [_categorize_file(name) for name in files]
+        size_labels = [_format_file_size(sizes.get(name)) for name in files]
+        file_width, category_width, size_width = _table_column_widths(
+            files,
+            categories,
+            size_labels,
+            terminal_columns=terminal_columns,
+        )
         gap = " " * _TABLE_COLUMN_GAP
         lines.append("")
         lines.append(
             f"{'FILE':<{file_width}}{gap}"
-            f"{'CATEGORY':<{_CATEGORY_COLUMN_WIDTH}}{gap}"
-            f"{'SIZE':>{_SIZE_COLUMN_WIDTH}}"
+            f"{'CATEGORY':<{category_width}}{gap}"
+            f"{'SIZE':>{size_width}}"
         )
         lines.append(
             f"{'-' * file_width}{gap}"
-            f"{'-' * _CATEGORY_COLUMN_WIDTH}{gap}"
-            f"{'-' * _SIZE_COLUMN_WIDTH}"
+            f"{'-' * category_width}{gap}"
+            f"{'-' * size_width}"
         )
-        for name in files:
-            size_bytes = sizes.get(name)
+        for name, category_label, size_label in zip(files, categories, size_labels, strict=True):
             display_name = _clip(name, file_width)
             lines.append(
                 f"{display_name:<{file_width}}{gap}"
-                f"{_categorize_file(name):<{_CATEGORY_COLUMN_WIDTH}}{gap}"
-                f"{_format_file_size(size_bytes):>{_SIZE_COLUMN_WIDTH}}"
+                f"{category_label:<{category_width}}{gap}"
+                f"{size_label:>{size_width}}"
             )
         if len(matching) > len(files):
             lines.append(f"... {len(matching) - len(files)} more (use --limit 0 to show all)")

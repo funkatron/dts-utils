@@ -66,6 +66,24 @@ def test_format_server_catalog_sizes_file_column_to_content() -> None:
     assert header.index("CATEGORY") == len("medium_name.ckpt") + sc._TABLE_COLUMN_GAP
 
 
+def test_format_server_catalog_sizes_category_column_to_content() -> None:
+    catalog = sc.ServerCatalog(
+        message="HELLO",
+        files=["mysticxxx_v6_lora_f16.ckpt", "negativexl_ti_f16.ckpt"],
+    )
+    text = sc.format_server_catalog(catalog, terminal_columns=120)
+    header = next(line for line in text.splitlines() if line.startswith("FILE"))
+    lora_line = next(line for line in text.splitlines() if "mysticxxx" in line)
+    ti_line = next(line for line in text.splitlines() if "negativexl" in line)
+    cat_start = header.index("CATEGORY")
+    size_start = header.index("SIZE")
+    assert "textual-inversion" in ti_line
+    assert ti_line[cat_start:size_start].strip() == "textual-inversion"
+    assert lora_line[cat_start:size_start].strip() == "lora"
+    assert lora_line[size_start - 1] == " "
+    assert ti_line[size_start - 1] == " "
+
+
 def test_format_server_catalog_clips_when_terminal_is_narrow() -> None:
     long_name = ("x" * 60) + ".ckpt"
     catalog = sc.ServerCatalog(message="HELLO", files=[long_name, "short.ckpt"])

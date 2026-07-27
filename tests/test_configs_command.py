@@ -604,6 +604,33 @@ def test_stem_for_draw_things_import_uses_model_on_collision() -> None:
     assert a != b
 
 
+def test_smoke_imported_profile_passes_insecure_false(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    path = tmp_path / "p.json"
+    path.write_text(json.dumps({"model": "x.ckpt"}), encoding="utf-8")
+    calls: list[tuple] = []
+
+    class _FakeChannel:
+        def close(self) -> None:
+            return None
+
+    def fake_create_channel(host, port, insecure, **kwargs):
+        calls.append((host, port, insecure, kwargs))
+        return _FakeChannel()
+
+    monkeypatch.setattr(
+        "dts_utils.configuration_build.read_json_configuration_bytes",
+        lambda _p: b"\x00" * 32,
+    )
+    monkeypatch.setattr("dts_utils.grpc.connection.create_channel", fake_create_channel)
+    monkeypatch.setattr(
+        "grpc.channel_ready_future",
+        lambda _ch: type("F", (), {"result": staticmethod(lambda timeout=None: None)})(),
+    )
+    err = configs._smoke_imported_profile(path)
+    assert err is None
+    assert calls and calls[0][2] is False
+
+
 def test_scaffold_pipeline_list(capsys) -> None:
     rc = configs.main(["scaffold-pipeline", "--list"])
     assert rc == 0

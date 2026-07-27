@@ -472,13 +472,14 @@ def _smoke_imported_profile(path: Path, *, host: str = "localhost", port: int = 
     if not payload:
         return "configuration FlatBuffer was empty"
 
-    channel = create_channel(host, port, trust_server_cert=True)
     try:
-        grpc.channel_ready_future(channel).result(timeout=2.0)
+        channel = create_channel(host, port, insecure=False, trust_server_cert=True)
+        try:
+            grpc.channel_ready_future(channel).result(timeout=2.0)
+        finally:
+            channel.close()
     except Exception as exc:  # noqa: BLE001
         return f"gRPC channel not ready: {exc}"
-    finally:
-        channel.close()
     return None
 
 

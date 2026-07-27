@@ -357,6 +357,10 @@ def test_configs_import_draw_things_writes_profiles(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from dts_utils.configuration_build import resolve_flatc_path
+
+    if resolve_flatc_path() is None:
+        pytest.skip("flatc not installed")
     monkeypatch.setattr("dts_utils.grpc.utils.is_server_running", lambda *a, **k: False)
     src = tmp_path / "custom_configs.json"
     src.write_text(

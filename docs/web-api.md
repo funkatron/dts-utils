@@ -152,7 +152,7 @@ List saved generation profile stems.
 
 ### `GET /api/configs/{name}`
 
-Return one saved profile’s JSON body by stem (for example **`default`** or **`pikon-tall`**). Rejects path-like names (**`/`**, **`..`**).
+Return one saved profile’s JSON body by stem (for example **`default`** or **`pikon-tall`**). Rejects path-like names (**`/`**, **`..`**). Only reads files under the saved-profile search directories (not arbitrary JSON in the process working directory).
 
 ```json
 {

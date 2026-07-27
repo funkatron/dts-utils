@@ -129,6 +129,8 @@ def test_index_progressive_result_slots_and_cross_group_lightbox(client: TestCli
     assert "showRequestDetails" in text
     assert "function normalizePromptDetails" in text
     assert "function createBatchSummary" in text
+    assert "const entryDetails =" in text
+    assert "wrap._generationDetails = artifactDetails" in text
     assert "function fetchConfigurationJson" in text
     assert '["Prompt", norm.prompt]' in text
     assert '["Unexpanded prompt", norm.unexpanded_prompt]' in text
@@ -320,7 +322,7 @@ def test_config_detail_and_history_configuration_json_snapshot(
     profile_body = {"model": "demo.ckpt", "steps": 8, "width": 512, "height": 768}
     (cfg_dir / "demo-tall.json").write_text(json.dumps(profile_body), encoding="utf-8")
     monkeypatch.setattr(
-        "dts_utils.configs.configuration_search_directories",
+        "dts_utils.web.app.configuration_search_directories",
         lambda config_dir=None: (cfg_dir,),
     )
     monkeypatch.setenv("DTS_WEB_HISTORY_DIR", str(tmp_path / "history"))
@@ -338,6 +340,15 @@ def test_config_detail_and_history_configuration_json_snapshot(
 
     assert client.get("/api/configs/not-a-real-profile", headers=headers).status_code == 404
     assert client.get("/api/configs/bad name", headers=headers).status_code == 400
+
+    # Cwd JSON must not leak through /api/configs/{name} (stem-only saved profiles).
+    work = tmp_path / "cwd"
+    work.mkdir()
+    (work / "credentials.json").write_text(json.dumps({"secret": True}), encoding="utf-8")
+    monkeypatch.chdir(work)
+    leaked = client.get("/api/configs/credentials.json", headers=headers)
+    assert leaked.status_code == 404
+    assert "secret" not in leaked.text
 
     entry = _record_generation_history(
         data={"prompt": "snapshot me", "configuration": "demo-tall"},

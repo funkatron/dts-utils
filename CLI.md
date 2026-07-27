@@ -310,6 +310,7 @@ Show, list, import, and scaffold saved Draw Things JSON generation configuration
 uv run dts-utils configs path
 uv run dts-utils configs list
 uv run dts-utils configs import-draw-things --dry-run
+uv run dts-utils configs import-draw-things
 uv run dts-utils configs scaffold-from-metadata ~/.cache/community-models/models/flux-2-klein-base-9b/metadata.json --dry-run
 ```
 
@@ -319,7 +320,7 @@ uv run dts-utils configs scaffold-from-metadata ~/.cache/community-models/models
 | **`configs path --no-create`** | Print directory without creating it. |
 | **`configs list`** | List saved JSON configuration names. |
 | **`configs list --directory PATH`** | List from another directory. |
-| **`configs import-draw-things`** | macOS only — read Draw Things **`custom_configs.json`**, write **`NAME.json`** per preset (inner **`configuration`** object only). **`--source`**, **`--directory`**, **`--dry-run`**, **`--force`**. **`--mirror-app-json`** copies ancillary app JSON into **`draw-things-app/`** (not used by **`generate`**). May need Terminal Full Disk Access. |
+| **`configs import-draw-things`** | macOS — read Draw Things **`custom_configs.json`**, write generate-ready **`STEM.json`** profiles (normalize + **`flatc`** repair; human kebab stems; optional localhost smoke). **`--raw`** copies as-is. **`--no-smoke`**, **`--smoke-all`**, **`--source`**, **`--directory`**, **`--dry-run`**, **`--force`**. **`--mirror-app-json`** copies ancillary app JSON into **`draw-things-app/`** (not for **`generate`**). May need Terminal Full Disk Access. |
 | **`configs scaffold-from-metadata METADATA.json`** | Starter profile from one cloned **`metadata.json`** (local checkpoint **`file`** only). **`--name`**, **`--directory`**, **`--dry-run`**, **`--force`**. Prefills width/height/steps from **`note`** when possible. |
 | **`configs scaffold-from-metadata --scan DIR`** | Walk **`DIR`** for **`metadata.json`** (skips **`apis/`**). **`--limit N`**, **`--verbose`**, **`--force`**. Do not combine **`--scan`** with positional **`METADATA.json`** or **`--name`**. |
 | **`configs scaffold-pipeline [NAME]`** | Install bundled pipeline manifest (**`_dts_utils_pipeline`** only). Default **`prompt-to-video`**. **`--list`** shows templates. You still need referenced Draw Things profiles (**`default`**, **`ltx-2.3-portrait`**, etc.). |

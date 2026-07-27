@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from dts_utils.cli_prog import cli_command_name
+from dts_utils.exceptions import ConfigurationError
 
 
 APP_NAME = "dts-utils"
@@ -406,10 +407,80 @@ def normalize_profile_stem(stem: str, *, fallback: str = "profile") -> str:
     return (normalized or fallback)[:120]
 
 
+_MODEL_QUANT_SUFFIX_RE = re.compile(
+    r"(?:_(?:q\d+p(?:_q\d+p)?|f16|f32|bf16|fp8|fp16|fp32))+$",
+    re.IGNORECASE,
+)
+
+
+def _model_stem_for_profile_name(model: object) -> str:
+    if not isinstance(model, str) or not model.strip():
+        return ""
+    stem = Path(model.strip()).name
+    if stem.lower().endswith(".ckpt"):
+        stem = stem[: -len(".ckpt")]
+    elif "." in stem:
+        stem = Path(stem).stem
+    stem = _MODEL_QUANT_SUFFIX_RE.sub("", stem)
+    return normalize_profile_stem(stem, fallback="")
+
+
 def _stem_from_draw_things_preset_name(name: object | None, idx: int) -> str:
     raw = name if isinstance(name, str) else ""
     base = raw.strip() or f"draw-things-{idx}"
     return normalize_profile_stem(base, fallback=f"draw-things-{idx}")
+
+
+def stem_for_draw_things_import(
+    preset_name: object | None,
+    configuration: dict,
+    *,
+    used: set[str],
+    index: int,
+) -> str:
+    """Build a human-useful kebab stem from a Draw Things preset name and model."""
+    raw_name = preset_name.strip() if isinstance(preset_name, str) else ""
+    base = normalize_profile_stem(raw_name, fallback="") if raw_name else ""
+    model_part = _model_stem_for_profile_name(configuration.get("model"))
+    if not base or base.startswith("draw-things-"):
+        base = model_part or f"draw-things-{index}"
+
+    candidate = base
+    if candidate in used and model_part and model_part not in candidate:
+        candidate = f"{base}-{model_part}"
+
+    stem = candidate
+    suffix = 2
+    while stem in used:
+        stem = f"{candidate}-{suffix}"
+        suffix += 1
+    used.add(stem)
+    return stem
+
+
+def _smoke_imported_profile(path: Path, *, host: str = "localhost", port: int = 7859) -> str | None:
+    """Return None on success, or an error string. Caller must ensure the server is up."""
+    import grpc
+
+    from dts_utils.configuration_build import read_json_configuration_bytes
+    from dts_utils.grpc.connection import create_channel
+
+    try:
+        payload = read_json_configuration_bytes(path)
+    except ConfigurationError as exc:
+        return str(exc)
+    if not payload:
+        return "configuration FlatBuffer was empty"
+
+    try:
+        channel = create_channel(host, port, insecure=False, trust_server_cert=True)
+        try:
+            grpc.channel_ready_future(channel).result(timeout=2.0)
+        finally:
+            channel.close()
+    except Exception as exc:  # noqa: BLE001
+        return f"gRPC channel not ready: {exc}"
+    return None
 
 
 def import_draw_things_saved_configs(
@@ -419,17 +490,23 @@ def import_draw_things_saved_configs(
     force: bool = False,
     dry_run: bool = False,
     mirror_app_json: bool = False,
+    raw: bool = False,
+    no_smoke: bool = False,
+    smoke_all: bool = False,
 ) -> int:
     """Split Draw Things ``custom_configs.json`` into ``OUT_DIR/<stem>.json`` profiles.
 
-    Each preset's inner ``configuration`` object is written as-is (same shape Draw Things uses for
-    generation). Some presets may still need trimming if ``flatc`` rejects fields your server build
-    omits—treat imports as a starting point.
+    By default each preset is normalized and repaired until ``flatc`` accepts it, then written
+    under a human-useful kebab stem. Pass ``raw=True`` to copy the inner ``configuration`` as-is
+    (legacy behavior).
 
     With ``mirror_app_json``, auxiliary ``Models/custom*.json`` (etc.) are copied under
     ``OUT_DIR/draw-things-app/`` only—they are **not** valid ``--configuration`` inputs for
     ``dts-utils generate``.
     """
+    from dts_utils.configuration_build import prepare_configuration_for_generate, resolve_flatc_path
+    from dts_utils.grpc.utils import is_server_running
+
     src = source.expanduser() if source else draw_things_custom_configs_path()
     if not src.is_file():
         print(f"Not found: {src}", file=sys.stderr)
@@ -440,34 +517,52 @@ def import_draw_things_saved_configs(
         return 2
 
     try:
-        raw = json.loads(src.read_text(encoding="utf-8"))
+        raw_json = json.loads(src.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         print(f"{src}: invalid JSON ({exc})", file=sys.stderr)
         return 2
-    if not isinstance(raw, list):
+    if not isinstance(raw_json, list):
         print(f"{src}: expected a JSON array", file=sys.stderr)
+        return 2
+
+    if not raw and resolve_flatc_path() is None:
+        print(
+            "flatc is required for one-step import (converts JSON for generate). "
+            "Install FlatBuffers (e.g. brew install flatbuffers), or pass --raw to copy presets as-is.",
+            file=sys.stderr,
+        )
         return 2
 
     out_dir = out_dir.expanduser()
     if not dry_run:
         out_dir.mkdir(parents=True, exist_ok=True)
 
-    print(
-        "Preset JSON is copied from Draw Things as-is. Imported presets may not work immediately: "
-        "validate each with generate, then simplify fields if flatc errors.",
-        file=sys.stderr,
-    )
+    if raw:
+        print(
+            "Importing with --raw: presets are copied as-is and may need edits before generate.",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "Importing for generate: normalizing presets and repairing until flatc accepts them.",
+            file=sys.stderr,
+        )
 
+    used_stems: set[str] = set()
     stem_counts: dict[str, int] = {}
 
-    def allocate_stem(base: str) -> str:
+    def allocate_stem_legacy(base: str) -> str:
         n = stem_counts.get(base, 0) + 1
         stem_counts[base] = n
         return base if n == 1 else f"{base}-{n}"
 
     written = 0
     skipped = 0
-    for i, item in enumerate(raw, start=1):
+    repaired = 0
+    failed = 0
+    smoke_candidates: list[Path] = []
+
+    for i, item in enumerate(raw_json, start=1):
         if not isinstance(item, dict):
             skipped += 1
             continue
@@ -476,9 +571,37 @@ def import_draw_things_saved_configs(
             print(f"skip entry {i}: missing configuration object", file=sys.stderr)
             skipped += 1
             continue
-        stem = allocate_stem(_stem_from_draw_things_preset_name(item.get("name"), i))
+
+        source_name = item.get("name") if isinstance(item.get("name"), str) else ""
+        if raw:
+            stem = allocate_stem_legacy(_stem_from_draw_things_preset_name(item.get("name"), i))
+            payload: dict = dict(cfg)
+            notes: list[str] = []
+        else:
+            try:
+                prepared, notes = prepare_configuration_for_generate(cfg)
+            except ConfigurationError as exc:
+                print(f"fail entry {i} ({source_name or 'unnamed'}): {exc}", file=sys.stderr)
+                failed += 1
+                continue
+            stem = stem_for_draw_things_import(
+                item.get("name"),
+                cfg,
+                used=used_stems,
+                index=i,
+            )
+            payload = dict(prepared)
+            import_meta: dict[str, object] = {}
+            if source_name.strip():
+                import_meta["source_name"] = source_name.strip()
+            if notes:
+                import_meta["notes"] = list(notes)
+                repaired += 1
+            if import_meta:
+                payload["_dts_utils_import"] = import_meta
+
         out_path = out_dir / f"{stem}.json"
-        text = json.dumps(cfg, indent=2, sort_keys=True) + "\n"
+        text = json.dumps(payload, indent=2, sort_keys=True) + "\n"
         if out_path.exists() and not force:
             print(f"skip (exists): {out_path}", file=sys.stderr)
             skipped += 1
@@ -486,10 +609,12 @@ def import_draw_things_saved_configs(
         if dry_run:
             print(out_path)
             written += 1
+            smoke_candidates.append(out_path)
             continue
         out_path.write_text(text, encoding="utf-8")
         print(out_path)
         written += 1
+        smoke_candidates.append(out_path)
 
     if mirror_app_json:
         aux_dir = out_dir / DRAW_THINGS_APP_MIRROR_SUBDIR
@@ -529,12 +654,34 @@ def import_draw_things_saved_configs(
 
     if written == 0:
         print(
-            f"No files written ({skipped} skipped). Try --dry-run, or --force to overwrite existing profiles.",
+            f"No files written ({skipped} skipped, {failed} failed). "
+            "Try --dry-run, or --force to overwrite existing profiles.",
             file=sys.stderr,
         )
         return 2
-    print(f"Done: {written} written, {skipped} skipped.", file=sys.stderr)
-    return 0
+
+    print(
+        f"Done: {written} written, {repaired} repaired, {failed} failed, {skipped} skipped.",
+        file=sys.stderr,
+    )
+
+    if not raw and not no_smoke and not dry_run and smoke_candidates:
+        if not is_server_running("localhost", 7859):
+            print(
+                "Smoke skipped: gRPC server not reachable on localhost:7859 "
+                "(start with dts-utils server start, or pass --no-smoke).",
+                file=sys.stderr,
+            )
+        else:
+            targets = smoke_candidates if smoke_all else smoke_candidates[:1]
+            for path in targets:
+                err = _smoke_imported_profile(path)
+                if err:
+                    print(f"Smoke warning ({path.name}): {err}", file=sys.stderr)
+                else:
+                    print(f"Smoke ok: {path.name} (server reachable, flatc bytes ok).", file=sys.stderr)
+
+    return 0 if failed == 0 else 1
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -547,6 +694,8 @@ def build_parser() -> argparse.ArgumentParser:
   dts-utils configs list
   dts-utils configs list --directory ./configs
   dts-utils configs import-draw-things
+  dts-utils configs import-draw-things --dry-run
+  dts-utils configs import-draw-things --raw
   dts-utils configs import-draw-things --mirror-app-json --dry-run
   dts-utils configs scaffold-from-metadata ~/.cache/community-models/models/flux-2-klein-base-9b/metadata.json
   dts-utils configs scaffold-from-metadata ./metadata.json --dry-run
@@ -652,7 +801,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Import Draw Things Local configurations from the macOS app sandbox "
             "(Models/custom_configs.json) into separate saved JSON profiles. "
-            "Imported profiles are a starting point and may require edits before generate succeeds."
+            "Default: normalize/repair until flatc accepts each preset (one-step for generate). "
+            "Use --raw to copy as-is."
         ),
     )
     import_dt_parser.add_argument(
@@ -685,6 +835,21 @@ def build_parser() -> argparse.ArgumentParser:
             "and Scripts/custom_scripts.json into OUTPUT/draw-things-app/ "
             "(app metadata only — not valid --configuration for generate)."
         ),
+    )
+    import_dt_parser.add_argument(
+        "--raw",
+        action="store_true",
+        help="Copy preset configuration objects as-is (skip flatc normalize/repair).",
+    )
+    import_dt_parser.add_argument(
+        "--no-smoke",
+        action="store_true",
+        help="Skip the optional localhost gRPC smoke after a successful import.",
+    )
+    import_dt_parser.add_argument(
+        "--smoke-all",
+        action="store_true",
+        help="Smoke every written profile when the server is up (default: first only).",
     )
     return parser
 
@@ -824,6 +989,9 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             dry_run=args.dry_run,
             mirror_app_json=args.mirror_app_json,
+            raw=args.raw,
+            no_smoke=args.no_smoke,
+            smoke_all=args.smoke_all,
         )
 
     parser.error(f"Unsupported action: {args.action}")

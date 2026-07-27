@@ -48,7 +48,7 @@ Example snippet for the next release:
 
 ### Changed
 
-- **`dts-utils web`:** stage batches and History rows share the same **batch summary** chrome (timestamp · image count · profile, **unexpanded/source prompt** headline with expanded fallback, **Details** dialog). History **Reuse** sits beside the prompt. Details / **i** still show **Prompt** = expanded and **Unexpanded prompt** when different.
+- **`dts-utils web`:** stage batches and History rows share the same **batch summary** chrome (timestamp · image count · profile, **unexpanded/source prompt** headline with expanded fallback, **Details** dialog). History **Reuse** sits beside the prompt; **Details** / **Reuse** are compact bordered buttons. Details / **i** still show **Prompt** = expanded and **Unexpanded prompt** when different.
 - **`dts-utils web`:** result and History tiles use an overlay download-icon button (left of **i**); lightbox toolbar adds the same download icon + **i** (left of Close). Lightbox tracks per-image download/details; **i** / **I** toggles generation info; **Fill** mode pans overflow via two-finger trackpad / touch scroll.
 - **`dts-utils web`:** prompts use a shared monospace stack (`--dts-mono`) in the composer (`#prompt` / `#neg`), batch summary headline, and generation-details values.
 - **`dts-utils web`:** history items snapshot **`configuration_json`** at generate time so Details stays accurate if the profile file changes later.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -18,9 +19,22 @@ from dts_utils.models_api import resolve_draw_things_models_dir
 
 _OVERRIDE_FIELDS = ("models", "loras", "controlNets", "textualInversions", "upscalers")
 _BYTES_PER_MB = 1024 * 1024
-_FILE_COLUMN_WIDTH = 48
 _CATEGORY_COLUMN_WIDTH = 12
 _SIZE_COLUMN_WIDTH = 10
+_TABLE_COLUMN_GAP = 1
+_DEFAULT_TERMINAL_COLUMNS = 120
+
+
+def _file_column_width(files: list[str], *, terminal_columns: int | None = None) -> int:
+    """Width for FILE: fit the longest basename, capped so CATEGORY+SIZE still fit."""
+    content_width = max((len(name) for name in files), default=0)
+    content_width = max(content_width, len("FILE"))
+    columns = terminal_columns
+    if columns is None:
+        columns = shutil.get_terminal_size(fallback=(_DEFAULT_TERMINAL_COLUMNS, 24)).columns
+    reserved = _CATEGORY_COLUMN_WIDTH + _SIZE_COLUMN_WIDTH + (2 * _TABLE_COLUMN_GAP)
+    max_width = max(len("FILE"), columns - reserved)
+    return min(content_width, max_width)
 
 
 @dataclass(slots=True)
@@ -149,6 +163,7 @@ def format_server_catalog(
     limit: int | None = None,
     file_sizes: dict[str, int] | None = None,
     models_dir: Path | None = None,
+    terminal_columns: int | None = None,
 ) -> str:
     """Human-readable table of server-offered files."""
     matching, files = _filter_catalog_files(catalog, category=category, limit=limit)
@@ -165,23 +180,25 @@ def format_server_catalog(
     if not files:
         lines.append("Files: (none)")
     else:
+        file_width = _file_column_width(files, terminal_columns=terminal_columns)
+        gap = " " * _TABLE_COLUMN_GAP
         lines.append("")
         lines.append(
-            f"{'FILE':<{_FILE_COLUMN_WIDTH}} "
-            f"{'CATEGORY':<{_CATEGORY_COLUMN_WIDTH}} "
+            f"{'FILE':<{file_width}}{gap}"
+            f"{'CATEGORY':<{_CATEGORY_COLUMN_WIDTH}}{gap}"
             f"{'SIZE':>{_SIZE_COLUMN_WIDTH}}"
         )
         lines.append(
-            f"{'-' * _FILE_COLUMN_WIDTH} "
-            f"{'-' * _CATEGORY_COLUMN_WIDTH} "
+            f"{'-' * file_width}{gap}"
+            f"{'-' * _CATEGORY_COLUMN_WIDTH}{gap}"
             f"{'-' * _SIZE_COLUMN_WIDTH}"
         )
         for name in files:
             size_bytes = sizes.get(name)
-            display_name = _clip(name, _FILE_COLUMN_WIDTH)
+            display_name = _clip(name, file_width)
             lines.append(
-                f"{display_name:<{_FILE_COLUMN_WIDTH}} "
-                f"{_categorize_file(name):<{_CATEGORY_COLUMN_WIDTH}} "
+                f"{display_name:<{file_width}}{gap}"
+                f"{_categorize_file(name):<{_CATEGORY_COLUMN_WIDTH}}{gap}"
                 f"{_format_file_size(size_bytes):>{_SIZE_COLUMN_WIDTH}}"
             )
         if len(matching) > len(files):

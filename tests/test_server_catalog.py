@@ -57,18 +57,37 @@ def test_format_server_catalog_filters_category() -> None:
     assert "tiny_lora_f16.ckpt" not in text
 
 
-def test_format_server_catalog_clips_long_filenames() -> None:
+def test_format_server_catalog_sizes_file_column_to_content() -> None:
+    catalog = sc.ServerCatalog(message="HELLO", files=["short.ckpt", "medium_name.ckpt"])
+    text = sc.format_server_catalog(catalog, terminal_columns=120)
+    header = next(line for line in text.splitlines() if line.startswith("FILE"))
+    # Longest name fits fully; FILE width matches that name.
+    assert "medium_name.ckpt" in text
+    assert header.index("CATEGORY") == len("medium_name.ckpt") + sc._TABLE_COLUMN_GAP
+
+
+def test_format_server_catalog_clips_when_terminal_is_narrow() -> None:
     long_name = ("x" * 60) + ".ckpt"
-    assert len(long_name) > sc._FILE_COLUMN_WIDTH
     catalog = sc.ServerCatalog(message="HELLO", files=[long_name, "short.ckpt"])
-    text = sc.format_server_catalog(catalog)
+    # Narrow terminal forces clipping even though content is longer.
+    text = sc.format_server_catalog(catalog, terminal_columns=40)
+    file_width = sc._file_column_width([long_name, "short.ckpt"], terminal_columns=40)
+    assert file_width < len(long_name)
     long_line = next(line for line in text.splitlines() if "…" in line)
     short_line = next(line for line in text.splitlines() if line.startswith("short.ckpt"))
     assert long_name not in text
-    assert long_line[sc._FILE_COLUMN_WIDTH] == " "
-    assert short_line[sc._FILE_COLUMN_WIDTH] == " "
-    assert long_line[sc._FILE_COLUMN_WIDTH + 1 :].lstrip().startswith("model")
-    assert short_line[sc._FILE_COLUMN_WIDTH + 1 :].lstrip().startswith("model")
+    assert long_line[file_width] == " "
+    assert short_line[file_width] == " "
+    assert long_line[file_width + 1 :].lstrip().startswith("model")
+    assert short_line[file_width + 1 :].lstrip().startswith("model")
+
+
+def test_format_server_catalog_keeps_long_name_when_terminal_allows() -> None:
+    long_name = "1883195_gonzalomoxlfluxpony_v10fluxityfp8_q8p.ckpt"
+    catalog = sc.ServerCatalog(message="HELLO", files=[long_name])
+    text = sc.format_server_catalog(catalog, terminal_columns=120)
+    assert long_name in text
+    assert "…" not in text
 
 
 def test_format_server_catalog_includes_human_size(tmp_path: Path) -> None:

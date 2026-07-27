@@ -82,6 +82,19 @@ def test_resolve_flatc_path_uses_homebrew_fallback_when_path_is_sparse(
 
 
 @pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_prepare_configuration_for_generate_drops_unknown_field() -> None:
+    from dts_utils.configuration_build import prepare_configuration_for_generate
+
+    prepared, notes = prepare_configuration_for_generate(
+        {**_MINIMAL_DRAW_THINGS_STYLE, "totallyUnknownFieldForFlatc": 99}
+    )
+    assert "totallyUnknownFieldForFlatc" not in prepared
+    assert any("totallyUnknownFieldForFlatc" in note for note in notes)
+    blob = json_configuration_to_flatbuffer(prepared)
+    assert len(blob) >= 32
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
 def test_flatc_accepts_json_with_fps_alias() -> None:
     """Regression: flatc rejects unknown field ``fps`` without normalization."""
     cfg = {**_MINIMAL_DRAW_THINGS_STYLE, "fps": 8}

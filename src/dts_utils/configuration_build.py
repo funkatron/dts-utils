@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -178,6 +179,106 @@ def configurations_equivalent_for_flatbuffer(a: dict, b: dict) -> bool:
     dimension scaling, ``compression_artifacts`` enum aliases, skipped ``_dts_utils*``).
     """
     return normalize_configuration_for_flatc(a) == normalize_configuration_for_flatc(b)
+
+
+_UNKNOWN_FIELD_RE = re.compile(r"unknown field:\s*([A-Za-z0-9_]+)", re.IGNORECASE)
+_UNKNOWN_ENUM_RE = re.compile(r"unknown enum value:\s*(\S+)", re.IGNORECASE)
+
+
+def _drop_configuration_key(configuration: dict, field: str) -> bool:
+    """Remove ``field`` (camelCase or snake_case) from a configuration dict."""
+    if field in configuration:
+        del configuration[field]
+        return True
+    mapped = CONFIG_KEY_MAP.get(field)
+    if mapped and mapped in configuration:
+        del configuration[mapped]
+        return True
+    for camel, snake in CONFIG_KEY_MAP.items():
+        if snake == field and camel in configuration:
+            del configuration[camel]
+            return True
+    return False
+
+
+def _drop_keys_with_enum_value(configuration: dict, enum_value: str) -> list[str]:
+    """Remove keys whose string value matches an unknown enum label."""
+    needle = enum_value.strip().strip('"').strip("'")
+    dropped: list[str] = []
+    for key, value in list(configuration.items()):
+        if isinstance(value, str) and value.strip().lower() == needle.lower():
+            del configuration[key]
+            dropped.append(key)
+    return dropped
+
+
+def prepare_configuration_for_generate(
+    configuration: dict,
+    *,
+    max_attempts: int = 32,
+) -> tuple[dict, list[str]]:
+    """Normalize a Draw Things JSON config until ``flatc`` accepts it.
+
+    Returns ``(prepared_dict, notes)`` where ``prepared_dict`` is the normalized
+    object safe to write for ``generate``, and ``notes`` lists dropped fields / repairs.
+    Raises :class:`ConfigurationError` when ``flatc`` is missing or repair fails.
+    """
+    if resolve_flatc_path() is None:
+        raise ConfigurationError(
+            "flatc is required to prepare imported configurations. "
+            "Install FlatBuffers (e.g. brew install flatbuffers) so JSON can be converted."
+        )
+
+    working = {key: value for key, value in configuration.items() if not (
+        isinstance(key, str) and key.startswith("_dts_utils")
+    )}
+    notes: list[str] = []
+
+    for _attempt in range(max_attempts):
+        normalized = normalize_configuration_for_flatc(working)
+        try:
+            json_configuration_to_flatbuffer(normalized)
+            return normalized, notes
+        except ConfigurationError as exc:
+            message = str(exc)
+            field_match = _UNKNOWN_FIELD_RE.search(message)
+            if field_match:
+                field = field_match.group(1)
+                if _drop_configuration_key(working, field):
+                    notes.append(f"dropped unknown field {field}")
+                    continue
+                # Field may only exist after remap; drop from a throwaway and sync.
+                if field in normalized and _drop_configuration_key(working, field):
+                    notes.append(f"dropped unknown field {field}")
+                    continue
+                # Last resort: remove snake key from working copy rebuilt from normalized minus field
+                repaired = {k: v for k, v in normalized.items() if k != field}
+                if len(repaired) < len(normalized):
+                    working = repaired
+                    notes.append(f"dropped unknown field {field}")
+                    continue
+                raise ConfigurationError(
+                    f"flatc rejected unknown field {field!r} but it was not found in the configuration."
+                ) from exc
+
+            enum_match = _UNKNOWN_ENUM_RE.search(message)
+            if enum_match:
+                enum_value = enum_match.group(1)
+                dropped_keys = _drop_keys_with_enum_value(working, enum_value)
+                if dropped_keys:
+                    notes.append(
+                        f"dropped field(s) {', '.join(dropped_keys)} with unknown enum value {enum_value}"
+                    )
+                    continue
+                raise ConfigurationError(
+                    f"flatc rejected unknown enum value {enum_value!r}; could not locate the field to drop."
+                ) from exc
+
+            raise
+
+    raise ConfigurationError(
+        f"Could not prepare configuration for flatc after {max_attempts} repair attempts."
+    )
 
 
 def resolve_flatc_path() -> str | None:

@@ -63,7 +63,7 @@ Use **lowercase kebab-case** stems (letters, digits, hyphens; optional dots for 
 
 - **`default`** and bundled pipeline names (**`prompt-to-video`**) are reserved — do not rename them.
 - Prefer **`{model-family}-{qualifier}`**: step count (**`-8step`**, **`-40step`**), aspect (**`-tall`**, **`-9x16`**, **`-landscape`**, **`-portrait`**), tuning (**`-gs-2.1`**), or feature (**`-pony-lora`**, **`-2x-up`**).
-- **`configs import-draw-things`** applies mechanical normalization via **`normalize_profile_stem`** (lowercase, underscores → hyphens). Draw Things preset titles may still need manual renaming for clarity.
+- **`configs import-draw-things`** normalizes preset stems to lowercase kebab-case (and disambiguates with the checkpoint basename); original Draw Things titles are kept under **`_dts_utils_import.source_name`**. Bundled **`prompt-to-video`** references **`ltx-2.3-portrait`** (legacy **`LTX-2.3-22B-Port`** still works as a pipeline I2V seed fallback).
 - Pipeline manifests reference other profile stems in **`t2i_configuration`** / **`video_configuration`** — update those when renaming video/T2I JSON profiles.
 
 ## Behaviour agents often trip over

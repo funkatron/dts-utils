@@ -352,12 +352,79 @@ def test_configs_scaffold_rejects_scan_and_metadata_together(tmp_path: Path) -> 
     assert rc == 2
 
 
-def test_configs_import_draw_things_writes_profiles(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_configs_import_draw_things_writes_profiles(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("dts_utils.grpc.utils.is_server_running", lambda *a, **k: False)
     src = tmp_path / "custom_configs.json"
     src.write_text(
         json.dumps(
             [
-                {"name": "Alpha", "configuration": {"model": "a.ckpt", "width": 64}},
+                {
+                    "name": "Alpha",
+                    "configuration": {
+                        "model": "a.ckpt",
+                        "width": 512,
+                        "height": 512,
+                        "steps": 8,
+                        "guidanceScale": 7.5,
+                        "strength": 1.0,
+                        "seed": 0,
+                        "batchCount": 1,
+                    },
+                },
+                {
+                    "name": "Same",
+                    "configuration": {
+                        "model": "b_model_f16.ckpt",
+                        "width": 512,
+                        "height": 512,
+                        "steps": 8,
+                        "guidanceScale": 7.5,
+                        "strength": 1.0,
+                        "seed": 0,
+                        "batchCount": 1,
+                    },
+                },
+                {
+                    "name": "Same",
+                    "configuration": {
+                        "model": "c_model_f16.ckpt",
+                        "width": 512,
+                        "height": 512,
+                        "steps": 8,
+                        "guidanceScale": 7.5,
+                        "strength": 1.0,
+                        "seed": 0,
+                        "batchCount": 1,
+                    },
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "cfgs"
+    rc = configs.main(
+        ["import-draw-things", "--source", str(src), "--directory", str(out), "--no-smoke"],
+    )
+    captured = capsys.readouterr()
+    assert rc == 0
+    assert "normalizing presets" in captured.err.lower() or "Importing for generate" in captured.err
+    alpha = json.loads((out / "alpha.json").read_text())
+    assert alpha["model"] == "a.ckpt"
+    assert alpha["_dts_utils_import"]["source_name"] == "Alpha"
+    assert (out / "same.json").is_file()
+    assert (out / "same-c-model.json").is_file()
+
+
+def test_configs_import_draw_things_raw_copies_as_is(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    src = tmp_path / "custom_configs.json"
+    src.write_text(
+        json.dumps(
+            [
+                {"name": "Alpha", "configuration": {"model": "a.ckpt", "notARealFlatcField": 1}},
                 {"name": "Same", "configuration": {"model": "b.ckpt"}},
                 {"name": "Same", "configuration": {"model": "c.ckpt"}},
             ]
@@ -365,13 +432,118 @@ def test_configs_import_draw_things_writes_profiles(tmp_path: Path, capsys: pyte
         encoding="utf-8",
     )
     out = tmp_path / "cfgs"
-    rc = configs.main(["import-draw-things", "--source", str(src), "--directory", str(out)])
+    rc = configs.main(
+        ["import-draw-things", "--raw", "--source", str(src), "--directory", str(out)],
+    )
     captured = capsys.readouterr()
     assert rc == 0
-    assert "Imported presets may not work immediately" in captured.err
-    assert json.loads((out / "alpha.json").read_text())["model"] == "a.ckpt"
+    assert "--raw" in captured.err
+    payload = json.loads((out / "alpha.json").read_text())
+    assert payload["notARealFlatcField"] == 1
+    assert "_dts_utils_import" not in payload
     assert (out / "same.json").is_file()
     assert (out / "same-2.json").is_file()
+
+
+def test_configs_import_draw_things_repairs_unknown_field(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from dts_utils.configuration_build import json_configuration_to_flatbuffer, resolve_flatc_path
+
+    if resolve_flatc_path() is None:
+        pytest.skip("flatc not installed")
+    monkeypatch.setattr("dts_utils.grpc.utils.is_server_running", lambda *a, **k: False)
+    src = tmp_path / "custom_configs.json"
+    src.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Repair Me",
+                    "configuration": {
+                        "model": "x.ckpt",
+                        "width": 512,
+                        "height": 512,
+                        "steps": 8,
+                        "guidanceScale": 7.5,
+                        "strength": 1.0,
+                        "seed": 0,
+                        "batchCount": 1,
+                        "totallyUnknownFieldForFlatc": 42,
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "cfgs"
+    rc = configs.main(
+        ["import-draw-things", "--source", str(src), "--directory", str(out), "--no-smoke"],
+    )
+    assert rc == 0
+    payload = json.loads((out / "repair-me.json").read_text())
+    assert "totallyUnknownFieldForFlatc" not in payload
+    assert payload.get("_dts_utils_import", {}).get("source_name") == "Repair Me"
+    json_configuration_to_flatbuffer(payload)
+
+
+def test_configs_import_draw_things_requires_flatc(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        "dts_utils.configuration_build.resolve_flatc_path",
+        lambda: None,
+    )
+    src = tmp_path / "custom_configs.json"
+    src.write_text(
+        json.dumps([{"name": "A", "configuration": {"model": "a.ckpt"}}]),
+        encoding="utf-8",
+    )
+    rc = configs.main(
+        ["import-draw-things", "--source", str(src), "--directory", str(tmp_path / "out")],
+    )
+    assert rc == 2
+    assert "flatc is required" in capsys.readouterr().err
+
+
+def test_configs_import_draw_things_smoke_skipped_when_server_down(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr("dts_utils.grpc.utils.is_server_running", lambda *a, **k: False)
+    from dts_utils.configuration_build import resolve_flatc_path
+
+    if resolve_flatc_path() is None:
+        pytest.skip("flatc not installed")
+    src = tmp_path / "custom_configs.json"
+    src.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Smoke Skip",
+                    "configuration": {
+                        "model": "x.ckpt",
+                        "width": 512,
+                        "height": 512,
+                        "steps": 8,
+                        "guidanceScale": 7.5,
+                        "strength": 1.0,
+                        "seed": 0,
+                        "batchCount": 1,
+                    },
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    rc = configs.main(
+        ["import-draw-things", "--source", str(src), "--directory", str(tmp_path / "out")],
+    )
+    assert rc == 0
+    assert "Smoke skipped" in capsys.readouterr().err
 
 
 def test_configs_import_draw_things_missing_file_returns_2(tmp_path: Path) -> None:
@@ -394,11 +566,38 @@ def test_configs_import_draw_things_mirror_goes_to_subdir(monkeypatch: pytest.Mo
     monkeypatch.setattr(configs, "draw_things_container_documents", lambda: doc)
     out = tmp_path / "cfgs"
     rc = configs.main(
-        ["import-draw-things", "--source", str(src), "--directory", str(out), "--mirror-app-json"],
+        [
+            "import-draw-things",
+            "--raw",
+            "--source",
+            str(src),
+            "--directory",
+            str(out),
+            "--mirror-app-json",
+        ],
     )
     assert rc == 0
     assert (out / "alpha.json").is_file()
     assert (out / configs.DRAW_THINGS_APP_MIRROR_SUBDIR / "custom_lora.json").is_file()
+
+
+def test_stem_for_draw_things_import_uses_model_on_collision() -> None:
+    used: set[str] = set()
+    a = configs.stem_for_draw_things_import(
+        "Same",
+        {"model": "foo_f16.ckpt"},
+        used=used,
+        index=1,
+    )
+    b = configs.stem_for_draw_things_import(
+        "Same",
+        {"model": "bar_f16.ckpt"},
+        used=used,
+        index=2,
+    )
+    assert a == "same"
+    assert b == "same-bar"
+    assert a != b
 
 
 def test_scaffold_pipeline_list(capsys) -> None:

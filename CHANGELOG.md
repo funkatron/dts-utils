@@ -54,6 +54,7 @@ Example snippet for the next release:
 
 ### Changed
 
+- **`dts-utils configs import-draw-things`:** one-step import — normalize/repair each preset until **`flatc`** accepts it, write human kebab stems (disambiguate with model basename; keep original title in **`_dts_utils_import.source_name`**), and optionally smoke localhost gRPC when the server is up. Use **`--raw`** for the previous as-is copy; **`--no-smoke`** / **`--smoke-all`** control the probe.
 - **`dts-utils server list-models`:** text and **`--json`** output include local file sizes (`SIZE` as adaptive KB/MB/GB; JSON `size`, `size_bytes`, `size_mb`) by matching Echo basenames under the Draw Things Models directory (`--model-dir` / `DRAW_THINGS_MODEL_PATH`).
 
 - **`dts-utils web`:** stage batches and History rows share the same **batch summary** chrome (timestamp · image count · profile, **unexpanded/source prompt** headline with expanded fallback, **Details** dialog). History **Reuse** sits beside the prompt; **Details** / **Reuse** are compact bordered buttons. Details / **i** still show **Prompt** = expanded and **Unexpanded prompt** when different.

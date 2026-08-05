@@ -380,6 +380,26 @@
     });
   }
 
+  function updateEditProfileButton() {
+    var btn = document.getElementById("btnEditProfile");
+    if (!btn) return;
+    var custom = document.getElementById("profileCustom").value.trim();
+    if (custom) {
+      btn.disabled = true;
+      btn.title = "Clear the custom profile path in Setup to edit a saved profile";
+      return;
+    }
+    var sel = document.getElementById("profile");
+    var stem = sel && sel.value ? String(sel.value).trim() : "";
+    if (!stem) {
+      btn.disabled = true;
+      btn.title = "Select a saved profile to edit";
+      return;
+    }
+    btn.disabled = false;
+    btn.title = "Edit the selected saved profile JSON";
+  }
+
   function updateComposerMode() {
     const videoMode = isVideoProfileMode();
     const btnGen = document.getElementById("btnGen");
@@ -404,6 +424,7 @@
     }
     if (busySummary) busySummary.textContent = "Technical details (request JSON)";
     syncInputImagesUi();
+    updateEditProfileButton();
     persistUiPrefsFromComposer();
   }
 
@@ -2452,6 +2473,259 @@
     updateComposerMode();
   });
   document.getElementById("profileCustom").addEventListener("input", updateComposerMode);
+
+  (function initConfigEditDialog() {
+    var dlg = document.getElementById("configEditDialog");
+    var openBtn = document.getElementById("btnEditProfile");
+    var closeBtn = document.getElementById("btnCloseConfigEdit");
+    var saveBtn = document.getElementById("btnSaveConfigEdit");
+    var formatBtn = document.getElementById("btnFormatConfigEdit");
+    var nameEl = document.getElementById("configEditName");
+    var jsonEl = document.getElementById("configEditJson");
+    var mountEl = document.getElementById("configEditMount");
+    var statusEl = document.getElementById("configEditStatus");
+    if (!dlg || !openBtn || !jsonEl || !saveBtn) return;
+
+    var editingStem = "";
+    var cmEditor = null;
+    var cmModulePromise = null;
+    var useCodeMirror = false;
+
+    function setConfigEditStatus(text, ok) {
+      if (!statusEl) return;
+      if (!text) {
+        statusEl.hidden = true;
+        statusEl.textContent = "";
+        statusEl.className = "status";
+        return;
+      }
+      statusEl.hidden = false;
+      statusEl.textContent = text;
+      statusEl.className = ok ? "status ok" : "status bad";
+    }
+
+    function getConfigEditText() {
+      if (useCodeMirror && cmEditor) return cmEditor.getText();
+      return jsonEl.value;
+    }
+
+    function setConfigEditText(text) {
+      var next = typeof text === "string" ? text : "";
+      if (useCodeMirror && cmEditor) {
+        cmEditor.setText(next);
+        return;
+      }
+      jsonEl.value = next;
+    }
+
+    function parseConfigEditJson() {
+      var raw = getConfigEditText();
+      try {
+        var value = JSON.parse(raw);
+      } catch (e) {
+        return {
+          ok: false,
+          error: "Invalid JSON: " + String(e && e.message ? e.message : e),
+        };
+      }
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return { ok: false, error: "Configuration must be a JSON object." };
+      }
+      return { ok: true, value: value };
+    }
+
+    function refreshConfigEditValidity(opts) {
+      opts = opts || {};
+      var quietOk = !!opts.quietOk;
+      var parsed = parseConfigEditJson();
+      if (!parsed.ok) {
+        saveBtn.disabled = true;
+        setConfigEditStatus(parsed.error, false);
+        return parsed;
+      }
+      saveBtn.disabled = false;
+      if (!quietOk) {
+        setConfigEditStatus("", true);
+      } else if (statusEl && !statusEl.hidden && statusEl.className.indexOf("bad") !== -1) {
+        setConfigEditStatus("", true);
+      }
+      return parsed;
+    }
+
+    function formatConfigEditJson() {
+      var parsed = parseConfigEditJson();
+      if (!parsed.ok) {
+        saveBtn.disabled = true;
+        setConfigEditStatus(parsed.error, false);
+        return;
+      }
+      setConfigEditText(JSON.stringify(parsed.value, null, 2));
+      saveBtn.disabled = false;
+      setConfigEditStatus("Formatted.", true);
+    }
+
+    function loadConfigEditorModule() {
+      if (cmModulePromise) return cmModulePromise;
+      cmModulePromise = import("/static/config_editor.mjs")
+        .then(function (mod) {
+          if (!mod || typeof mod.mountConfigJsonEditor !== "function") {
+            throw new Error("config_editor.mjs missing mountConfigJsonEditor");
+          }
+          return mod;
+        })
+        .catch(function (err) {
+          console.warn("CodeMirror config editor unavailable; using textarea.", err);
+          return null;
+        });
+      return cmModulePromise;
+    }
+
+    function destroyCodeMirror() {
+      if (cmEditor && typeof cmEditor.destroy === "function") {
+        cmEditor.destroy();
+      }
+      cmEditor = null;
+      useCodeMirror = false;
+      if (mountEl) {
+        mountEl.hidden = true;
+        mountEl.replaceChildren();
+      }
+      jsonEl.hidden = false;
+    }
+
+    async function ensureEditorSurface(initialText) {
+      destroyCodeMirror();
+      jsonEl.value = initialText || "";
+      var mod = await loadConfigEditorModule();
+      if (!mod || !mountEl) {
+        jsonEl.hidden = false;
+        useCodeMirror = false;
+        return;
+      }
+      try {
+        cmEditor = mod.mountConfigJsonEditor(mountEl, {
+          doc: initialText || "",
+          onChange: function () {
+            refreshConfigEditValidity({ quietOk: true });
+          },
+          onSave: function () {
+            saveConfigEdit();
+          },
+        });
+        useCodeMirror = true;
+        mountEl.hidden = false;
+        jsonEl.hidden = true;
+      } catch (err) {
+        console.warn("CodeMirror mount failed; using textarea.", err);
+        destroyCodeMirror();
+      }
+    }
+
+    async function openConfigEdit() {
+      if (openBtn.disabled) return;
+      var custom = document.getElementById("profileCustom").value.trim();
+      if (custom) {
+        showComposerError("Clear the custom profile path in Setup before editing a saved profile.");
+        return;
+      }
+      var sel = document.getElementById("profile");
+      var stem = sel && sel.value ? String(sel.value).trim() : "";
+      if (!stem) {
+        showComposerError("Select a saved profile to edit.");
+        return;
+      }
+      editingStem = stem;
+      if (nameEl) nameEl.textContent = stem;
+      setConfigEditText("");
+      setConfigEditStatus("Loading…", true);
+      saveBtn.disabled = true;
+      if (typeof dlg.showModal === "function") dlg.showModal();
+      try {
+        var r = await fetch("/api/configs/" + encodeURIComponent(stem), { headers: authHeaders() });
+        var j = await r.json().catch(function () { return {}; });
+        if (!r.ok) {
+          var detail = (j && j.detail) ? String(j.detail) : ("HTTP " + r.status);
+          setConfigEditStatus(detail, false);
+          return;
+        }
+        var cfg = j && j.configuration;
+        if (!cfg || typeof cfg !== "object") {
+          setConfigEditStatus("Profile response missing configuration object.", false);
+          return;
+        }
+        var pretty = JSON.stringify(cfg, null, 2);
+        await ensureEditorSurface(pretty);
+        setConfigEditStatus("", true);
+        saveBtn.disabled = false;
+        if (useCodeMirror && cmEditor) cmEditor.focus();
+        else jsonEl.focus();
+      } catch (e) {
+        setConfigEditStatus(String(e && e.message ? e.message : e), false);
+      }
+    }
+
+    async function saveConfigEdit() {
+      if (!editingStem) return;
+      var parsed = refreshConfigEditValidity();
+      if (!parsed.ok) return;
+      setConfigEditStatus("Saving…", true);
+      saveBtn.disabled = true;
+      try {
+        var r = await fetch("/api/configs/" + encodeURIComponent(editingStem), {
+          method: "PUT",
+          headers: authHeaders({ "Content-Type": "application/json" }),
+          body: JSON.stringify({ configuration: parsed.value }),
+        });
+        var j = await r.json().catch(function () { return {}; });
+        if (!r.ok) {
+          var detail = (j && j.detail) ? String(j.detail) : ("HTTP " + r.status);
+          setConfigEditStatus(detail, false);
+          saveBtn.disabled = false;
+          return;
+        }
+        if (j && j.configuration && typeof j.configuration === "object") {
+          setConfigEditText(JSON.stringify(j.configuration, null, 2));
+        }
+        var noteText = "";
+        if (Array.isArray(j.notes) && j.notes.length) {
+          noteText = " Notes: " + j.notes.join("; ") + ".";
+        }
+        setConfigEditStatus("Saved." + noteText, true);
+        saveBtn.disabled = false;
+      } catch (e) {
+        setConfigEditStatus(String(e && e.message ? e.message : e), false);
+        saveBtn.disabled = false;
+      }
+    }
+
+    openBtn.addEventListener("click", function () {
+      openConfigEdit();
+    });
+    if (closeBtn) {
+      closeBtn.addEventListener("click", function () {
+        if (typeof dlg.close === "function") dlg.close();
+      });
+    }
+    saveBtn.addEventListener("click", function () {
+      saveConfigEdit();
+    });
+    if (formatBtn) {
+      formatBtn.addEventListener("click", function () {
+        formatConfigEditJson();
+      });
+    }
+    jsonEl.addEventListener("input", function () {
+      if (useCodeMirror) return;
+      refreshConfigEditValidity({ quietOk: true });
+    });
+    dlg.addEventListener("keydown", function (ev) {
+      if (!(ev.metaKey || ev.ctrlKey)) return;
+      if (ev.key !== "s" && ev.key !== "S") return;
+      if (!dlg.open) return;
+      ev.preventDefault();
+      saveConfigEdit();
+    });
+  })();
   (function initInputImagesUi() {
     var inputEl = document.getElementById("inputImages");
     var dropzone = document.getElementById("inputImagesDropzone");

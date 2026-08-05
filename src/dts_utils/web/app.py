@@ -18,7 +18,8 @@ from pathlib import Path
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import FileResponse, HTMLResponse, JSONResponse, Response, StreamingResponse
-from starlette.routing import Route
+from starlette.routing import Mount, Route
+from starlette.staticfiles import StaticFiles
 from starlette.templating import Jinja2Templates
 
 from dts_utils.configs import (
@@ -29,6 +30,7 @@ from dts_utils.configs import (
     list_configuration_names,
     user_config_dir,
 )
+from dts_utils.configuration_build import prepare_configuration_for_generate
 from dts_utils.web.log_io import web_log_info
 from dts_utils.exceptions import (
     ChannelSetupError,
@@ -65,6 +67,7 @@ from dts_utils.pipeline.run_plan import (
 from dts_utils.pipeline.runner import PipelineRunner
 
 _templates_dir = Path(__file__).resolve().parent / "templates"
+_static_dir = Path(__file__).resolve().parent / "static"
 templates = Jinja2Templates(directory=str(_templates_dir))
 
 _DEFAULT_GENERATE_TIMEOUT = 900.0
@@ -642,6 +645,73 @@ async def api_config_detail(request: Request) -> JSONResponse:
             "configuration": body,
         }
     )
+
+
+async def api_config_put(request: Request) -> JSONResponse:
+    """Write a saved profile JSON after flatc prepare/repair (stem-only, never cwd)."""
+    if err := _require_bearer(request):
+        return err
+    name = str(request.path_params.get("name") or "").strip()
+    if not _safe_config_profile_name(name):
+        return JSONResponse({"detail": "Invalid configuration name."}, status_code=400)
+    stem = name[:-5] if name.lower().endswith(".json") else name
+
+    try:
+        body = await request.json()
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return JSONResponse({"detail": "Expected JSON body."}, status_code=400)
+
+    if isinstance(body, dict) and "configuration" in body:
+        cfg = body.get("configuration")
+    else:
+        cfg = body
+    if not isinstance(cfg, dict):
+        return JSONResponse({"detail": "configuration must be a JSON object."}, status_code=400)
+
+    preserved_meta: dict[str, object] = {}
+    try:
+        existing_path = _saved_profile_path_for_web(stem)
+        with existing_path.open(encoding="utf-8") as handle:
+            existing = json.load(handle)
+        if isinstance(existing, dict):
+            for key, value in existing.items():
+                if isinstance(key, str) and key.startswith("_dts_utils"):
+                    preserved_meta[key] = value
+    except (ValueError, OSError, json.JSONDecodeError):
+        pass
+
+    for key, value in cfg.items():
+        if isinstance(key, str) and key.startswith("_dts_utils"):
+            preserved_meta[key] = value
+
+    try:
+        prepared, notes = prepare_configuration_for_generate(cfg)
+    except ConfigurationError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    out_obj: dict[str, object] = dict(prepared)
+    for key, value in preserved_meta.items():
+        out_obj[key] = value
+
+    dest_dir = configurations_dir()
+    try:
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest = dest_dir / f"{stem}.json"
+        text = json.dumps(out_obj, indent=2, sort_keys=True) + "\n"
+        tmp = dest.with_suffix(dest.suffix + ".tmp")
+        tmp.write_text(text, encoding="utf-8")
+        tmp.replace(dest)
+    except OSError as exc:
+        return JSONResponse({"detail": f"Could not write configuration: {exc}"}, status_code=500)
+
+    payload: dict[str, object] = {
+        "name": stem,
+        "path": str(dest),
+        "configuration": out_obj,
+    }
+    if notes:
+        payload["notes"] = notes
+    return JSONResponse(payload)
 
 
 async def index(request: Request) -> Response:
@@ -1380,6 +1450,7 @@ def create_app() -> Starlette:
         Route("/api/server-status", server_status, methods=["GET"]),
         Route("/api/configs", api_configs, methods=["GET"]),
         Route("/api/configs/{name:str}", api_config_detail, methods=["GET"]),
+        Route("/api/configs/{name:str}", api_config_put, methods=["PUT"]),
         Route("/api/history", api_history, methods=["GET", "DELETE"]),
         Route("/api/history/{item_id:str}/artifacts", api_history_artifacts, methods=["GET"]),
         Route("/api/prompt/expand", api_prompt_expand, methods=["GET", "POST"]),
@@ -1393,5 +1464,6 @@ def create_app() -> Starlette:
             methods=["GET"],
         ),
         Route("/history/{item_id:str}/{filename:str}", history_image, methods=["GET"]),
+        Mount("/static", StaticFiles(directory=str(_static_dir)), name="static"),
     ]
     return Starlette(routes=routes)

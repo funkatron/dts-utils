@@ -41,6 +41,8 @@ Example snippet for the next release:
 
 ### Added
 
+- **`dts-utils web`:** **Edit profile** dialog + **`PUT /api/configs/{name}`** — edit and save a selected saved-profile JSON (flatc prepare/repair gate; preserves **`_dts_utils*`** metadata; stem-only writes under the configurations directory).
+- **`dts-utils web`:** Edit profile JSON uses a **vendored CodeMirror 6** bundle (`/static/config_editor.mjs`, offline) with **Format**, live parse validation, and ⌘S / Ctrl+S; falls back to a monospace textarea if the module cannot load.
 - **`dts-utils web`:** responsive generation-job tiles open images fullscreen and expose an **i** details dialog; uncapped prompt/config history is now written directly by the server with a metadata-only index and separate PNG artifacts, avoiding browser-side base64 history uploads.
 - **`dts-utils web`:** History now uses the complete shared tile styling in a wide responsive grid, keeps its footer fixed, resets scroll when opened, and removes duplicate download links.
 - **`dts-utils web`:** **`GET /api/configs/{name}`** returns a saved profile’s JSON; generation **Details** shows **Configuration JSON** (live fetch or history snapshot).

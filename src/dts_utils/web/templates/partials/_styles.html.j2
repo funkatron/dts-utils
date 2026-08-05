@@ -590,6 +590,66 @@
       font-size: 0.78rem;
       padding: 0.25rem 0.4rem;
     }
+    button.btn-edit-profile {
+      flex: 0 0 auto;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.45rem;
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.btn-edit-profile:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .config-edit-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0.35rem;
+      flex: 0 0 auto;
+    }
+    .config-edit-toolbar .btn-secondary {
+      padding: 0.25rem 0.55rem;
+      font-size: 0.75rem;
+    }
+    .config-edit-mount {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 12rem;
+      margin: 0 0 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #25262b;
+      overscroll-behavior: contain;
+    }
+    .config-edit-mount .cm-editor {
+      height: 100%;
+      outline: none;
+    }
+    .config-edit-mount .cm-scroller {
+      overscroll-behavior: contain;
+    }
+    .config-edit-mount .cm-focused {
+      outline: 1px solid var(--accent);
+    }
+    textarea.config-edit-json {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 12rem;
+      font-family: var(--dts-mono);
+      font-size: 0.78rem;
+      line-height: 1.35;
+      resize: none;
+      margin: 0.35rem 0 0.5rem;
+      overflow: auto;
+      overscroll-behavior: contain;
+    }
     #statusComposerListener {
       white-space: nowrap;
       flex: 0 0 auto;
@@ -813,6 +873,33 @@
       max-width: 26rem;
       width: calc(100vw - 2rem);
       max-height: min(85vh, 640px);
+    }
+    dialog.tools-dialog#configEditDialog {
+      max-width: min(48rem, calc(100vw - 2rem));
+      width: min(48rem, calc(100vw - 2rem));
+      height: min(90vh, 720px);
+      max-height: min(90vh, 720px);
+      overflow: hidden;
+      flex-direction: column;
+    }
+    dialog.tools-dialog#configEditDialog[open] {
+      display: flex;
+    }
+    #configEditDialog .tools-dialog-inner {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #configEditDialog .tools-dialog-inner > h2,
+    #configEditDialog .tools-dialog-inner > .hint,
+    #configEditDialog .tools-dialog-inner > #configEditStatus {
+      flex: 0 0 auto;
+    }
+    #configEditDialog .dialog-actions-split {
+      flex: 0 0 auto;
     }
     dialog#historyDialog {
       width: min(76rem, calc(100vw - 2rem));

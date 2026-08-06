@@ -441,22 +441,113 @@
       gap: 0.45rem;
       min-width: 0;
     }
+    .prompt-editor {
+      --prompt-line-height: 1.35;
+      --prompt-font-size: 0.88rem;
+      --prompt-pad-y: 0.5rem;
+      --prompt-lines: 3;
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #25262b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+      overflow: hidden;
+      min-height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+    }
+    .prompt-editor.is-focused {
+      --prompt-lines: 6;
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .prompt-editor-levers {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-bottom: 1px solid var(--border);
+      background: #1f2228;
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+    .prompt-editor-levers[hidden] {
+      display: none;
+    }
+    .prompt-editor-lever-hint {
+      margin-left: auto;
+      color: var(--accent);
+    }
+    .prompt-editor-mount {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+    }
+    .prompt-editor-mount .cm-editor {
+      height: 100%;
+      background: transparent;
+    }
+    .prompt-editor-mount .cm-scroller {
+      font-family: var(--dts-mono);
+    }
+    .prompt-editor-mount .cm-dts-wildcard {
+      color: #2AA198;
+      background: rgba(42, 161, 152, 0.12);
+      border-radius: 2px;
+    }
+    .prompt-editor-mount .cm-dts-wildcard-sep {
+      color: #CB4B16;
+      background: rgba(203, 75, 22, 0.22);
+      border-radius: 3px;
+      padding: 0 0.18em;
+      margin: 0 0.05em;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(203, 75, 22, 0.35);
+    }
     textarea#prompt {
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
-      min-height: 2.85rem;
-      max-height: min(30vh, 12rem);
-      resize: vertical;
+      min-height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+      height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+      max-height: none;
+      resize: none;
       font-family: var(--dts-mono);
-      font-size: 0.88rem;
-      line-height: 1.35;
-      background: #25262b;
-      border: 1px solid var(--border);
+      font-size: var(--prompt-font-size);
+      line-height: var(--prompt-line-height);
+      background: transparent;
+      border: none;
       color: var(--fg);
-      border-radius: 6px;
-      padding: 0.5rem 0.6rem;
+      border-radius: 0;
+      padding: var(--prompt-pad-y) 0.6rem;
       box-sizing: border-box;
+    }
+    .prompt-editor.has-cm textarea#prompt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     /* Runs | Generate — stretched to match #prompt height; #elapsed is below */
     .split-run-gen {
@@ -547,6 +638,9 @@
       display: inline-flex;
     }
     textarea#prompt:focus-visible {
+      outline: none;
+    }
+    .prompt-editor:not(.has-cm):focus-within {
       outline: 2px solid var(--accent);
       outline-offset: 1px;
     }

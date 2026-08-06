@@ -504,8 +504,30 @@ def test_index_includes_config_editor(client: TestClient) -> None:
     static_js = client.get("/static/config_editor.mjs")
     assert static_js.status_code == 200
     assert "mountConfigJsonEditor" in static_js.text
+    assert "mountPromptEditor" in static_js.text
+    assert "cm-dts-wildcard-sep" in static_js.text
     assert "esm.sh" not in static_js.text
     assert len(static_js.content) > 50_000
+
+
+def test_index_includes_prompt_editor(client: TestClient) -> None:
+    text = client.get("/").text
+    assert 'id="promptEditor"' in text
+    assert 'id="promptEditorMount"' in text
+    assert 'id="promptEditorLevers"' in text
+    assert "prompt-editor-levers" in text
+    assert "initPromptEditor" in text
+    assert "mountPromptEditor" in text
+    assert "setPromptText" in text
+    assert "setPromptEditorFocused" in text
+    assert "cleanupAbortedResultGroup" in text
+    assert "resultSlotIsFinal" in text
+    # AbortError path must call the cleanup helper (contract).
+    abort_idx = text.find('e.name === "AbortError"')
+    assert abort_idx != -1
+    assert "cleanupAbortedResultGroup" in text[abort_idx : abort_idx + 800]
+    assert ".cm-dts-wildcard-sep" in text
+    assert "--prompt-lines: 6" in text or "--prompt-lines:6" in text.replace(" ", "")
 
 
 def test_generate_missing_prompt(client: TestClient) -> None:

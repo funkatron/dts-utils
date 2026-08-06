@@ -1197,6 +1197,74 @@
     }
   }
 
+  /** True when a slot has a finished (non-pending, non-preview) image or video. */
+  function resultSlotIsFinal(tile) {
+    if (!tile || tile.classList.contains("result-slot--pending")) return false;
+    var img = tile.querySelector("img");
+    if (img && img.src && !img.classList.contains("result-inflight")) return true;
+    var vid = tile.querySelector("video");
+    if (vid && vid.src && !vid.classList.contains("result-inflight")) return true;
+    return false;
+  }
+
+  /**
+   * On Stop / AbortError: keep final images; remove unfinished pending/preview slots;
+   * restamp batch meta; drop empty groups and restore placeholder when stage is empty.
+   */
+  function cleanupAbortedResultGroup(groupApi, opts) {
+    opts = opts || {};
+    if (!groupApi || !groupApi.group) {
+      return { removed: true, kept: 0 };
+    }
+    var thumbs = groupApi.thumbs || groupApi.group.querySelector(".result-group-thumbs");
+    var slots = [];
+    if (thumbs) {
+      slots = Array.prototype.slice.call(thumbs.querySelectorAll(".result-slot"));
+    }
+    var kept = 0;
+    var i;
+    for (i = 0; i < slots.length; i++) {
+      var tile = slots[i];
+      if (resultSlotIsFinal(tile)) {
+        kept += 1;
+        continue;
+      }
+      if (tile._slotBlobUrl) {
+        revokeTrackedBlobUrl(tile._slotBlobUrl);
+        tile._slotBlobUrl = null;
+      }
+      var media = tile.querySelector("img, video");
+      if (media && media.src && media.src.indexOf("blob:") === 0) {
+        try {
+          URL.revokeObjectURL(media.src);
+        } catch (e) {}
+      }
+      tile.remove();
+    }
+    groupApi.imageCount = kept;
+    var resultsEl = document.getElementById("results");
+    var placeholder = document.getElementById("resultPlaceholder");
+    if (kept === 0) {
+      groupApi.group.remove();
+      if (placeholder && resultsEl) {
+        placeholder.hidden = resultsEl.querySelector(".result-group, .result-slot") != null;
+      }
+      return { removed: true, kept: 0 };
+    }
+    var stamp = opts.timestamp || ("Stopped · " + new Date().toLocaleString());
+    stampResultGroupDone(groupApi, {
+      timestamp: stamp,
+      image_count: kept,
+      response_summary: opts.response_summary || "Cancelled before completion.",
+      request_json: opts.request_json,
+      configuration: opts.configuration,
+    });
+    if (placeholder && resultsEl) {
+      placeholder.hidden = resultsEl.querySelector(".result-group") != null;
+    }
+    return { removed: false, kept: kept };
+  }
+
   function getResultSlotByRun(thumbsEl, run) {
     if (!thumbsEl || !run || run < 1) return null;
     var slots = thumbsEl.querySelectorAll(".result-slot");
@@ -1374,7 +1442,7 @@
     var restoredOptional = [];
 
     var restorePrompt = entry.unexpanded_prompt || entry.prompt || "";
-    promptEl.value = String(restorePrompt);
+    setPromptText(String(restorePrompt));
 
     var restoreNegative = "";
     if (typeof entry.unexpanded_negative_prompt === "string") {
@@ -1407,6 +1475,10 @@
     var dlg = document.getElementById("historyDialog");
     if (dlg && typeof dlg.close === "function") dlg.close();
     window.setTimeout(function () {
+      if (promptEditorApi && typeof promptEditorApi.focus === "function") {
+        promptEditorApi.focus();
+        return;
+      }
       promptEl.focus();
       try {
         promptEl.setSelectionRange(promptEl.value.length, promptEl.value.length);
@@ -1634,102 +1706,115 @@
     attachConfigurationSnapshot(groupApi, body.profile || body.configuration || "");
     var thumbs = groupApi ? groupApi.thumbs : results;
 
-    const r = await fetch("/api/generate/stream", {
-      method: "POST",
-      headers: authHeaders({
-        "Content-Type": "application/json",
-        Accept: "text/event-stream",
-      }),
-      body: JSON.stringify(body),
-      signal: ac.signal,
-    });
-
-    if (r.status === 401) {
-      showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
-      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
-      placeholder.hidden = results.querySelector(".result-group") != null;
-      return;
-    }
-    if (!r.ok) {
-      let msg = r.statusText;
-      try {
-        const j = await r.json();
-        msg = j.detail || msg;
-      } catch (_) {}
-      showComposerError(msg);
-      if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
-      placeholder.hidden = results.querySelector(".result-group") != null;
-      return;
-    }
-
-    let artifactCount = 0;
-    await readSSEStream(r, async function (msg) {
-      if (msg.type === "meta") {
-        const prog = document.getElementById("busyProgress");
-        if (prog) prog.textContent = "Building video · " + msg.profile + " · run " + msg.run_id;
-      }
-      if (msg.type === "progress" && msg.message) {
-        const prog = document.getElementById("busyProgress");
-        if (prog) prog.textContent = msg.message;
-      }
-      if (msg.type === "artifact" && msg.url) {
-        placeholder.hidden = true;
-        const ar = await fetch(msg.url, { headers: authHeaders() });
-        if (!ar.ok) return;
-        const blob = await ar.blob();
-        const url = URL.createObjectURL(blob);
-        __dtsResultBlobUrls.push(url);
-        const wrap = document.createElement("div");
-        wrap.className = "result-slot";
-        if (msg.kind === "video") {
-          const vid = document.createElement("video");
-          vid.src = url;
-          vid.controls = true;
-          vid.className = "result-inflight";
-          wrap.appendChild(vid);
-        } else {
-          const img = document.createElement("img");
-          img.src = url;
-          img.alt = msg.step_id + " " + msg.filename;
-          img.className = "result-inflight";
-          wrap.appendChild(img);
-        }
-        const artifactDetails = {
-          configuration: body.profile || body.configuration || "",
-          run: msg.step_id || "",
-          generated: new Date().toLocaleString(),
-        };
-        appendSlotActions(wrap, artifactDetails, {
-          href: url,
-          downloadName: msg.filename || "artifact",
-        });
-        wrap._generationDetails = artifactDetails;
-        thumbs.appendChild(wrap);
-        artifactCount += 1;
-      }
-      if (msg.type === "done") {
-        renderVideoDonePanel(msg);
-        trackRecentProfile(effectiveProfile());
-      }
-      if (msg.type === "error") {
-        showComposerError(msg.detail || "Generate failed.");
-      }
-    });
-
-    const dt = ((performance.now() - t0) / 1000).toFixed(1);
-    elapsed.textContent = "Done in " + dt + "s";
-    thumbs.querySelectorAll(".result-inflight").forEach(function (el) {
-      el.classList.remove("result-inflight");
-    });
-    if (groupApi) {
-      stampResultGroupDone(groupApi, {
-        timestamp: new Date().toLocaleString(),
-        elapsed: dt + "s",
-        request_json: requestJson,
-        response_summary: "Artifacts: " + artifactCount + "\nElapsed: " + dt + "s",
+    try {
+      const r = await fetch("/api/generate/stream", {
+        method: "POST",
+        headers: authHeaders({
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        }),
+        body: JSON.stringify(body),
+        signal: ac.signal,
       });
+
+      if (r.status === 401) {
+        showComposerError("Unauthorized — set DTS_WEB_TOKEN and reload.");
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+        placeholder.hidden = results.querySelector(".result-group") != null;
+        return;
+      }
+      if (!r.ok) {
+        let msg = r.statusText;
+        try {
+          const j = await r.json();
+          msg = j.detail || msg;
+        } catch (_) {}
+        showComposerError(msg);
+        if (groupApi) stampResultGroupDone(groupApi, { timestamp: "Failed", request_json: requestJson });
+        placeholder.hidden = results.querySelector(".result-group") != null;
+        return;
+      }
+
+      let artifactCount = 0;
+      await readSSEStream(r, async function (msg) {
+        if (msg.type === "meta") {
+          const prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = "Building video · " + msg.profile + " · run " + msg.run_id;
+        }
+        if (msg.type === "progress" && msg.message) {
+          const prog = document.getElementById("busyProgress");
+          if (prog) prog.textContent = msg.message;
+        }
+        if (msg.type === "artifact" && msg.url) {
+          placeholder.hidden = true;
+          const ar = await fetch(msg.url, { headers: authHeaders() });
+          if (!ar.ok) return;
+          const blob = await ar.blob();
+          const url = URL.createObjectURL(blob);
+          __dtsResultBlobUrls.push(url);
+          const wrap = document.createElement("div");
+          wrap.className = "result-slot";
+          if (msg.kind === "video") {
+            const vid = document.createElement("video");
+            vid.src = url;
+            vid.controls = true;
+            wrap.appendChild(vid);
+          } else {
+            const img = document.createElement("img");
+            img.src = url;
+            img.alt = msg.step_id + " " + msg.filename;
+            wrap.appendChild(img);
+          }
+          const artifactDetails = {
+            configuration: body.profile || body.configuration || "",
+            run: msg.step_id || "",
+            generated: new Date().toLocaleString(),
+          };
+          appendSlotActions(wrap, artifactDetails, {
+            href: url,
+            downloadName: msg.filename || "artifact",
+          });
+          wrap._generationDetails = artifactDetails;
+          thumbs.appendChild(wrap);
+          artifactCount += 1;
+        }
+        if (msg.type === "done") {
+          renderVideoDonePanel(msg);
+          trackRecentProfile(effectiveProfile());
+        }
+        if (msg.type === "error") {
+          showComposerError(msg.detail || "Generate failed.");
+        }
+      });
+
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+      elapsed.textContent = "Done in " + dt + "s";
+      thumbs.querySelectorAll(".result-inflight").forEach(function (el) {
+        el.classList.remove("result-inflight");
+      });
+      if (groupApi) {
+        stampResultGroupDone(groupApi, {
+          timestamp: new Date().toLocaleString(),
+          elapsed: dt + "s",
+          request_json: requestJson,
+          response_summary: "Artifacts: " + artifactCount + "\nElapsed: " + dt + "s",
+          image_count: artifactCount,
+        });
+      }
+      placeholder.hidden = results.querySelector(".result-group") != null;
+    } catch (e) {
+      if (e.name === "AbortError") {
+        if (groupApi) {
+          cleanupAbortedResultGroup(groupApi, {
+            timestamp: "Stopped · " + new Date().toLocaleString(),
+            response_summary: "Cancelled before completion.",
+            request_json: requestJson,
+            configuration: body.profile || body.configuration || "",
+          });
+        }
+      }
+      throw e;
     }
-    placeholder.hidden = results.querySelector(".result-group") != null;
   }
 
   async function runComposerAction() {
@@ -1804,6 +1889,8 @@
 
     setGeneratingUi(true, t0, timerRef, "");
     var groupApi = null;
+    var body = null;
+    var payloadPreview = "";
 
     try {
       const expandRes = await fetch("/api/prompt/expand", {
@@ -1835,9 +1922,9 @@
       }
 
       const expanded = await expandRes.json();
-      let body = buildResolvedGenerateBody(expanded, generations);
+      body = buildResolvedGenerateBody(expanded, generations);
       body = await attachInputImagesToBody(body);
-      const payloadPreview = formatGenerateBodyForDisplay(body);
+      payloadPreview = formatGenerateBodyForDisplay(body);
       setGeneratingUi(true, t0, timerRef, payloadPreview);
 
       var slotCount = parseInt(body.generations, 10);
@@ -2008,9 +2095,11 @@
         showComposerError("");
         elapsed.textContent = "Stopped";
         if (groupApi) {
-          stampResultGroupDone(groupApi, {
+          cleanupAbortedResultGroup(groupApi, {
             timestamp: "Stopped · " + new Date().toLocaleString(),
             response_summary: "Cancelled before completion.",
+            request_json: payloadPreview,
+            configuration: body && body.configuration,
           });
         }
       } else {
@@ -2436,6 +2525,150 @@
     e.preventDefault();
     runComposerAction();
   });
+
+  var promptEditorApi = null;
+  var promptEditorModulePromise = null;
+
+  function syncPromptCanonical(text) {
+    var promptEl = document.getElementById("prompt");
+    if (!promptEl) return;
+    var next = typeof text === "string" ? text : "";
+    if (promptEl.value !== next) {
+      promptEl.value = next;
+    }
+  }
+
+  function setPromptText(text) {
+    var next = typeof text === "string" ? text : "";
+    syncPromptCanonical(next);
+    if (promptEditorApi && typeof promptEditorApi.setText === "function") {
+      promptEditorApi.setText(next);
+    }
+  }
+
+  function updatePromptLeverBar() {
+    var countEl = document.getElementById("promptBraceCount");
+    if (!countEl) return;
+    var n = 0;
+    if (promptEditorApi && typeof promptEditorApi.countBraceGroups === "function") {
+      n = promptEditorApi.countBraceGroups();
+    } else {
+      var promptEl = document.getElementById("prompt");
+      var text = promptEl ? promptEl.value : "";
+      var i = 0;
+      var len = text.length;
+      while (i < len) {
+        if (text[i] !== "{") {
+          i += 1;
+          continue;
+        }
+        var depth = 1;
+        var k = i + 1;
+        while (k < len && depth > 0) {
+          if (text[k] === "{") depth += 1;
+          else if (text[k] === "}") depth -= 1;
+          k += 1;
+        }
+        if (depth !== 0) break;
+        n += 1;
+        i = k;
+      }
+    }
+    var label = n === 1 ? "1 brace group" : n + " brace groups";
+    countEl.textContent = label;
+  }
+
+  function setPromptEditorFocused(on) {
+    var root = document.getElementById("promptEditor");
+    var levers = document.getElementById("promptEditorLevers");
+    var hint = document.getElementById("composerShortcutHint");
+    if (root) {
+      if (on) root.classList.add("is-focused");
+      else root.classList.remove("is-focused");
+    }
+    if (levers) {
+      levers.hidden = !on;
+    }
+    if (hint) {
+      hint.hidden = !!on;
+    }
+    if (on) updatePromptLeverBar();
+    if (promptEditorApi && typeof promptEditorApi.setFocusedChrome === "function") {
+      promptEditorApi.setFocusedChrome(on);
+    }
+  }
+
+  function loadPromptEditorModule() {
+    if (promptEditorModulePromise) return promptEditorModulePromise;
+    promptEditorModulePromise = import("/static/config_editor.mjs")
+      .then(function (mod) {
+        if (!mod || typeof mod.mountPromptEditor !== "function") {
+          throw new Error("config_editor.mjs missing mountPromptEditor");
+        }
+        return mod;
+      })
+      .catch(function (err) {
+        console.warn("CodeMirror prompt editor unavailable; using textarea.", err);
+        return null;
+      });
+    return promptEditorModulePromise;
+  }
+
+  async function initPromptEditor() {
+    var root = document.getElementById("promptEditor");
+    var mountEl = document.getElementById("promptEditorMount");
+    var promptEl = document.getElementById("prompt");
+    if (!root || !mountEl || !promptEl) return;
+
+    promptEl.addEventListener("focus", function () {
+      setPromptEditorFocused(true);
+    });
+    promptEl.addEventListener("blur", function () {
+      setPromptEditorFocused(false);
+    });
+    promptEl.addEventListener("input", function () {
+      updatePromptLeverBar();
+    });
+    promptEl.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") {
+        promptEl.blur();
+      }
+    });
+
+    var mod = await loadPromptEditorModule();
+    if (!mod) return;
+
+    try {
+      promptEditorApi = mod.mountPromptEditor(mountEl, {
+        doc: promptEl.value || "",
+        placeholder: promptEl.getAttribute("placeholder") || "",
+        onChange: function (text) {
+          syncPromptCanonical(text);
+          updatePromptLeverBar();
+        },
+        onGenerate: function () {
+          runComposerAction();
+        },
+        onFocusChange: function (focused) {
+          setPromptEditorFocused(!!focused);
+        },
+      });
+      root.classList.add("has-cm");
+      mountEl.hidden = false;
+      updatePromptLeverBar();
+      if (document.activeElement === promptEl || promptEl.hasAttribute("autofocus")) {
+        promptEditorApi.focus();
+      }
+    } catch (err) {
+      console.warn("CodeMirror prompt mount failed; using textarea.", err);
+      promptEditorApi = null;
+      root.classList.remove("has-cm");
+      mountEl.hidden = true;
+      mountEl.replaceChildren();
+    }
+  }
+
+  initPromptEditor();
 
   (function setupDialog() {
     const dlg = document.getElementById("toolsDialog");

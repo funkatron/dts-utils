@@ -48,7 +48,14 @@
         <span class="hint" style="font-size:0.65rem;margin:0" id="composerShortcutHint">⌘↵ · Ctrl+Enter generate</span>
       </div>
       <div class="composer-input-row">
-        <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="1"></textarea>
+        <div class="prompt-editor" id="promptEditor">
+          <div class="prompt-editor-levers" id="promptEditorLevers" hidden>
+            <span class="prompt-editor-lever" id="promptBraceCount" aria-live="polite">0 brace groups</span>
+            <span class="prompt-editor-lever prompt-editor-lever-hint">⌘↵ generate</span>
+          </div>
+          <div class="prompt-editor-mount" id="promptEditorMount" hidden></div>
+          <textarea id="prompt" autofocus placeholder="Describe what to build — subject, style, lighting…" autocomplete="off" rows="3"></textarea>
+        </div>
         <div class="split-run-gen" role="group" aria-label="Runs, generate, or stop">
           <select id="generations" autocomplete="off" aria-label="Runs" title="Runs — each run sends one entry from the expanded prompts array">
             {% for n in range(1, 26) %}

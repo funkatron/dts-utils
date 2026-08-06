@@ -352,7 +352,7 @@ def test_configurations_equivalent_for_flatbuffer_aliases_and_metadata():
     module = load_generate_image_module()
     eq = module.configurations_equivalent_for_flatbuffer
 
-    # Dimension keys are always divided by 64 (pixel counts), same as width/height aliases.
+    # Snake_case pixel dimensions divide by 64, same as width/height aliases.
     base_snake = {
         "start_width": 768,
         "start_height": 1024,

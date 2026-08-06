@@ -496,9 +496,9 @@ def import_draw_things_saved_configs(
 ) -> int:
     """Split Draw Things ``custom_configs.json`` into ``OUT_DIR/<stem>.json`` profiles.
 
-    By default each preset is normalized and repaired until ``flatc`` accepts it, then written
-    under a human-useful kebab stem. Pass ``raw=True`` to copy the inner ``configuration`` as-is
-    (legacy behavior).
+    By default each preset is prepared until ``flatc`` accepts it (snake_case keys,
+    dimension fields in **pixels**), then written under a human-useful kebab stem.
+    Pass ``raw=True`` to copy the inner ``configuration`` as-is (legacy behavior).
 
     With ``mirror_app_json``, auxiliary ``Models/custom*.json`` (etc.) are copied under
     ``OUT_DIR/draw-things-app/`` only—they are **not** valid ``--configuration`` inputs for

@@ -419,6 +419,9 @@ def test_configs_import_draw_things_writes_profiles(
     alpha = json.loads((out / "alpha.json").read_text())
     assert alpha["model"] == "a.ckpt"
     assert alpha["_dts_utils_import"]["source_name"] == "Alpha"
+    # Prepared profiles store pixels (not flatc 64-unit scale) so generate divides once.
+    assert alpha["start_width"] == 512
+    assert alpha["start_height"] == 512
     assert (out / "same.json").is_file()
     assert (out / "same-c-model.json").is_file()
 

@@ -16,7 +16,7 @@ This project is alpha (0.x). Expect breaking changes; pin a commit or version if
 
 - Python 3.12+ and [`uv`](https://github.com/astral-sh/uv).
 - macOS only if you use `dts-utils server …` to install or manage `gRPCServerCLI` with LaunchAgent. `generate`, `reflect`, `dts-utils web`, and **`dts-utils-mcp`** run anywhere Python can reach the server.
-- [`flatc`](https://github.com/google/flatbuffers) when you pass JSON configuration (conversion uses the bundled `config.fbs`; `dts-utils` checks `PATH` plus common macOS package-manager locations).
+- [`flatc`](https://github.com/google/flatbuffers) for generation configuration (JSON → FlatBuffer via the bundled `config.fbs`; `dts-utils` checks `PATH` plus common macOS package-manager locations).
 
 ---
 
@@ -105,15 +105,14 @@ Manual / global config, full tool list, optional lifecycle gate: [CLI.md § MCP]
 
 `dts-utils generate` (explicit subcommand) requires a Draw Things configuration via `--configuration` or `--configuration-json`. Without one it exits before opening a stream.
 
-`--configuration VALUE` accepts three forms:
+`--configuration VALUE` accepts JSON only:
 
 | You pass | Resolution |
 | --- | --- |
 | A name like `portrait` (no slashes, not an existing path) | `portrait.json` inside the directory printed by `dts-utils configs path`. |
 | A `.json` file path | Converted to FlatBuffer bytes with `flatc` and the bundled `config.fbs`. |
-| Any other existing file | Read as raw FlatBuffer bytes; extension may differ from `.bin`. |
 
-`--configuration-json` is JSON-only (name or path) and is mutually exclusive with `--configuration`. Most people use `--configuration` only.
+Non-JSON paths (including raw FlatBuffer `.fb` / `.bin`) are rejected. `--configuration-json` is the same resolution (name or `.json` path) and is mutually exclusive with `--configuration`. Most people use `--configuration` only.
 
 Saved configs:
 
@@ -129,7 +128,7 @@ Default locations: **macOS**, **Linux**, and other Unix-like systems use **`~/.c
 
 When you run prompt-first shorthand (`dts-utils "prompt"`, optional profile as the second argument, optional flags after that), configuration is chosen in this order:
 
-1. Second positional argument, if present (same resolution as `--configuration`: saved name, path to `.json`, or raw FlatBuffer path).
+1. Second positional argument, if present (same resolution as `--configuration`: saved name or path to `.json`).
 2. `DTS_UTILS_DEFAULT_CONFIGURATION`, if set and non-empty (name or path).
 3. Otherwise the saved profile `default` (`default.json` next to `dts-utils configs path`).
    - If `default.json` is missing but `zit.json` exists there (older installs), the tool renames `zit.json` → `default.json` once.

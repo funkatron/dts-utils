@@ -92,10 +92,22 @@ def list_configuration_names(config_dir: Path | None = None) -> list[str]:
 
 
 def resolve_configuration_value(value: str | Path, config_dir: Path | None = None) -> Path:
-    """Resolve a path or saved JSON config name to an on-disk file."""
+    """Resolve a path or saved JSON config name to an on-disk ``.json`` file.
+
+    Generation configuration is JSON-only: existing paths must end with ``.json``,
+    and bare names resolve to ``STEM.json`` under the saved-config search path.
+    Raw FlatBuffer files (``.fb`` / ``.bin``) are rejected.
+    """
     raw_value = str(value)
     explicit_path = Path(raw_value).expanduser()
     if explicit_path.exists():
+        if explicit_path.suffix.lower() != ".json":
+            raise ValueError(
+                f"Configuration must be a JSON file (.json); got {explicit_path} "
+                f"(suffix {explicit_path.suffix!r}). "
+                "Raw FlatBuffer (.fb/.bin) paths are not accepted. "
+                "Pass a .json path or a saved profile name (`dts-utils configs list`)."
+            )
         return explicit_path
 
     if explicit_path.is_absolute():
@@ -104,13 +116,16 @@ def resolve_configuration_value(value: str | Path, config_dir: Path | None = Non
     if explicit_path.parent != Path("."):
         raise ValueError(f"Configuration file not found: {explicit_path}")
 
-    # Single path component: either a saved profile stem or a raw FlatBuffer next to cwd.
+    # Single path component: saved profile stem (or explicit ``foo.json`` name).
     # Pathlib treats the last dotted segment as ``suffix`` (e.g. ``dreamshaper-v6.31`` → ``.31``),
     # so we cannot reject "unknown extensions" without breaking community preset stems.
     suffix_lower = explicit_path.suffix.lower()
-    raw_flatbuffer_suffixes = frozenset({".fb", ".bin"})
-    if suffix_lower in raw_flatbuffer_suffixes:
-        raise ValueError(f"Configuration file not found: {explicit_path}")
+    if suffix_lower in {".fb", ".bin"}:
+        raise ValueError(
+            f"Configuration must be a JSON file (.json); got {explicit_path}. "
+            "Raw FlatBuffer (.fb/.bin) paths are not accepted. "
+            "Pass a .json path or a saved profile name (`dts-utils configs list`)."
+        )
 
     saved_name = explicit_path.name if suffix_lower == ".json" else f"{explicit_path.name}.json"
     searched: list[Path] = []

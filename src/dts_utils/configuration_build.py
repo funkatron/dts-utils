@@ -334,7 +334,8 @@ def json_configuration_to_flatbuffer(configuration: dict) -> bytes:
     flatc_path = resolve_flatc_path()
     if not flatc_path:
         raise ConfigurationError(
-            "flatc is required for JSON configuration. Install FlatBuffers or pass raw FlatBuffer bytes."
+            "flatc is required for JSON configuration. "
+            "Install FlatBuffers (e.g. brew install flatbuffers)."
         )
 
     flatc_configuration = normalize_configuration_for_flatc(configuration)
@@ -409,12 +410,16 @@ def read_configuration_bytes(
     configuration_json: str | Path | None = None,
     config_dir: Path | None = None,
 ) -> bytes:
+    """Load a JSON configuration and convert it to FlatBuffer bytes via ``flatc``.
+
+    Both ``configuration`` and ``configuration_json`` accept a ``.json`` path or a
+    saved profile name. Non-JSON paths (including raw FlatBuffer ``.fb`` / ``.bin``)
+    are rejected.
+    """
     try:
         if configuration:
             configuration_path = resolve_configuration_value(configuration, config_dir=config_dir)
-            if configuration_path.suffix.lower() == ".json":
-                return read_json_configuration_bytes(configuration_path)
-            return configuration_path.read_bytes()
+            return read_json_configuration_bytes(configuration_path)
         if not configuration_json:
             raise ConfigurationError(
                 "Generation configuration is required. Pass --configuration CONFIG_PATH_OR_NAME "

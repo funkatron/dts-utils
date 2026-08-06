@@ -366,7 +366,7 @@ class DrawThingsGrpcImageToVideoExecutor(SubprocessExecutor):
                 config_dir=config_dir,
             )
         except ConfigurationError:
-            # Raw flatbuffer path or unresolved JSON name; use original input as-is.
+            # Unresolved or invalid JSON name/path; use original input as-is.
             return configuration, configuration_json
         cfg = self._maybe_seed_ltx_video_config(cfg, config_dir=config_dir)
         cfg["numFrames"] = target_frames

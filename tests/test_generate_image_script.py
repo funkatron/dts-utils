@@ -65,6 +65,19 @@ def _patch_generate_client(monkeypatch, channel, stub):
     )
 
 
+def _write_json_configuration(tmp_path: Path, name: str = "configuration.json") -> Path:
+    config_path = tmp_path / name
+    config_path.write_text('{"steps": 8, "model": "model.ckpt"}', encoding="utf-8")
+    return config_path
+
+
+def _stub_json_to_flatbuffer(monkeypatch, payload: bytes = b"flatbuffer-config") -> None:
+    monkeypatch.setattr(
+        "dts_utils.configuration_build.json_configuration_to_flatbuffer",
+        lambda _config: payload,
+    )
+
+
 def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
     """Exercise the script from CLI args through streamed response image writes."""
     module = load_generate_image_module()
@@ -77,8 +90,8 @@ def test_generate_image_script_writes_generated_images(monkeypatch, tmp_path):
         ]
     )
     output_path = tmp_path / "result.png"
-    config_path = tmp_path / "configuration.fb"
-    config_path.write_bytes(b"flatbuffer-config")
+    config_path = _write_json_configuration(tmp_path)
+    _stub_json_to_flatbuffer(monkeypatch)
 
     _patch_generate_client(monkeypatch, channel, stub)
 
@@ -116,8 +129,8 @@ def test_generate_image_script_can_open_generated_images(monkeypatch, tmp_path):
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[make_uncompressed_dt_tensor()])])
     opened_paths = []
     output_path = tmp_path / "result.png"
-    config_path = tmp_path / "configuration.fb"
-    config_path.write_bytes(b"flatbuffer-config")
+    config_path = _write_json_configuration(tmp_path)
+    _stub_json_to_flatbuffer(monkeypatch)
 
     _patch_generate_client(monkeypatch, FakeChannel(), stub)
     monkeypatch.setattr(module, "open_images", lambda paths: opened_paths.extend(paths))
@@ -140,8 +153,8 @@ def test_generate_image_script_can_open_generated_images(monkeypatch, tmp_path):
     assert stamped.read_bytes().startswith(b"\x89PNG")
 
 
-def test_generate_image_script_sends_configuration_bytes(monkeypatch, tmp_path):
-    """Verify a Draw Things FlatBuffer configuration file is sent as raw bytes."""
+def test_generate_image_script_rejects_raw_flatbuffer_configuration(monkeypatch, tmp_path, capsys):
+    """Verify --configuration rejects raw FlatBuffer (.fb) paths."""
     module = load_generate_image_module()
     config_path = tmp_path / "configuration.fb"
     config_path.write_bytes(b"flatbuffer-config")
@@ -160,8 +173,10 @@ def test_generate_image_script_sends_configuration_bytes(monkeypatch, tmp_path):
         ]
     )
 
-    assert result == 0
-    assert stub.request.configuration == b"flatbuffer-config"
+    captured = capsys.readouterr()
+    assert result == 1
+    assert "Configuration must be a JSON file" in captured.err
+    assert stub.request is None
 
 
 def test_generate_image_script_auto_converts_json_configuration(monkeypatch, tmp_path):
@@ -410,8 +425,8 @@ def test_generate_image_script_fails_when_no_images_returned(monkeypatch, tmp_pa
     """Verify the script reports a failed generation when the stream has no images."""
     module = load_generate_image_module()
     stub = FakeImageGenerationStub([SimpleNamespace(generatedImages=[])])
-    config_path = tmp_path / "configuration.fb"
-    config_path.write_bytes(b"flatbuffer-config")
+    config_path = _write_json_configuration(tmp_path)
+    _stub_json_to_flatbuffer(monkeypatch)
 
     _patch_generate_client(monkeypatch, FakeChannel(), stub)
 

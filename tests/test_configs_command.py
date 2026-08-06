@@ -21,12 +21,21 @@ def test_normalize_profile_stem_lowercase_kebab_case() -> None:
     assert configs.normalize_profile_stem("LTX-2.3-22B-Port") == "ltx-2.3-22b-port"
 
 
-def test_resolve_configuration_value_prefers_existing_file(tmp_path):
-    """Verify explicit paths are used before named config lookup."""
+def test_resolve_configuration_value_prefers_existing_json_file(tmp_path):
+    """Verify explicit .json paths are used before named config lookup."""
+    config_path = tmp_path / "custom.json"
+    config_path.write_text("{}", encoding="utf-8")
+
+    assert configs.resolve_configuration_value(config_path) == config_path
+
+
+def test_resolve_configuration_value_rejects_existing_flatbuffer_path(tmp_path):
+    """Verify existing raw FlatBuffer paths are rejected (JSON-only)."""
     config_path = tmp_path / "custom.fb"
     config_path.write_bytes(b"flatbuffer")
 
-    assert configs.resolve_configuration_value(config_path) == config_path
+    with pytest.raises(ValueError, match="Configuration must be a JSON file"):
+        configs.resolve_configuration_value(config_path)
 
 
 def test_resolve_configuration_value_finds_named_json_config(tmp_path):
@@ -50,9 +59,9 @@ def test_resolve_configuration_value_finds_dotted_stem_json_config(tmp_path):
     assert configs.resolve_configuration_value("dreamshaper-v6.31", config_dir=config_dir) == saved_path
 
 
-def test_resolve_configuration_value_rejects_missing_raw_path(tmp_path):
-    """Verify missing non-JSON paths are treated as missing raw config files."""
-    with pytest.raises(ValueError, match="Configuration file not found"):
+def test_resolve_configuration_value_rejects_missing_flatbuffer_path(tmp_path):
+    """Verify missing .fb paths are rejected as non-JSON (not treated as profile stems)."""
+    with pytest.raises(ValueError, match="Configuration must be a JSON file"):
         configs.resolve_configuration_value("missing.fb", config_dir=tmp_path)
 
 

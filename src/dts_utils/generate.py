@@ -93,8 +93,8 @@ def build_parser() -> argparse.ArgumentParser:
     config_group.add_argument(
         "--configuration",
         help=(
-            "Draw Things configuration. Existing .json files are converted to FlatBuffer bytes; "
-            "other existing files are sent as raw FlatBuffer bytes; names resolve to saved JSON configs."
+            "Draw Things JSON configuration: a .json path or saved profile name "
+            "(converted to FlatBuffer bytes via flatc). Raw FlatBuffer (.fb/.bin) paths are not accepted."
         ),
     )
     config_group.add_argument("--configuration-json", help="Draw Things JSON configuration file or saved config name.")

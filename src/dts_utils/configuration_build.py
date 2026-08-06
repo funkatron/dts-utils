@@ -117,6 +117,38 @@ CONFIG_DIMENSION_KEYS = {
     "start_width",
 }
 
+# FlatBuffer dimension fields are 64-pixel units. Saved / Draw Things JSON uses pixels.
+_DIMENSION_PIXELS_PER_UNIT = 64
+
+
+def _dimension_value_to_flatc_units(original_key: str, mapped_key: str, value: object) -> int:
+    """Convert a dimension field to flatc 64-pixel units.
+
+    Assumption: Draw Things camelCase keys (``width``, ``height``, …) are always
+    pixel counts. Snake_case schema keys (``start_width``, …) with values
+    ``< 64`` are treated as already unit-scaled (legacy prepare/import output that
+    wrote flatc units to disk). Snake_case values ``>= 64`` are pixels.
+
+    Corner case: a snake_case unit value of exactly ``64`` (4096px) would be read
+    as 64 pixels → 1 unit. On-disk configs should store pixels so this does not
+    arise; re-import or re-save repairs affected profiles.
+    """
+    raw = int(value)
+    already_snake = original_key == mapped_key
+    if already_snake and raw < _DIMENSION_PIXELS_PER_UNIT:
+        return max(raw, 1)
+    return max(raw // _DIMENSION_PIXELS_PER_UNIT, 1)
+
+
+def _flatc_dimension_units_to_pixels(configuration: dict) -> dict:
+    """Return a copy with dimension fields scaled from flatc units back to pixels."""
+    out = dict(configuration)
+    for key in CONFIG_DIMENSION_KEYS:
+        if key not in out:
+            continue
+        out[key] = int(out[key]) * _DIMENSION_PIXELS_PER_UNIT
+    return out
+
 # Draw Things JSON may use lowercase strings; flatc expects ``CompressionMethod`` PascalCase labels.
 _COMPRESSION_METHOD_JSON_ALIASES = {
     "disabled": "Disabled",
@@ -161,7 +193,7 @@ def normalize_configuration_for_flatc(configuration: dict) -> dict:
         if value == "" or (mapped_key in {"controls", "loras"} and value == []):
             continue
         if mapped_key in CONFIG_DIMENSION_KEYS:
-            value = max(int(value) // 64, 1)
+            value = _dimension_value_to_flatc_units(key, mapped_key, value)
         if mapped_key == "compression_artifacts" and isinstance(value, str):
             aliased = _COMPRESSION_METHOD_JSON_ALIASES.get(value.strip().lower())
             if aliased is not None:
@@ -219,8 +251,11 @@ def prepare_configuration_for_generate(
 ) -> tuple[dict, list[str]]:
     """Normalize a Draw Things JSON config until ``flatc`` accepts it.
 
-    Returns ``(prepared_dict, notes)`` where ``prepared_dict`` is the normalized
-    object safe to write for ``generate``, and ``notes`` lists dropped fields / repairs.
+    Returns ``(prepared_dict, notes)`` where ``prepared_dict`` is safe to write for
+    ``generate``: snake_case schema keys with dimension fields in **pixels** (so a
+    later ``normalize_configuration_for_flatc`` pass divides by 64 once). ``notes``
+    lists dropped fields / repairs.
+
     Raises :class:`ConfigurationError` when ``flatc`` is missing or repair fails.
     """
     if resolve_flatc_path() is None:
@@ -237,8 +272,10 @@ def prepare_configuration_for_generate(
     for _attempt in range(max_attempts):
         normalized = normalize_configuration_for_flatc(working)
         try:
+            # Validate the unit-scaled form; persist pixels so generate does not
+            # divide dimension fields a second time.
             json_configuration_to_flatbuffer(normalized)
-            return normalized, notes
+            return _flatc_dimension_units_to_pixels(normalized), notes
         except ConfigurationError as exc:
             message = str(exc)
             field_match = _UNKNOWN_FIELD_RE.search(message)
@@ -297,7 +334,8 @@ def json_configuration_to_flatbuffer(configuration: dict) -> bytes:
     flatc_path = resolve_flatc_path()
     if not flatc_path:
         raise ConfigurationError(
-            "flatc is required for JSON configuration. Install FlatBuffers or pass raw FlatBuffer bytes."
+            "flatc is required for JSON configuration. "
+            "Install FlatBuffers (e.g. brew install flatbuffers)."
         )
 
     flatc_configuration = normalize_configuration_for_flatc(configuration)
@@ -372,12 +410,16 @@ def read_configuration_bytes(
     configuration_json: str | Path | None = None,
     config_dir: Path | None = None,
 ) -> bytes:
+    """Load a JSON configuration and convert it to FlatBuffer bytes via ``flatc``.
+
+    Both ``configuration`` and ``configuration_json`` accept a ``.json`` path or a
+    saved profile name. Non-JSON paths (including raw FlatBuffer ``.fb`` / ``.bin``)
+    are rejected.
+    """
     try:
         if configuration:
             configuration_path = resolve_configuration_value(configuration, config_dir=config_dir)
-            if configuration_path.suffix.lower() == ".json":
-                return read_json_configuration_bytes(configuration_path)
-            return configuration_path.read_bytes()
+            return read_json_configuration_bytes(configuration_path)
         if not configuration_json:
             raise ConfigurationError(
                 "Generation configuration is required. Pass --configuration CONFIG_PATH_OR_NAME "

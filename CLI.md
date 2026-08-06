@@ -64,7 +64,7 @@ uv run dts-utils generate \
 | `--image PATH` | Input image for img2img (with **`--configuration`**) or pipeline I2V (with pipeline **`--profile`**). |
 | `--images PATH …` | Batch img2img: one generation per image, same **`--prompt`** (max 25; not with **`--image`**). |
 | `--output PATH` | Base path for PNG output. Default: `output/generated.png`. Inserts `-<unix_ms>` before the extension; multiple images use `-2`, `-3`, … Success lines print `Wrote …` on stdout. Ignored for pipeline profiles (use artifact paths printed after the run). |
-| `--configuration VALUE` | Draw Things configuration: saved `.json` (converted via **`flatc`**), raw FlatBuffer file, or simple name resolving to saved JSON. |
+| `--configuration VALUE` | Draw Things JSON configuration: saved profile name or `.json` path (converted via **`flatc`**). Raw FlatBuffer (`.fb` / `.bin`) paths are not accepted. |
 | `--configuration-json VALUE` | JSON file or saved config name (mutually exclusive with **`--profile`** / **`--configuration`**). |
 | `--trust-server-cert` | Trust the certificate presented by a localhost server for this connection. |
 | `--force-trust-server-cert` | Trust the presented certificate for any host (MITM risk). |
@@ -85,7 +85,6 @@ Set **`DTS_UTILS_DEFAULT_PIPELINE_PROFILE`** to omit **`--profile`** when it nam
 | Saved config | `uv run dts-utils generate --prompt "…" --configuration portrait --trust-server-cert` |
 | Draw Things JSON | `uv run dts-utils generate --prompt "…" --configuration config.json --trust-server-cert` |
 | Open result | Add **`--open`** to any of the above |
-| Prebuilt FlatBuffer | `uv run dts-utils generate --prompt "…" --configuration config.bin --trust-server-cert` |
 | Pinned cert | `uv run dts-utils generate --prompt "…" --configuration config.json --root-cert cert.pem` |
 | Remote diagnostic | `uv run dts-utils generate --host gpu.local --prompt "…" --configuration config.json --force-trust-server-cert` |
 

@@ -160,6 +160,73 @@ def test_lora_mode_aliases_normalize_to_pascal_case() -> None:
     ]
 
 
+def test_normalize_pixel_dimensions_divide_by_64() -> None:
+    out = normalize_configuration_for_flatc(
+        {"model": "m.ckpt", "width": 1920, "height": 1088},
+    )
+    assert out["start_width"] == 30
+    assert out["start_height"] == 17
+
+
+def test_normalize_snake_case_pixel_dimensions_divide_by_64() -> None:
+    """On-disk prepared configs store snake_case pixels; generate divides once."""
+    out = normalize_configuration_for_flatc(
+        {"model": "m.ckpt", "start_width": 1920, "start_height": 1088},
+    )
+    assert out["start_width"] == 30
+    assert out["start_height"] == 17
+
+
+def test_normalize_legacy_unit_scale_snake_case_is_idempotent() -> None:
+    """Regression: older prepare/import wrote flatc units; do not divide again.
+
+    Fixture shape matches broken imports (``start_width: 30`` for 1920px). Without
+    the guard, ``30 // 64`` collapses to 1 → 64×64 (then 128×128 with x2 upscaler).
+    """
+    out = normalize_configuration_for_flatc(
+        {
+            "model": "m.ckpt",
+            "start_width": 30,
+            "start_height": 17,
+            "hires_fix_start_width": 12,
+            "decoding_tile_width": 8,
+        }
+    )
+    assert out["start_width"] == 30
+    assert out["start_height"] == 17
+    assert out["hires_fix_start_width"] == 12
+    assert out["decoding_tile_width"] == 8
+
+
+def test_normalize_dimension_round_trip_is_stable() -> None:
+    """normalize(pixels) then normalize(units) must keep the same flatc units."""
+    from_pixels = normalize_configuration_for_flatc(
+        {"model": "m.ckpt", "width": 768, "height": 1024},
+    )
+    assert from_pixels["start_width"] == 12
+    assert from_pixels["start_height"] == 16
+    again = normalize_configuration_for_flatc(from_pixels)
+    assert again["start_width"] == 12
+    assert again["start_height"] == 16
+
+
+@pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
+def test_prepare_configuration_for_generate_writes_pixel_dimensions() -> None:
+    """Import/web-save must persist pixels so generate does not double-divide."""
+    from dts_utils.configuration_build import prepare_configuration_for_generate
+
+    prepared, notes = prepare_configuration_for_generate(
+        {**_MINIMAL_DRAW_THINGS_STYLE, "width": 1920, "height": 1088}
+    )
+    assert prepared["start_width"] == 1920
+    assert prepared["start_height"] == 1088
+    assert notes == []
+    # generate path: normalize prepared on-disk form once → flatc units
+    again = normalize_configuration_for_flatc(prepared)
+    assert again["start_width"] == 30
+    assert again["start_height"] == 17
+
+
 @pytest.mark.skipif(not shutil.which("flatc"), reason="flatc not on PATH")
 def test_flatc_accepts_start_frame_guidance_from_draw_things_camel_case() -> None:
     """Regression: Draw Things exports ``startFrameGuidance`` in some LTX profiles."""

@@ -110,8 +110,8 @@ Common JSON fields from Draw Things use camelCase, while `config.fbs` uses snake
 
 | Draw Things JSON     | `config.fbs` field     | Notes                                          |
 | -------------------- | ---------------------- | ---------------------------------------------- |
-| `width`              | `start_width`          | Converted from pixels to 64-pixel units.       |
-| `height`             | `start_height`         | Converted from pixels to 64-pixel units.       |
+| `width`              | `start_width`          | Converted from pixels to 64-pixel units. Saved/imported JSON should keep **pixels**; snake_case values already below 64 are treated as units (legacy prepare output). |
+| `height`             | `start_height`         | Same as `width` / `start_width`.               |
 | `batchCount`         | `batch_count`          | Must be at least `1` for practical generation. |
 | `guidanceScale`      | `guidance_scale`       | Float.                                         |
 | `hiresFix`           | `hires_fix`            | Boolean.                                       |

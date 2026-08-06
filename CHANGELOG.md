@@ -48,12 +48,14 @@ Example snippet for the next release:
 
 ### Fixed
 
+- **Configuration dimensions:** `prepare_configuration_for_generate` (Draw Things import and web config save) now writes dimension fields in **pixels**. Previously it persisted flatc 64-pixel units, so a later generate pass divided again (`30 → 1`) and produced tiny images (e.g. 64×64, or 128×128 with an x2 upscaler). `normalize_configuration_for_flatc` also leaves snake_case unit-scale values (`start_width` below 64) unchanged so already-imported profiles generate at the intended size.
 - **`dts-utils web`:** **`GET /api/configs/{name}`** only reads JSON under saved-profile directories (ignores same-named files in the process cwd).
 - **`dts-utils web`:** History **Details** / **Reuse** bind per-row entry data (no shared loop closure).
 - **`dts-utils web`:** prompt-to-video artifact tiles store generation details for lightbox **i**.
 
 ### Changed
 
+- **Generate configuration is JSON-only:** `--configuration` / shorthand / MCP `configuration` accept a saved profile name or a `.json` path (converted with **`flatc`**). Raw FlatBuffer (`.fb` / `.bin`) paths are rejected with an actionable error.
 - **`dts-utils configs import-draw-things`:** one-step import — normalize/repair each preset until **`flatc`** accepts it, write human kebab stems (disambiguate with model basename; keep original title in **`_dts_utils_import.source_name`**), and optionally smoke localhost gRPC when the server is up. Use **`--raw`** for the previous as-is copy; **`--no-smoke`** / **`--smoke-all`** control the probe.
 - **`dts-utils server list-models`:** text and **`--json`** output include local file sizes (`SIZE` as adaptive KB/MB/GB; JSON `size`, `size_bytes`, `size_mb`) by matching Echo basenames under the Draw Things Models directory (`--model-dir` / `DRAW_THINGS_MODEL_PATH`).
 

@@ -485,6 +485,33 @@
       margin-left: auto;
       color: var(--accent);
     }
+    .prompt-editor-lever-walk {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.15rem;
+    }
+    .prompt-editor-walk-btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #25262b;
+      color: var(--muted);
+      border-radius: 4px;
+      font-size: 0.65rem;
+      line-height: 1;
+      padding: 0.15rem 0.35rem;
+      cursor: pointer;
+    }
+    .prompt-editor-walk-btn:hover:not(:disabled) {
+      color: var(--fg);
+      border-color: var(--accent);
+    }
+    .prompt-editor-walk-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    #promptBraceCount[hidden] {
+      display: none;
+    }
     .prompt-editor-mount {
       flex: 1 1 auto;
       min-height: 0;

@@ -5,7 +5,7 @@ import {
   drawSelection,
   highlightActiveLine,
 } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import {
   defaultKeymap,
   history,
@@ -71,6 +71,13 @@ const promptTheme = EditorView.theme({
  */
 const promptCloseBrackets = closeBrackets();
 
+function activeLineForLines(lineCount) {
+  if (lineCount > 1) {
+    return highlightActiveLine();
+  }
+  return [];
+}
+
 /**
  * Mount a prompt CodeMirror editor (Raskin-style / Aza: focus expands chrome; content always legible).
  * @returns {{ getText, setText, focus, blur, destroy, setFocusedChrome, countBraceGroups }}
@@ -80,75 +87,105 @@ export function mountPromptEditor(parent, opts = {}) {
   const onChange = opts.onChange;
   const onGenerate = opts.onGenerate;
   const onFocusChange = opts.onFocusChange;
+  const onPromptWalk = opts.onPromptWalk;
   parent.replaceChildren();
 
   let focusedChrome = false;
+  const activeLineCompartment = new Compartment();
 
-  const extensions = [
-    history(),
-    drawSelection(),
-    highlightActiveLine(),
-    bracketMatching(),
-    promptCloseBrackets,
-    EditorState.allowMultipleSelections.of(true),
-    EditorView.lineWrapping,
-    wildcardHighlight,
-    cmPlaceholder(typeof opts.placeholder === "string" ? opts.placeholder : ""),
-    keymap.of([
-      ...closeBracketsKeymap,
-      {
-        key: "Mod-Enter",
-        run: () => {
-          if (typeof onGenerate === "function") {
-            onGenerate();
-          }
-          return true;
-        },
-      },
-      {
-        key: "Escape",
-        run: (view) => {
-          view.contentDOM.blur();
-          return true;
-        },
-      },
-      {
-        key: "Enter",
-        run: insertNewlineAndIndent,
-      },
-      ...defaultKeymap,
-      ...historyKeymap,
-    ]),
-    EditorView.updateListener.of((update) => {
-      if (update.docChanged && typeof onChange === "function") {
-        onChange(update.state.doc.toString());
-      }
-    }),
-    EditorView.domEventHandlers({
-      focus: () => {
-        focusedChrome = true;
-        if (typeof onFocusChange === "function") {
-          onFocusChange(true);
-        }
-        return false;
-      },
-      blur: () => {
-        focusedChrome = false;
-        if (typeof onFocusChange === "function") {
-          onFocusChange(false);
-        }
-        return false;
-      },
-    }),
-    promptTheme,
-    EditorView.contentAttributes.of({
-      "aria-label": "Prompt",
-    }),
-  ];
+  function runPromptWalk(delta) {
+    if (typeof onPromptWalk !== "function") {
+      return false;
+    }
+    onPromptWalk(delta);
+    return true;
+  }
 
   const view = new EditorView({
-    state: EditorState.create({ doc, extensions }),
     parent,
+    state: EditorState.create({
+      doc,
+      extensions: [
+        history(),
+        drawSelection(),
+        activeLineCompartment.of(activeLineForLines(doc.split("\n").length)),
+        bracketMatching(),
+        promptCloseBrackets,
+        EditorState.allowMultipleSelections.of(true),
+        EditorView.lineWrapping,
+        wildcardHighlight,
+        cmPlaceholder(typeof opts.placeholder === "string" ? opts.placeholder : ""),
+        keymap.of([
+          ...closeBracketsKeymap,
+          {
+            key: "Mod-Enter",
+            run: () => {
+              if (typeof onGenerate === "function") {
+                onGenerate();
+              }
+              return true;
+            },
+          },
+          {
+            key: "Alt-ArrowUp",
+            run: () => runPromptWalk(-1),
+          },
+          {
+            key: "Alt-ArrowDown",
+            run: () => runPromptWalk(1),
+          },
+          {
+            key: "Escape",
+            run: (v) => {
+              v.contentDOM.blur();
+              return true;
+            },
+          },
+          {
+            key: "Enter",
+            run: insertNewlineAndIndent,
+          },
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged) return;
+          if (typeof onChange === "function") {
+            onChange(update.state.doc.toString());
+          }
+          const prevLines = update.startState.doc.lines;
+          const nextLines = update.state.doc.lines;
+          const prevMulti = prevLines > 1;
+          const nextMulti = nextLines > 1;
+          if (prevMulti === nextMulti) return;
+          update.view.dispatch({
+            effects: activeLineCompartment.reconfigure(
+              activeLineForLines(nextLines),
+            ),
+          });
+        }),
+        EditorView.domEventHandlers({
+          focus: () => {
+            focusedChrome = true;
+            if (typeof onFocusChange === "function") {
+              onFocusChange(true);
+            }
+            return false;
+          },
+          blur: () => {
+            focusedChrome = false;
+            if (typeof onFocusChange === "function") {
+              onFocusChange(false);
+            }
+            return false;
+          },
+        }),
+        promptTheme,
+        EditorView.contentAttributes.of({
+          "aria-label": "Prompt",
+        }),
+      ],
+    }),
   });
 
   return {

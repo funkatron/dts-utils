@@ -1200,6 +1200,7 @@
   /** True when a slot has a finished (non-pending, non-preview) image or video. */
   function resultSlotIsFinal(tile) {
     if (!tile || tile.classList.contains("result-slot--pending")) return false;
+    if (tile.classList.contains("result-slot--pipeline-temp")) return false;
     var img = tile.querySelector("img");
     if (img && img.src && !img.classList.contains("result-inflight")) return true;
     var vid = tile.querySelector("video");
@@ -1753,7 +1754,8 @@
           const url = URL.createObjectURL(blob);
           __dtsResultBlobUrls.push(url);
           const wrap = document.createElement("div");
-          wrap.className = "result-slot";
+          // Pipeline steps stay non-final until SSE "done" so Stop can drop partials.
+          wrap.className = "result-slot result-slot--pipeline-temp";
           if (msg.kind === "video") {
             const vid = document.createElement("video");
             vid.src = url;
@@ -1779,6 +1781,9 @@
           artifactCount += 1;
         }
         if (msg.type === "done") {
+          thumbs.querySelectorAll(".result-slot--pipeline-temp").forEach(function (el) {
+            el.classList.remove("result-slot--pipeline-temp");
+          });
           renderVideoDonePanel(msg);
           trackRecentProfile(effectiveProfile());
         }
@@ -1792,6 +1797,9 @@
       thumbs.querySelectorAll(".result-inflight").forEach(function (el) {
         el.classList.remove("result-inflight");
       });
+      thumbs.querySelectorAll(".result-slot--pipeline-temp").forEach(function (el) {
+        el.classList.remove("result-slot--pipeline-temp");
+      });
       if (groupApi) {
         stampResultGroupDone(groupApi, {
           timestamp: new Date().toLocaleString(),
@@ -1802,6 +1810,7 @@
         });
       }
       placeholder.hidden = results.querySelector(".result-group") != null;
+      refreshPromptHistoryWalkList();
     } catch (e) {
       if (e.name === "AbortError") {
         if (groupApi) {
@@ -2089,6 +2098,7 @@
       }
 
       placeholder.hidden = results.querySelector(".result-group") != null;
+      refreshPromptHistoryWalkList();
     } catch (e) {
       if (e.name === "AbortError") {
         requestGenerationCancel();
@@ -2528,6 +2538,9 @@
 
   var promptEditorApi = null;
   var promptEditorModulePromise = null;
+  var promptHistoryWalkList = [];
+  var promptHistoryWalkIndex = -1;
+  var promptHistoryWalkReady = false;
 
   function syncPromptCanonical(text) {
     var promptEl = document.getElementById("prompt");
@@ -2544,6 +2557,106 @@
     if (promptEditorApi && typeof promptEditorApi.setText === "function") {
       promptEditorApi.setText(next);
     }
+  }
+
+  function collectStagePromptWalkEntries() {
+    var out = [];
+    var resultsEl = document.getElementById("results");
+    if (!resultsEl) return out;
+    var groups = resultsEl.querySelectorAll(".result-group");
+    for (var i = 0; i < groups.length; i++) {
+      var g = groups[i];
+      var text = "";
+      if (g._generationDetails) {
+        text = String(
+          g._generationDetails.unexpanded_prompt || g._generationDetails.prompt || "",
+        ).trim();
+      }
+      if (!text) {
+        var headline = g.querySelector(".batch-summary-prompt");
+        if (headline) {
+          text = String(headline.textContent || "").trim();
+          if (text === "(no prompt)") text = "";
+        }
+      }
+      if (text) out.push(text);
+    }
+    return out;
+  }
+
+  function dedupeConsecutivePrompts(items) {
+    var out = [];
+    var prev = null;
+    for (var i = 0; i < items.length; i++) {
+      var t = String(items[i] || "").trim();
+      if (!t) continue;
+      if (prev !== null && t === prev) continue;
+      out.push(t);
+      prev = t;
+    }
+    return out;
+  }
+
+  async function refreshPromptHistoryWalkList() {
+    var fromHistory = [];
+    try {
+      var state = await fetchHistoryState();
+      var items = state && Array.isArray(state.items) ? state.items : [];
+      for (var i = 0; i < items.length; i++) {
+        var entry = items[i] || {};
+        var text = String(entry.unexpanded_prompt || entry.prompt || "").trim();
+        if (text) fromHistory.push(text);
+      }
+    } catch (e) {
+      fromHistory = [];
+    }
+    var merged = fromHistory.concat(collectStagePromptWalkEntries());
+    promptHistoryWalkList = dedupeConsecutivePrompts(merged);
+    promptHistoryWalkIndex = -1;
+    promptHistoryWalkReady = true;
+    updatePromptWalkButtons();
+  }
+
+  function updatePromptWalkButtons() {
+    var prevBtn = document.getElementById("promptWalkPrev");
+    var nextBtn = document.getElementById("promptWalkNext");
+    var n = promptHistoryWalkList.length;
+    if (prevBtn) {
+      if (!n) prevBtn.disabled = true;
+      else if (promptHistoryWalkIndex < 0) prevBtn.disabled = false;
+      else prevBtn.disabled = promptHistoryWalkIndex <= 0;
+    }
+    if (nextBtn) {
+      if (!n || promptHistoryWalkIndex < 0) nextBtn.disabled = true;
+      else nextBtn.disabled = promptHistoryWalkIndex >= n - 1;
+    }
+  }
+
+  function applyPromptWalk(delta) {
+    if (!promptHistoryWalkList.length) {
+      updatePromptWalkButtons();
+      return false;
+    }
+    var nextIndex;
+    if (promptHistoryWalkIndex < 0) {
+      if (delta < 0) nextIndex = 0;
+      else return false;
+    } else {
+      nextIndex = promptHistoryWalkIndex + delta;
+    }
+    if (nextIndex < 0) nextIndex = 0;
+    if (nextIndex > promptHistoryWalkList.length - 1) {
+      nextIndex = promptHistoryWalkList.length - 1;
+    }
+    if (nextIndex === promptHistoryWalkIndex && promptHistoryWalkIndex >= 0) {
+      updatePromptWalkButtons();
+      return false;
+    }
+    promptHistoryWalkIndex = nextIndex;
+    setPromptText(promptHistoryWalkList[promptHistoryWalkIndex]);
+    updatePromptLeverBar();
+    updatePromptWalkButtons();
+    return true;
   }
 
   function updatePromptLeverBar() {
@@ -2574,8 +2687,13 @@
         i = k;
       }
     }
-    var label = n === 1 ? "1 brace group" : n + " brace groups";
-    countEl.textContent = label;
+    if (n < 1) {
+      countEl.hidden = true;
+      countEl.textContent = "0 brace groups";
+      return;
+    }
+    countEl.hidden = false;
+    countEl.textContent = n === 1 ? "1 brace group" : n + " brace groups";
   }
 
   function setPromptEditorFocused(on) {
@@ -2592,7 +2710,13 @@
     if (hint) {
       hint.hidden = !!on;
     }
-    if (on) updatePromptLeverBar();
+    if (on) {
+      updatePromptLeverBar();
+      updatePromptWalkButtons();
+      if (!promptHistoryWalkReady) {
+        refreshPromptHistoryWalkList();
+      }
+    }
     if (promptEditorApi && typeof promptEditorApi.setFocusedChrome === "function") {
       promptEditorApi.setFocusedChrome(on);
     }
@@ -2620,6 +2744,25 @@
     var promptEl = document.getElementById("prompt");
     if (!root || !mountEl || !promptEl) return;
 
+    var walkPrev = document.getElementById("promptWalkPrev");
+    var walkNext = document.getElementById("promptWalkNext");
+    if (walkPrev) {
+      walkPrev.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+      });
+      walkPrev.addEventListener("click", function () {
+        applyPromptWalk(-1);
+      });
+    }
+    if (walkNext) {
+      walkNext.addEventListener("mousedown", function (e) {
+        e.preventDefault();
+      });
+      walkNext.addEventListener("click", function () {
+        applyPromptWalk(1);
+      });
+    }
+
     promptEl.addEventListener("focus", function () {
       setPromptEditorFocused(true);
     });
@@ -2632,11 +2775,24 @@
     promptEl.addEventListener("keydown", function (e) {
       if (e.key === "Escape") {
         promptEl.blur();
+        return;
+      }
+      if (e.altKey && e.key === "ArrowUp") {
+        e.preventDefault();
+        applyPromptWalk(-1);
+        return;
+      }
+      if (e.altKey && e.key === "ArrowDown") {
+        e.preventDefault();
+        applyPromptWalk(1);
       }
     });
 
     var mod = await loadPromptEditorModule();
-    if (!mod) return;
+    if (!mod) {
+      refreshPromptHistoryWalkList();
+      return;
+    }
 
     try {
       promptEditorApi = mod.mountPromptEditor(mountEl, {
@@ -2652,10 +2808,14 @@
         onFocusChange: function (focused) {
           setPromptEditorFocused(!!focused);
         },
+        onPromptWalk: function (delta) {
+          applyPromptWalk(delta);
+        },
       });
       root.classList.add("has-cm");
       mountEl.hidden = false;
       updatePromptLeverBar();
+      refreshPromptHistoryWalkList();
       if (document.activeElement === promptEl || promptEl.hasAttribute("autofocus")) {
         promptEditorApi.focus();
       }
@@ -2665,6 +2825,7 @@
       root.classList.remove("has-cm");
       mountEl.hidden = true;
       mountEl.replaceChildren();
+      refreshPromptHistoryWalkList();
     }
   }
 

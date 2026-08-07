@@ -17,31 +17,6 @@
       >Edit profile</button>
       <span id="statusComposerListener" aria-live="polite">Listener unchecked</span>
     </div>
-    <details class="composer-neg">
-      <summary>Negative prompt (optional)</summary>
-      <textarea id="neg" class="field" placeholder="Things to avoid in the image…"></textarea>
-    </details>
-    <details class="composer-input-images" id="inputImagesDetails">
-      <summary>Input images (optional)<span id="inputImagesBadge" class="input-images-badge" hidden></span></summary>
-      <div class="input-images-panel">
-        <div
-          class="input-images-dropzone"
-          id="inputImagesDropzone"
-          tabindex="0"
-          role="button"
-          aria-label="Add input images for img2img or batch"
-        >
-          <p class="input-images-dropzone-text">Drop images here or click to browse</p>
-          <p class="input-images-dropzone-sub hint" id="inputImagesDropzoneHint">One image for img2img or video start frame</p>
-        </div>
-        <input type="file" id="inputImages" accept="image/*" multiple hidden aria-hidden="true" />
-        <div id="inputImagesThumbs" class="input-images-thumbs" hidden></div>
-        <div class="input-images-actions">
-          <p class="hint" id="inputImagesHint" hidden></p>
-          <button type="button" class="btn-input-images-clear" id="btnClearInputImages" hidden>Clear all</button>
-        </div>
-      </div>
-    </details>
     <div class="composer-prompt-block" role="group" aria-label="Prompt composer">
       <div class="composer-prompt-head">
         <label for="prompt">Prompt</label>
@@ -50,7 +25,11 @@
       <div class="composer-input-row">
         <div class="prompt-editor" id="promptEditor">
           <div class="prompt-editor-levers" id="promptEditorLevers" hidden>
-            <span class="prompt-editor-lever" id="promptBraceCount" aria-live="polite">0 brace groups</span>
+            <span class="prompt-editor-lever" id="promptBraceCount" aria-live="polite" hidden>0 brace groups</span>
+            <span class="prompt-editor-lever-walk" role="group" aria-label="Previous and next prompts">
+              <button type="button" class="prompt-editor-walk-btn" id="promptWalkPrev" title="Previous prompt (Alt+↑)" aria-label="Previous prompt">↑</button>
+              <button type="button" class="prompt-editor-walk-btn" id="promptWalkNext" title="Next prompt (Alt+↓)" aria-label="Next prompt">↓</button>
+            </span>
             <span class="prompt-editor-lever prompt-editor-lever-hint">⌘↵ generate</span>
           </div>
           <div class="prompt-editor-mount" id="promptEditorMount" hidden></div>
@@ -81,4 +60,29 @@
       </div>
       <div class="composer-elapsed-row"><span id="elapsed" class="hint"></span></div>
     </div>
+    <details class="composer-neg">
+      <summary>Negative prompt (optional)</summary>
+      <textarea id="neg" class="field" placeholder="Things to avoid in the image…"></textarea>
+    </details>
+    <details class="composer-input-images" id="inputImagesDetails">
+      <summary>Input images (optional)<span id="inputImagesBadge" class="input-images-badge" hidden></span></summary>
+      <div class="input-images-panel">
+        <div
+          class="input-images-dropzone"
+          id="inputImagesDropzone"
+          tabindex="0"
+          role="button"
+          aria-label="Add input images for img2img or batch"
+        >
+          <p class="input-images-dropzone-text">Drop images here or click to browse</p>
+          <p class="input-images-dropzone-sub hint" id="inputImagesDropzoneHint">One image for img2img or video start frame</p>
+        </div>
+        <input type="file" id="inputImages" accept="image/*" multiple hidden aria-hidden="true" />
+        <div id="inputImagesThumbs" class="input-images-thumbs" hidden></div>
+        <div class="input-images-actions">
+          <p class="hint" id="inputImagesHint" hidden></p>
+          <button type="button" class="btn-input-images-clear" id="btnClearInputImages" hidden>Clear all</button>
+        </div>
+      </div>
+    </details>
   </footer>

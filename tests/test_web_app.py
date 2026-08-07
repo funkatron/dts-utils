@@ -522,12 +522,31 @@ def test_index_includes_prompt_editor(client: TestClient) -> None:
     assert "setPromptEditorFocused" in text
     assert "cleanupAbortedResultGroup" in text
     assert "resultSlotIsFinal" in text
+    assert "result-slot--pipeline-temp" in text
+    assert "applyPromptWalk" in text
+    assert "refreshPromptHistoryWalkList" in text
+    assert 'id="promptWalkPrev"' in text
+    assert 'id="promptWalkNext"' in text
+    assert "Alt-ArrowUp" in text or "altKey" in text
+    # Prompt block precedes Neg / Input images (Raskin locus).
+    prompt_block = text.find('class="composer-prompt-block"')
+    neg_block = text.find('class="composer-neg"')
+    input_block = text.find('id="inputImagesDetails"')
+    assert prompt_block != -1 and neg_block != -1 and input_block != -1
+    assert prompt_block < neg_block < input_block
     # AbortError path must call the cleanup helper (contract).
     abort_idx = text.find('e.name === "AbortError"')
     assert abort_idx != -1
     assert "cleanupAbortedResultGroup" in text[abort_idx : abort_idx + 800]
+    # Video AbortError path also cleans up (second AbortError after first is fine).
+    assert text.count("cleanupAbortedResultGroup") >= 2
     assert ".cm-dts-wildcard-sep" in text
     assert "--prompt-lines: 6" in text or "--prompt-lines:6" in text.replace(" ", "")
+    assert "countEl.hidden" in text or "promptBraceCount" in text
+    static_js = client.get("/static/config_editor.mjs")
+    assert static_js.status_code == 200
+    assert "Alt-ArrowUp" in static_js.text
+    assert "onPromptWalk" in static_js.text
 
 
 def test_generate_missing_prompt(client: TestClient) -> None:

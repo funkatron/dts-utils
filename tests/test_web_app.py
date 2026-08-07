@@ -366,6 +366,189 @@ def test_config_detail_and_history_configuration_json_snapshot(
     assert listed.json()["items"][0]["configuration_json"]["steps"] == 8
 
 
+def test_config_put_requires_auth(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    cfg_dir = tmp_path / "configurations"
+    cfg_dir.mkdir()
+    (cfg_dir / "demo.json").write_text(json.dumps({"model": "x.ckpt", "steps": 4}), encoding="utf-8")
+    monkeypatch.setattr(
+        "dts_utils.web.app.configuration_search_directories",
+        lambda config_dir=None: (cfg_dir,),
+    )
+    monkeypatch.setattr("dts_utils.web.app.configurations_dir", lambda: cfg_dir)
+    monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
+    client = TestClient(create_app())
+    assert client.put("/api/configs/demo", json={"configuration": {"model": "x.ckpt", "steps": 8}}).status_code == 401
+
+
+def test_config_put_writes_validated_json(monkeypatch: pytest.MonkeyPatch, tmp_path) -> None:
+    cfg_dir = tmp_path / "configurations"
+    cfg_dir.mkdir()
+    existing = {
+        "model": "demo.ckpt",
+        "steps": 8,
+        "width": 512,
+        "height": 768,
+        "_dts_utils_import": {"source_name": "Demo Tall"},
+    }
+    (cfg_dir / "demo-tall.json").write_text(json.dumps(existing), encoding="utf-8")
+    monkeypatch.setattr(
+        "dts_utils.web.app.configuration_search_directories",
+        lambda config_dir=None: (cfg_dir,),
+    )
+    monkeypatch.setattr("dts_utils.web.app.configurations_dir", lambda: cfg_dir)
+    monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
+
+    def fake_prepare(configuration: dict, *, max_attempts: int = 32):
+        cleaned = {
+            key: value
+            for key, value in configuration.items()
+            if not (isinstance(key, str) and key.startswith("_dts_utils"))
+            and key != "junk"
+        }
+        cleaned["steps"] = int(cleaned.get("steps", 0))
+        notes = []
+        if "junk" in configuration:
+            notes.append("dropped unknown field junk")
+        return cleaned, notes
+
+    monkeypatch.setattr("dts_utils.web.app.prepare_configuration_for_generate", fake_prepare)
+    client = TestClient(create_app())
+    headers = {"Authorization": "Bearer sekrit"}
+
+    r = client.put(
+        "/api/configs/demo-tall",
+        headers=headers,
+        json={"configuration": {"model": "demo.ckpt", "steps": 12, "width": 512, "height": 768, "junk": 1}},
+    )
+    assert r.status_code == 200
+    payload = r.json()
+    assert payload["name"] == "demo-tall"
+    assert payload["path"].endswith("demo-tall.json")
+    assert payload["configuration"]["steps"] == 12
+    assert payload["configuration"]["_dts_utils_import"] == {"source_name": "Demo Tall"}
+    assert "junk" not in payload["configuration"]
+    assert payload["notes"] == ["dropped unknown field junk"]
+
+    on_disk = json.loads((cfg_dir / "demo-tall.json").read_text(encoding="utf-8"))
+    assert on_disk["steps"] == 12
+    assert on_disk["_dts_utils_import"]["source_name"] == "Demo Tall"
+
+    assert client.put(
+        "/api/configs/bad name",
+        headers=headers,
+        json={"configuration": {"model": "x.ckpt"}},
+    ).status_code == 400
+
+    # Valid stem writes under configurations_dir, never the process cwd.
+    work = tmp_path / "cwd"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    created = client.put(
+        "/api/configs/cwd-check",
+        headers=headers,
+        json={"configuration": {"model": "demo.ckpt", "steps": 1}},
+    )
+    assert created.status_code == 200
+    assert (cfg_dir / "cwd-check.json").is_file()
+    assert not (work / "cwd-check.json").exists()
+
+
+def test_config_put_rejects_invalid_body_and_prepare_errors(
+    monkeypatch: pytest.MonkeyPatch, tmp_path
+) -> None:
+    cfg_dir = tmp_path / "configurations"
+    cfg_dir.mkdir()
+    (cfg_dir / "demo.json").write_text(json.dumps({"model": "x.ckpt", "steps": 4}), encoding="utf-8")
+    monkeypatch.setattr(
+        "dts_utils.web.app.configuration_search_directories",
+        lambda config_dir=None: (cfg_dir,),
+    )
+    monkeypatch.setattr("dts_utils.web.app.configurations_dir", lambda: cfg_dir)
+    monkeypatch.setenv("DTS_WEB_TOKEN", "sekrit")
+
+    def boom(configuration: dict, *, max_attempts: int = 32):
+        raise ConfigurationError("flatc rejected configuration")
+
+    monkeypatch.setattr("dts_utils.web.app.prepare_configuration_for_generate", boom)
+    client = TestClient(create_app())
+    headers = {"Authorization": "Bearer sekrit"}
+
+    assert client.put("/api/configs/bad name", headers=headers, json={"configuration": {}}).status_code == 400
+    assert (
+        client.put("/api/configs/demo", headers=headers, json={"configuration": ["not", "object"]}).status_code
+        == 400
+    )
+    failed = client.put(
+        "/api/configs/demo",
+        headers=headers,
+        json={"configuration": {"model": "x.ckpt", "steps": 4}},
+    )
+    assert failed.status_code == 400
+    assert "flatc rejected" in failed.json()["detail"]
+    # Unchanged on disk after prepare failure.
+    assert json.loads((cfg_dir / "demo.json").read_text(encoding="utf-8"))["steps"] == 4
+
+
+def test_index_includes_config_editor(client: TestClient) -> None:
+    text = client.get("/").text
+    assert 'id="btnEditProfile"' in text
+    assert "Edit profile" in text
+    assert 'id="configEditDialog"' in text
+    assert 'id="configEditJson"' in text
+    assert 'id="configEditMount"' in text
+    assert 'id="btnFormatConfigEdit"' in text
+    assert "initConfigEditDialog" in text
+    assert "parseConfigEditJson" in text
+    assert 'method: "PUT"' in text
+    assert "/static/config_editor.mjs" in text
+    static_js = client.get("/static/config_editor.mjs")
+    assert static_js.status_code == 200
+    assert "mountConfigJsonEditor" in static_js.text
+    assert "mountPromptEditor" in static_js.text
+    assert "cm-dts-wildcard-sep" in static_js.text
+    assert "esm.sh" not in static_js.text
+    assert len(static_js.content) > 50_000
+
+
+def test_index_includes_prompt_editor(client: TestClient) -> None:
+    text = client.get("/").text
+    assert 'id="promptEditor"' in text
+    assert 'id="promptEditorMount"' in text
+    assert 'id="promptEditorLevers"' in text
+    assert "prompt-editor-levers" in text
+    assert "initPromptEditor" in text
+    assert "mountPromptEditor" in text
+    assert "setPromptText" in text
+    assert "setPromptEditorFocused" in text
+    assert "cleanupAbortedResultGroup" in text
+    assert "resultSlotIsFinal" in text
+    assert "result-slot--pipeline-temp" in text
+    assert "applyPromptWalk" in text
+    assert "refreshPromptHistoryWalkList" in text
+    assert 'id="promptWalkPrev"' in text
+    assert 'id="promptWalkNext"' in text
+    assert "Alt-ArrowUp" in text or "altKey" in text
+    # Prompt block precedes Neg / Input images (Raskin locus).
+    prompt_block = text.find('class="composer-prompt-block"')
+    neg_block = text.find('class="composer-neg"')
+    input_block = text.find('id="inputImagesDetails"')
+    assert prompt_block != -1 and neg_block != -1 and input_block != -1
+    assert prompt_block < neg_block < input_block
+    # AbortError path must call the cleanup helper (contract).
+    abort_idx = text.find('e.name === "AbortError"')
+    assert abort_idx != -1
+    assert "cleanupAbortedResultGroup" in text[abort_idx : abort_idx + 800]
+    # Video AbortError path also cleans up (second AbortError after first is fine).
+    assert text.count("cleanupAbortedResultGroup") >= 2
+    assert ".cm-dts-wildcard-sep" in text
+    assert "--prompt-lines: 6" in text or "--prompt-lines:6" in text.replace(" ", "")
+    assert "countEl.hidden" in text or "promptBraceCount" in text
+    static_js = client.get("/static/config_editor.mjs")
+    assert static_js.status_code == 200
+    assert "Alt-ArrowUp" in static_js.text
+    assert "onPromptWalk" in static_js.text
+
+
 def test_generate_missing_prompt(client: TestClient) -> None:
     r = client.post("/api/generate", json={})
     assert r.status_code == 400

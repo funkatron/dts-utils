@@ -441,22 +441,140 @@
       gap: 0.45rem;
       min-width: 0;
     }
+    .prompt-editor {
+      --prompt-line-height: 1.35;
+      --prompt-font-size: 0.88rem;
+      --prompt-pad-y: 0.5rem;
+      --prompt-lines: 3;
+      flex: 1 1 auto;
+      min-width: 0;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      background: #25262b;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      box-sizing: border-box;
+      overflow: hidden;
+      min-height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+    }
+    .prompt-editor.is-focused {
+      --prompt-lines: 6;
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+    .prompt-editor-levers {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.45rem 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-bottom: 1px solid var(--border);
+      background: #1f2228;
+      font-size: 0.65rem;
+      color: var(--muted);
+      line-height: 1.2;
+    }
+    .prompt-editor-levers[hidden] {
+      display: none;
+    }
+    .prompt-editor-lever-hint {
+      margin-left: auto;
+      color: var(--accent);
+    }
+    .prompt-editor-lever-walk {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.15rem;
+    }
+    .prompt-editor-walk-btn {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: #25262b;
+      color: var(--muted);
+      border-radius: 4px;
+      font-size: 0.65rem;
+      line-height: 1;
+      padding: 0.15rem 0.35rem;
+      cursor: pointer;
+    }
+    .prompt-editor-walk-btn:hover:not(:disabled) {
+      color: var(--fg);
+      border-color: var(--accent);
+    }
+    .prompt-editor-walk-btn:disabled {
+      opacity: 0.4;
+      cursor: default;
+    }
+    #promptBraceCount[hidden] {
+      display: none;
+    }
+    .prompt-editor-mount {
+      flex: 1 1 auto;
+      min-height: 0;
+      height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+    }
+    .prompt-editor-mount .cm-editor {
+      height: 100%;
+      background: transparent;
+    }
+    .prompt-editor-mount .cm-scroller {
+      font-family: var(--dts-mono);
+    }
+    .prompt-editor-mount .cm-dts-wildcard {
+      color: #2AA198;
+      background: rgba(42, 161, 152, 0.12);
+      border-radius: 2px;
+    }
+    .prompt-editor-mount .cm-dts-wildcard-sep {
+      color: #CB4B16;
+      background: rgba(203, 75, 22, 0.22);
+      border-radius: 3px;
+      padding: 0 0.18em;
+      margin: 0 0.05em;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(203, 75, 22, 0.35);
+    }
     textarea#prompt {
       flex: 1 1 auto;
       min-width: 0;
       width: 100%;
-      min-height: 2.85rem;
-      max-height: min(30vh, 12rem);
-      resize: vertical;
+      min-height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+      height: calc(
+        (var(--prompt-font-size) * var(--prompt-line-height) * var(--prompt-lines))
+        + (var(--prompt-pad-y) * 2)
+      );
+      max-height: none;
+      resize: none;
       font-family: var(--dts-mono);
-      font-size: 0.88rem;
-      line-height: 1.35;
-      background: #25262b;
-      border: 1px solid var(--border);
+      font-size: var(--prompt-font-size);
+      line-height: var(--prompt-line-height);
+      background: transparent;
+      border: none;
       color: var(--fg);
-      border-radius: 6px;
-      padding: 0.5rem 0.6rem;
+      border-radius: 0;
+      padding: var(--prompt-pad-y) 0.6rem;
       box-sizing: border-box;
+    }
+    .prompt-editor.has-cm textarea#prompt {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
     /* Runs | Generate — stretched to match #prompt height; #elapsed is below */
     .split-run-gen {
@@ -547,6 +665,9 @@
       display: inline-flex;
     }
     textarea#prompt:focus-visible {
+      outline: none;
+    }
+    .prompt-editor:not(.has-cm):focus-within {
       outline: 2px solid var(--accent);
       outline-offset: 1px;
     }
@@ -589,6 +710,66 @@
       max-width: 100%;
       font-size: 0.78rem;
       padding: 0.25rem 0.4rem;
+    }
+    button.btn-edit-profile {
+      flex: 0 0 auto;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.45rem;
+      font: inherit;
+      font-size: 0.72rem;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    button.btn-edit-profile:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .config-edit-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin: 0.25rem 0 0.35rem;
+      flex: 0 0 auto;
+    }
+    .config-edit-toolbar .btn-secondary {
+      padding: 0.25rem 0.55rem;
+      font-size: 0.75rem;
+    }
+    .config-edit-mount {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 12rem;
+      margin: 0 0 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #25262b;
+      overscroll-behavior: contain;
+    }
+    .config-edit-mount .cm-editor {
+      height: 100%;
+      outline: none;
+    }
+    .config-edit-mount .cm-scroller {
+      overscroll-behavior: contain;
+    }
+    .config-edit-mount .cm-focused {
+      outline: 1px solid var(--accent);
+    }
+    textarea.config-edit-json {
+      width: 100%;
+      flex: 1 1 auto;
+      min-height: 12rem;
+      font-family: var(--dts-mono);
+      font-size: 0.78rem;
+      line-height: 1.35;
+      resize: none;
+      margin: 0.35rem 0 0.5rem;
+      overflow: auto;
+      overscroll-behavior: contain;
     }
     #statusComposerListener {
       white-space: nowrap;
@@ -813,6 +994,33 @@
       max-width: 26rem;
       width: calc(100vw - 2rem);
       max-height: min(85vh, 640px);
+    }
+    dialog.tools-dialog#configEditDialog {
+      max-width: min(48rem, calc(100vw - 2rem));
+      width: min(48rem, calc(100vw - 2rem));
+      height: min(90vh, 720px);
+      max-height: min(90vh, 720px);
+      overflow: hidden;
+      flex-direction: column;
+    }
+    dialog.tools-dialog#configEditDialog[open] {
+      display: flex;
+    }
+    #configEditDialog .tools-dialog-inner {
+      flex: 1 1 auto;
+      min-height: 0;
+      max-height: none;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    #configEditDialog .tools-dialog-inner > h2,
+    #configEditDialog .tools-dialog-inner > .hint,
+    #configEditDialog .tools-dialog-inner > #configEditStatus {
+      flex: 0 0 auto;
+    }
+    #configEditDialog .dialog-actions-split {
+      flex: 0 0 auto;
     }
     dialog#historyDialog {
       width: min(76rem, calc(100vw - 2rem));

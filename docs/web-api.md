@@ -166,6 +166,37 @@ Return one saved profile’s JSON body by stem (for example **`default`** or **`
 
 ---
 
+### `PUT /api/configs/{name}`
+
+Overwrite one saved profile’s JSON by stem (for example **`default`** or **`pikon-tall`**). Requires bearer auth when **`DTS_WEB_TOKEN`** is set. Rejects path-like names (**`/`**, **`..`**). Writes only under the saved configurations directory (never the process working directory).
+
+**Request:**
+
+```json
+{
+  "configuration": { "model": "…", "width": 512, "steps": 8 }
+}
+```
+
+The server runs the same prepare/repair gate as Draw Things import (`prepare_configuration_for_generate` / **`flatc`**). On success it writes pretty-printed JSON and preserves existing **`_dts_utils*`** metadata keys (for example import provenance).
+
+**Response:**
+
+```json
+{
+  "name": "pikon-tall",
+  "path": "/Users/…/.config/dts-utils/configurations/pikon-tall.json",
+  "configuration": { "model": "…", "width": 512, "steps": 8 },
+  "notes": ["dropped unknown field …"]
+}
+```
+
+**`notes`** is present only when prepare dropped or repaired fields. **400** for invalid names, non-object bodies, or prepare/`flatc` failures; **401** without a valid bearer token when required.
+
+The web UI **Edit profile** control (next to the profile select) loads via **`GET`** and saves via this **`PUT`**. The dialog uses a vendored CodeMirror 6 JSON editor (`/static/config_editor.mjs`) when available; otherwise it falls back to a plain textarea. **Format** pretty-prints valid object JSON; ⌘S / Ctrl+S saves.
+
+---
+
 ### `GET /api/prompt/expand`
 
 Returns a self-describing schema for the POST body (no generation).

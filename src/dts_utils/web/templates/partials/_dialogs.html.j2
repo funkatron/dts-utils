@@ -101,6 +101,24 @@ uv run dts-utils server tail</pre>
     </div>
   </dialog>
 
+  <dialog id="configEditDialog" class="tools-dialog" aria-labelledby="config-edit-title">
+    <div class="tools-dialog-inner">
+      <h2 id="config-edit-title">Edit profile</h2>
+      <p class="hint" style="margin-top:0">Editing <code id="configEditName"></code>. Save runs the same flatc prepare/repair gate as import. ⌘S / Ctrl+S to save.</p>
+      <div class="config-edit-toolbar">
+        <button type="button" class="btn-secondary" id="btnFormatConfigEdit">Format</button>
+      </div>
+      <div id="configEditMount" class="config-edit-mount" hidden></div>
+      <label class="sr-only" for="configEditJson">Profile JSON</label>
+      <textarea id="configEditJson" class="field config-edit-json" spellcheck="false" autocomplete="off" rows="18"></textarea>
+      <p id="configEditStatus" class="status" role="status" aria-live="polite" hidden></p>
+    </div>
+    <div class="dialog-actions-split">
+      <button type="button" class="btn-secondary" id="btnCloseConfigEdit">Cancel</button>
+      <button type="button" id="btnSaveConfigEdit">Save</button>
+    </div>
+  </dialog>
+
   <dialog id="historyDialog" class="tools-dialog" aria-labelledby="history-dialog-title" inert>
     <div class="history-dialog-inner">
       <h2 id="history-dialog-title">Generation history</h2>

@@ -6,6 +6,7 @@ Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Page
 
 - [Design principles](#design-principles)
 - [Screen map](#screen-map)
+- [Prompt editor](#prompt-editor)
 - [Interaction](#interaction)
 - [DOM regions](#dom-regions)
 - [History storage](#history-storage)
@@ -34,8 +35,9 @@ Layout contract for the loopback browser UI shipped by **`dts-utils web`**. Page
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
 │  #err (errors)                                           │
-│  composer: mode · profile · listener · neg · prompt      │
-│            [ runs ▾ | Generate / Stop ]        #elapsed   │
+│  composer: mode · profile · listener                     │
+│            prompt [ runs ▾ | Generate / Stop ] #elapsed  │
+│            neg · input images (details, below prompt)    │
 └─────────────────────────────────────────────────────────┘
 
 Setup (#toolsDialog)     History (#historyDialog)
@@ -46,16 +48,63 @@ Connection + advanced    Server-side PNG list, Reuse, Clear all
 
 ---
 
+## Prompt editor
+
+Raskin-style (Aza) quasimode on **`#prompt`**: content stays readable at rest; focus expands height and shows a thin lever bar. Negative prompt (**`#neg`**) stays a plain textarea.
+
+| State | Height | Chrome |
+| --- | --- | --- |
+| Rest (blurred) | **3 lines** | Wildcard highlight still on; shortcut hint in the composer head |
+| Focus | **6 lines** | Lever bar: brace-group count **only when ≥1**, prompt-walk **↑/↓**, **⌘↵** hint (header shortcut hint hidden) |
+
+Also default-on while typing:
+
+- **`{`** inserts **`{}`** with the caret between (or wraps a non-empty selection as **`{selected}`**)
+- **`}`** skips an existing close when appropriate
+- **`|`** inside brace groups uses a scannable separator mark (`.cm-dts-wildcard-sep`)
+- **Alt+↑ / Alt+↓** (and lever **↑/↓**) walk recent prompt strings into **`#prompt`** only (history + stage; unexpanded preferred; consecutive de-dupe; clamp at ends). Full **Reuse** still restores profile/neg/runs.
+
+Active-line highlight applies only when the prompt has more than one line.
+
+Composer order: status row → **prompt + Generate** → Negative prompt / Input images `<details>` (collapsed when empty on load).
+
+**`#prompt`** remains the canonical value for Generate / Reuse; CodeMirror syncs into it. If `/static/config_editor.mjs` fails to load, the textarea stays visible.
+
+Rebuild the offline editors bundle from [`scripts/web_editors/`](../scripts/web_editors/) (`node scripts/web_editors/build.mjs`). Exports: **`mountConfigJsonEditor`**, **`mountPromptEditor`**.
+
+What this shows: rest height vs focus quasimode vs generate.
+
+Legend: cyan = entry, violet = focus state, orange = action, green = success.
+
+```mermaid
+flowchart LR
+  Rest(("🌐 Prompt rest 3 lines"))
+  Focus("🔷 Focus 6 lines + levers")
+  Gen("⚙️ Generate")
+  Done(["✅ Results"])
+  Rest -->|"focus"| Focus
+  Focus -->|"blur / Escape"| Rest
+  Focus -->|"Mod-Enter"| Gen
+  Gen --> Done
+  style Rest fill:#2AA198,color:#FDF6E3
+  style Focus fill:#6C71C4,color:#FDF6E3
+  style Gen fill:#CB4B16,color:#FDF6E3
+  style Done fill:#859900,color:#FDF6E3
+```
+
+---
+
 ## Interaction
 
 | Action | Behavior |
 | --- | --- |
-| **Generate** | **⌘↵** (macOS) or **Ctrl+Enter** from **`#prompt`** |
-| **Stop** | **`#btnStop`** while busy → **`POST /api/generate/cancel`** + abort fetch (between runs only) |
+| **Generate** | **⌘↵** (macOS) or **Ctrl+Enter** from the prompt editor / **`#prompt`** |
+| **Stop** | **`#btnStop`** while busy → **`POST /api/generate/cancel`** + abort fetch; unfinished pending/preview tiles (and video pipeline temps before SSE **done**) are removed from the active batch (finals kept; empty group removed) |
 | **Output mode** | Image vs Video toggle (**`#outputModeImage`** / **`#outputModeVideo`**) — video uses pipeline profiles |
 | **Profile** | Grouped **`#profile`** menu; default **`default`** (image). **`#profileCustom`** overrides when set |
 | **Runs** | **`#generations`** 1–25 (image mode); hidden for single-run video pipelines |
-| **Negative prompt** | Optional **`#neg`** above the main prompt (monospace, same as **`#prompt`**) |
+| **Prompt walk** | **Alt+↑ / Alt+↓** or lever **`#promptWalkPrev` / `#promptWalkNext`** while the prompt is focused — fills prompt text only |
+| **Negative prompt** | Optional **`#neg`** **below** the main prompt (monospace, same as **`#prompt`**) |
 | **Setup** | Host, port, no-TLS, trust loopback, Check listener, shared secret, cert paths, config dir, web log tail hint |
 | **History** | Wide viewport-height dialog; each job uses the same **batch summary** chrome as the stage (timestamp · image count · profile, **source/unexpanded prompt** as the headline with **Reuse** beside it and expanded fallback, **Details**), plus a thumbnail grid with overlay download icon (left of **i**). **Clear all** deletes server history files |
 | **Fullscreen** | Click a results or History thumbnail → **`#dtsLightbox`**. Toolbar: download icon, **i** (generation details), **Close**. **Escape** or backdrop closes. **← / →**, side zones, swipe (Fit mode). In History, arrows walk **across** generation groups. **F** = Fit vs Fill; in **Fill**, two-finger trackpad / touch scroll pans overflow. **i** / **I** toggles generation details for the current image (ignored while typing in inputs) |
@@ -75,7 +124,7 @@ Listener dot on the Setup FAB reflects the last probe (**`#statusComposerListene
 | **Setup FAB** | **`#btnOpenSetup`** → **`#toolsDialog`** |
 | **History FAB** | **`#btnOpenHistory`** → **`#historyDialog`** |
 | **Stage** | **`#stage`**, **`#resultPane`**, **`#resultPlaceholder`**, **`#resultBusy`** (**`#btnRequestDetails`**), **`#videoDonePanel`**, **`#results`** (stacked **`.result-group`** batches; newest prepended; pending slots at request start; shared **`.batch-summary`** header with timestamp · count · profile, monospace **unexpanded/source prompt** headline, and **Details** when done; tile overlay **`.result-slot-actions`** = Download then **i**) |
-| **Composer** | **`#composerStatus`** (mode, **`#profile`**, **`#statusComposerListener`**), **`#neg`**, **`#prompt`**, **`#generations`**, **`#btnGen`**, **`#btnStop`** (replaces Generate while busy), **`#elapsed`**, **`#composerShortcutHint`** |
+| **Composer** | **`#composerStatus`** (mode, **`#profile`**, **`#btnEditProfile`**, **`#statusComposerListener`**), **`#promptEditor`** / **`#promptEditorMount`** / **`#promptEditorLevers`** (**`#promptBraceCount`**, **`#promptWalkPrev`**, **`#promptWalkNext`**), canonical **`#prompt`**, **`#generations`**, **`#btnGen`**, **`#btnStop`** (replaces Generate while busy), **`#elapsed`**, **`#composerShortcutHint`**, then **`#neg`** / **`#inputImagesDetails`** |
 | **Errors** | **`#err`** (`role="alert"`) |
 | **Setup dialog** | **`#host`**, **`#port`**, **`#noTls`**, **`#trustCert`**, **`#btnCheck`**, **`#statusLine`**, **`#profileCustom`**, **`#sharedSecret`**, **`#rootCert`**, **`#forceTrust`**, **`#configDir`**, **`#webLogFilePath`**, **`#btnCloseSetup`** |
 | **History dialog** | **`#historyList`**, per-row **Reuse** in the batch summary prompt row, **`#historyStatus`**, **`#btnClearHistory`**, **`#btnCloseHistory`** |

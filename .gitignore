@@ -65,3 +65,5 @@ data/report.html
 .coverage
 .coverage.*
 htmlcov/
+
+scripts/web_editors/node_modules/

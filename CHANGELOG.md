@@ -41,6 +41,10 @@ Example snippet for the next release:
 
 ### Added
 
+- **`dts-utils web`:** Raskin-style (Aza) **prompt editor** on **`#prompt`** — CodeMirror via `/static/config_editor.mjs` (`mountPromptEditor`): always-on `{…}` / `|` wildcard highlight, 3→6 line focus height with a thin lever bar (brace-group count when ≥1, prompt-walk ↑/↓, ⌘↵), Escape blurs, default-on `{` pair/wrap and `}` skip; **Alt+↑/↓** walks recent prompts into the field only; textarea fallback if the module fails. Rebuild from `scripts/web_editors/`.
+- **`dts-utils web`:** composer puts **Prompt + Generate** above Negative prompt / Input images (optionals stay `<details>`).
+- **`dts-utils web`:** **Edit profile** dialog + **`PUT /api/configs/{name}`** — edit and save a selected saved-profile JSON (flatc prepare/repair gate; preserves **`_dts_utils*`** metadata; stem-only writes under the configurations directory).
+- **`dts-utils web`:** Edit profile JSON uses a **vendored CodeMirror 6** bundle (`/static/config_editor.mjs`, offline) with **Format**, live parse validation, and ⌘S / Ctrl+S; falls back to a monospace textarea if the module cannot load.
 - **`dts-utils web`:** responsive generation-job tiles open images fullscreen and expose an **i** details dialog; uncapped prompt/config history is now written directly by the server with a metadata-only index and separate PNG artifacts, avoiding browser-side base64 history uploads.
 - **`dts-utils web`:** History now uses the complete shared tile styling in a wide responsive grid, keeps its footer fixed, resets scroll when opened, and removes duplicate download links.
 - **`dts-utils web`:** **`GET /api/configs/{name}`** returns a saved profile’s JSON; generation **Details** shows **Configuration JSON** (live fetch or history snapshot).
@@ -49,6 +53,8 @@ Example snippet for the next release:
 ### Fixed
 
 - **Configuration dimensions:** `prepare_configuration_for_generate` (Draw Things import and web config save) now writes dimension fields in **pixels**. Previously it persisted flatc 64-pixel units, so a later generate pass divided again (`30 → 1`) and produced tiny images (e.g. 64×64, or 128×128 with an x2 upscaler). `normalize_configuration_for_flatc` also leaves snake_case unit-scale values (`start_width` below 64) unchanged so already-imported profiles generate at the intended size.
+- **`dts-utils web`:** **Stop** / abort removes unfinished pending and preview-only result tiles from the active batch, restamps the batch summary for remaining finals, and drops an empty group (restores the stage placeholder when the stage is empty). Video pipeline artifacts stay non-final until SSE **done**, so Stop drops partial steps.
+- **`dts-utils web`:** prompt lever bar hides brace-group count when zero; composer-head ⌘↵ hint hides while the prompt editor is focused (single shortcut home).
 - **`dts-utils web`:** **`GET /api/configs/{name}`** only reads JSON under saved-profile directories (ignores same-named files in the process cwd).
 - **`dts-utils web`:** History **Details** / **Reuse** bind per-row entry data (no shared loop closure).
 - **`dts-utils web`:** prompt-to-video artifact tiles store generation details for lightbox **i**.
